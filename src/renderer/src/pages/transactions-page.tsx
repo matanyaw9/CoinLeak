@@ -134,7 +134,7 @@ export function TransactionsPage() {
               },
             ]}
           />
-          {categoryParam && (
+          {(categoryParam === "none" || filterCategory) && (
             <span className="inline-flex h-8 items-center gap-2 rounded-full border border-border bg-background ps-3 pe-1 text-sm">
               <span className="text-muted-foreground">{s.transactions.filteredBy}</span>
               <span className="size-2 rounded-full" style={{ backgroundColor: colorOf(filterCategory ?? null) }} />

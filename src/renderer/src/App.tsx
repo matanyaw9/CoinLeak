@@ -33,7 +33,7 @@ const router = createHashRouter([
       { path: "/categories", element: <CategoriesPage /> },
       { path: "/accounts", element: <AccountsPage /> },
       { path: "/settings", element: <SettingsPage /> },
-      { path: "*", element: <ErrorPage /> },
+      { path: "*", element: <ErrorPage notFound /> },
     ],
   },
 ]);

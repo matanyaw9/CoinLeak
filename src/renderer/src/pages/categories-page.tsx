@@ -9,7 +9,7 @@ import { s } from "@/strings";
 import { useCategories, useMonthSummary } from "@/lib/hooks";
 import { useMonth } from "@/lib/month-context";
 import { formatMonth } from "@/lib/format";
-import { colorOf, indexCategories, type CategoryIndex } from "@/lib/categories";
+import { colorOf, indexCategories } from "@/lib/categories";
 import { Page } from "@/components/layout/page";
 import { Input, Skeleton } from "@/components/ui/misc";
 import { Segmented } from "@/components/common/segmented";
@@ -86,10 +86,10 @@ export function CategoriesPage() {
                     <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">{root.name}</span>
                     <span className="text-[11px] text-muted-foreground/70">{root.emoji}</span>
                   </div>
-                  <List items={kids} summary={summary.data} index={index} />
+                  <List items={kids} summary={summary.data} />
                 </section>
               ))}
-              {loose.length > 0 && <List items={loose.map((g) => g.root)} summary={summary.data} index={index} />}
+              {loose.length > 0 && <List items={loose.map((g) => g.root)} summary={summary.data} />}
             </>
           )}
         </div>
@@ -98,17 +98,17 @@ export function CategoriesPage() {
   );
 }
 
-function List({ items, summary, index }: { items: Category[]; summary: MonthSummary | undefined; index: CategoryIndex }) {
+function List({ items, summary }: { items: Category[]; summary: MonthSummary | undefined }) {
   return (
     <div className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card">
       {items.map((c) => (
-        <CategoryLine key={c.id} category={c} summary={summary} index={index} />
+        <CategoryLine key={c.id} category={c} summary={summary} />
       ))}
     </div>
   );
 }
 
-function CategoryLine({ category, summary }: { category: Category; summary: MonthSummary | undefined; index: CategoryIndex }) {
+function CategoryLine({ category, summary }: { category: Category; summary: MonthSummary | undefined }) {
   const stat = summary?.byCategory.find((b) => b.categoryId === category.id);
   return (
     <Link

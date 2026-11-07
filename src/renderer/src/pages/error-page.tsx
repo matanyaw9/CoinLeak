@@ -7,9 +7,9 @@ import { s } from "@/strings";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/common/empty-state";
 
-export function ErrorPage() {
+export function ErrorPage({ notFound: unknownRoute }: { notFound?: boolean }) {
   const error = useRouteError();
-  const notFound = isRouteErrorResponse(error) && error.status === 404;
+  const notFound = unknownRoute || (isRouteErrorResponse(error) && error.status === 404);
   return (
     <div className="flex h-full items-center justify-center bg-background p-8">
       <EmptyState
