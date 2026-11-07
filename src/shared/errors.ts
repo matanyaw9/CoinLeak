@@ -6,7 +6,7 @@ export const ERROR_MESSAGES = {
   BAD_REQUEST: "The app sent an invalid request.",
   FORBIDDEN: "Request refused.",
   LOGIN_TIMEOUT: "The bank login was not completed in time.",
-  LOGIN_CANCELLED: "The bank window was closed before login finished.",
+  LOGIN_CANCELLED: "The sync was cancelled or the bank window was closed.",
   BANK_CHANGED: "The bank website changed. An app update is needed.",
   BANK_ERROR: "The bank did not return your transactions. Try again later.",
   NETWORK: "Could not reach the bank. Check your internet connection.",

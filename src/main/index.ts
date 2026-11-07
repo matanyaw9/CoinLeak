@@ -4,8 +4,11 @@ import { app, BrowserWindow, nativeTheme, session } from "electron";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { openDatabase, type Db } from "@core/db";
+import { ingest } from "@core/ledger";
 import { createHandlers } from "./handlers";
-import { registerIpc } from "./ipc";
+import { emit, registerIpc } from "./ipc";
+import { runSync } from "./sync";
+import { createSyncService } from "./sync-service";
 import { isAppUrl, APP_ORIGIN } from "./policy";
 import { registerAppScheme, serveAppFiles } from "./protocol";
 import { hardenAllWebContents, hardenSession } from "./security";
@@ -40,7 +43,15 @@ function start(): void {
   hardenSession(session.defaultSession, devServerUrl);
   serveAppFiles(join(here, "../renderer"));
   db = openDatabase(join(dataDir, "coinleak.db"));
-  registerIpc(createHandlers({ db, version: app.getVersion(), dataDir, dev }), (url) =>
+  const sync = createSyncService({
+    db,
+    runSync,
+    ingest,
+    emit: (progress) => {
+      if (mainWindow) emit(mainWindow.webContents, "sync:progress", progress);
+    },
+  });
+  registerIpc(createHandlers({ db, version: app.getVersion(), dataDir, dev, sync }), (url) =>
     isAppUrl(url, devServerUrl),
   );
   mainWindow = createWindow();

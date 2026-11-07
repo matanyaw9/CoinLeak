@@ -1,5 +1,5 @@
-// Connects each channel to the module that answers it. Ledger channels are
-// live; sync channels and deleting gone rows wait for their modules.
+// Connects each channel to the module that answers it. Deleting gone rows
+// waits for spec 04.
 
 import { CodedError } from "@shared/errors";
 import type { Db } from "@core/db";
@@ -14,19 +14,21 @@ import {
   updateTransactions,
 } from "@core/ledger";
 import type { Handlers } from "./ipc";
+import type { SyncService } from "./sync-service";
 
 export interface HandlerDeps {
   db: Db;
   version: string;
   dataDir: string;
   dev: boolean;
+  sync: SyncService;
 }
 
 const notYet = (): never => {
   throw new CodedError("NOT_IMPLEMENTED");
 };
 
-export function createHandlers({ db, version, dataDir, dev }: HandlerDeps): Handlers {
+export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps): Handlers {
   return {
     "app:info": () => ({ version, dataDir, dev }),
     "accounts:list": () => listAccounts(db),
@@ -41,7 +43,10 @@ export function createHandlers({ db, version, dataDir, dev }: HandlerDeps): Hand
     "transactions:deleteGone": notYet,
     "summary:month": ({ month }) => monthSummary(db, month),
     "summary:trend": ({ months }) => trend(db, months),
-    "sync:start": notYet,
-    "sync:cancel": notYet,
+    "sync:start": ({ provider }) => sync.start(provider),
+    "sync:cancel": () => {
+      sync.cancel();
+      return null;
+    },
   };
 }

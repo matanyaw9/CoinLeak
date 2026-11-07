@@ -12,7 +12,7 @@
   "scripts": {
     "setup": "node node_modules/electron/install.js",
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "electron-vite build && node --check out/main/index.js && node --check out/preload/index.cjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint .",
@@ -30,6 +30,7 @@
     "clsx": "2.1.1",
     "israeli-bank-scrapers": "6.12.2",
     "lucide-react": "1.61.0",
+    "puppeteer": "25.16.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router": "8.5.0",
@@ -59,6 +60,6 @@
     "vitest": "5.0.5"
   },
   "overrides": {
-    "puppeteer": "25.16.0"
+    "puppeteer": "$puppeteer"
   }
 }

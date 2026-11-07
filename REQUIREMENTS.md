@@ -181,8 +181,10 @@ migrations are never edited.
 
 ## 9. Open questions
 
-- Does the self-login override work for Cal (its token is captured around
-  login)? Answered by spec 01.
-- Which Chromium for syncing: a downloaded Chrome for Testing, or the
-  system's Chrome or Edge? Answered by spec 01.
+- Does self-login work for Cal? In tests yes: the SSO token is captured
+  during login the same way the library does, with its sessionStorage
+  fallback. Awaiting the owner's real login (see `docs/banks/visaCal.md`).
+- Which Chromium? **Decided (spec 01): the system's Chrome, Chromium or
+  Edge**, kept updated by the OS; `COINLEAK_CHROME` overrides. Windows
+  always has Edge. Linux users install Chromium from their package manager.
 - Credit card cycle matching tolerance (days, rounding) on real data.

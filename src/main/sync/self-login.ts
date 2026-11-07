@@ -16,12 +16,12 @@ import { codeForThrown } from "./errors";
 
 // The library is CommonJS without an exports map; require keeps its default
 // exports intact in Node, Electron, vitest and tsx alike.
-const require = createRequire(import.meta.url);
-const { LoginResults } = require("israeli-bank-scrapers/lib/scrapers/base-scraper-with-browser.js") as typeof BaseModule;
-const { CompanyTypes } = require("israeli-bank-scrapers/lib/definitions.js") as typeof DefinitionsModule;
-const { ScraperErrorTypes } = require("israeli-bank-scrapers/lib/scrapers/errors.js") as typeof ErrorsModule;
-const DiscountScraper = (require("israeli-bank-scrapers/lib/scrapers/discount.js") as typeof DiscountModule).default;
-const VisaCalScraper = (require("israeli-bank-scrapers/lib/scrapers/visa-cal.js") as typeof VisaCalModule).default;
+const cjsRequire = createRequire(import.meta.url);
+const { LoginResults } = cjsRequire("israeli-bank-scrapers/lib/scrapers/base-scraper-with-browser.js") as typeof BaseModule;
+const { CompanyTypes } = cjsRequire("israeli-bank-scrapers/lib/definitions.js") as typeof DefinitionsModule;
+const { ScraperErrorTypes } = cjsRequire("israeli-bank-scrapers/lib/scrapers/errors.js") as typeof ErrorsModule;
+const DiscountScraper = (cjsRequire("israeli-bank-scrapers/lib/scrapers/discount.js") as typeof DiscountModule).default;
+const VisaCalScraper = (cjsRequire("israeli-bank-scrapers/lib/scrapers/visa-cal.js") as typeof VisaCalModule).default;
 
 export const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 const POLL_MS = 500;
@@ -185,7 +185,7 @@ export function libraryOptions(provider: ProviderId, input: LibraryOptionsInput)
  * instance the library itself resolves.
  */
 export function silenceLibraryDebugLog(): void {
-  const libraryRequire = createRequire(require.resolve("israeli-bank-scrapers"));
+  const libraryRequire = createRequire(cjsRequire.resolve("israeli-bank-scrapers"));
   (libraryRequire("debug") as { disable(): string }).disable();
 }
 
