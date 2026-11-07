@@ -1,7 +1,8 @@
 // Card bills: a bank line that pays a tracked card is `internal`, because the
 // card's own rows are the spending. A card-looking line that matches nothing
 // stays spending with the `possible_card_bill` flag. Matching styles follow
-// Pocket's REQUIREMENTS section 6 (debit 1:1, credit cycle sum).
+// Pocket's REQUIREMENTS section 6 (debit 1:1, credit cycle sum). Gone rows
+// take no part: the bank no longer reports them, so they paid nothing.
 
 import type { CardMode, IsoDate, ProviderId } from "@shared/types";
 import { transaction, type Db } from "../db";
@@ -237,7 +238,7 @@ function loadCardRows(db: Db): CardRow[] {
     .prepare(
       `SELECT t.id, t.account_id AS accountId, t.amount, COALESCE(t.processed_date, t.date) AS billDate
        FROM transactions t JOIN accounts a ON a.id = t.account_id
-       WHERE a.kind = 'card' ORDER BY t.id`,
+       WHERE a.kind = 'card' AND t.gone_at IS NULL ORDER BY t.id`,
     )
     .all() as unknown as CardRow[];
 }
@@ -248,7 +249,7 @@ function loadBankLines(db: Db): BankLine[] {
       `SELECT t.id, t.date, t.amount, t.description, t.excluded, t.internal_by_user, t.internal,
          t.possible_card_bill, t.card_bill_account_id, t.card_bill_style, t.card_bill_txn_id, t.card_bill_date
        FROM transactions t JOIN accounts a ON a.id = t.account_id
-       WHERE a.kind = 'bank' ORDER BY t.date, t.id`,
+       WHERE a.kind = 'bank' AND t.gone_at IS NULL ORDER BY t.date, t.id`,
     )
     .all() as unknown as BankLine[];
 }

@@ -88,7 +88,8 @@ Glossary. Use these words in code, UI and docs.
   or `debit` (each purchase hits the bank within days as its own line).
 - **Transaction**: one row on one account. `amount` in agorot, negative is
   money out. `date` is the purchase or booking date; `processed_date` is
-  when a card charge hits the bank. `status` is `pending` or `completed`.
+  when a card charge hits the bank. `status` is `pending`, `completed`, or
+  `gone` (a pending row a later download no longer contains).
 - **Category**: two-level tree with a kind (`expense` or `income`), emoji
   and color.
 - **Rule**: ordered condition (text, account, amount, direction) to action
@@ -99,13 +100,14 @@ Glossary. Use these words in code, UI and docs.
   `internal`, `excluded`). Never stored, computed by one function or SQL
   fragment in `src/core` that every query reuses.
 - **Sync run**: one download from one provider. Rows remember their run.
-- **Needs review**: uncategorized, or a possible card bill for an untracked
-  card. The review list is the user's inbox.
+- **Needs review**: uncategorized, a possible card bill for an untracked
+  card, or a gone row. The review list is the user's inbox.
 
 ### Money model (v1)
 
 | flow      | when |
 |-----------|------|
+| gone      | the bank stopped reporting this pending row (counts nowhere) |
 | excluded  | the user excluded the row |
 | internal  | a bank line matched to a tracked card's bill (or debit charge) |
 | refund    | money in with an expense category |
@@ -135,9 +137,24 @@ Banks report overlapping date ranges, and two identical coffees on the same
 day are two rows. Key: `sha256(account | date | amount | description |
 installment n/m)` plus a sequence number for identical rows in one download.
 A row is new when the download has more copies of a key than the database.
-Pending rows that settle are updated in place (status, processed date,
-identifier only). User fields (category, note, excluded) are never
+User fields (category, note, excluded, card-bill decisions) are never
 overwritten by a sync.
+
+### Pending rows
+
+- A pending row that comes back completed with the same content settles in
+  place (status, processed date, identifier).
+- **Settle with drift**: a pending row with no exact match pairs with a new
+  completed row on the same account with the same description (whitespace
+  ignored), same installment and direction, date within 7 days and amount
+  within max(10%, 5 ILS). Closest first, one to one. The stored row takes
+  the completed values and keeps its user fields; the completed row is not
+  added again.
+- **Gone**: a pending row inside the download's window that neither matches
+  nor settles is marked gone: it counts nowhere and waits in review until
+  the user deletes it, or a later download brings it back.
+- The window starts at the date the sync asked for, else the account's
+  earliest downloaded day. Spec 04 has the details.
 
 ## 6. Screens (v1)
 

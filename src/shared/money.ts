@@ -9,7 +9,7 @@ export function toAgorot(shekels: number): Agorot {
 }
 
 export function formatIls(amount: Agorot, opts: { sign?: boolean; decimals?: boolean } = {}): string {
-  const fmt = new Intl.NumberFormat("he-IL", {
+  const fmt = new Intl.NumberFormat("en-IL", {
     style: "currency",
     currency: "ILS",
     minimumFractionDigits: opts.decimals === false ? 0 : 2,

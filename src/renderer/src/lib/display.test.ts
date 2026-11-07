@@ -62,6 +62,6 @@ describe("display helpers", () => {
   it("formats shekels with formatIls minus the bidi marks", () => {
     expect(ils(123456)).not.toMatch(/[‎‏]/);
     expect(ils(123456)).toContain("1,234.56");
-    expect(ils(-5000, { decimals: false })).toContain("-50");
+    expect(ils(-5000, { decimals: false })).toBe("-₪50");
   });
 });

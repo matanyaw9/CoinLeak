@@ -13,6 +13,7 @@ import type {
   IsoMonth,
   MonthSummary,
   ReviewFlag,
+  ScrapedStatus,
   TransactionFilter,
   TransactionPatch,
   TransactionRow,
@@ -25,7 +26,7 @@ import { LEDGER_SQL, SPENDING_FLOWS_SQL } from "./flow";
 import { FLOWS, assertIds, assertOptionalDate, check, isId } from "./validate";
 
 const WITH_LEDGER = `WITH ledger AS (${LEDGER_SQL})`;
-const NEEDS_REVIEW_SQL = "(ledger.flag_uncategorized OR ledger.flag_possible_card_bill)";
+const NEEDS_REVIEW_SQL = "(ledger.flag_uncategorized OR ledger.flag_possible_card_bill OR ledger.flag_gone)";
 
 // ---- Accounts and categories ----
 
@@ -96,7 +97,7 @@ interface LedgerRow {
   original_currency: string | null;
   description: string;
   memo: string | null;
-  status: TransactionRow["status"];
+  status: ScrapedStatus;
   installment_number: number | null;
   installment_total: number | null;
   category_id: number | null;
@@ -106,6 +107,7 @@ interface LedgerRow {
   flow: Flow;
   flag_uncategorized: number;
   flag_possible_card_bill: number;
+  flag_gone: number;
 }
 
 /**
@@ -183,6 +185,7 @@ function toTransactionRow(r: LedgerRow): TransactionRow {
   const flags: ReviewFlag[] = [];
   if (r.flag_uncategorized) flags.push("uncategorized");
   if (r.flag_possible_card_bill) flags.push("possible_card_bill");
+  if (r.flag_gone) flags.push("gone");
   return {
     id: r.id,
     accountId: r.account_id,
@@ -193,7 +196,7 @@ function toTransactionRow(r: LedgerRow): TransactionRow {
     originalCurrency: r.original_currency,
     description: r.description,
     memo: r.memo,
-    status: r.status,
+    status: r.flow === "gone" ? "gone" : r.status,
     installment:
       r.installment_number !== null && r.installment_total !== null
         ? { number: r.installment_number, total: r.installment_total }

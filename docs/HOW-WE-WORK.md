@@ -78,6 +78,11 @@ You do not review code. You review **behavior** and **feel**:
   password in logs), there is a test with its name on it.
 - When an agent is stuck or going in circles, stop it and rewrite the spec
   rather than letting it keep trying.
+- Parallel agents spend your plan's usage limit faster. When the limit
+  hits, every running agent stops at once. Their work is kept: the lead
+  resumes each one where it stopped after the limit resets, and restarts
+  any that had not changed anything yet. If you are near the limit, run
+  one agent at a time.
 
 ## Commands you might run
 
