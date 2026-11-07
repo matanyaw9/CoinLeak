@@ -9,6 +9,14 @@ Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
 
 ## Done
 
+- (Lead, owner's first real login, 2026-11-08) Self-login works live on both
+  Discount and Cal: login was detected on each. The sync then failed with
+  LOGIN_CANCELLED because the library closes its own tab in `terminate()`
+  after downloading, which the sync browser read as the user closing it.
+  Fixed with a `finishing` signal from the scraper subclasses; regression
+  tests added. Blocked hosts seen live: Discount analytics and Google Tag
+  Manager; Cal Google analytics, maps, YouTube. None were needed for login.
+
 - (Spec 06) Cal pending foreign purchases counted in the wrong currency:
   now amount 0 until they settle, then pair by original amount.
 - (Spec 06) The sync passes the real download window (`since`) to ingest.

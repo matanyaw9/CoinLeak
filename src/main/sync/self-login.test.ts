@@ -193,12 +193,14 @@ describe("Discount self-login with the real library", () => {
       { ...h, onWaitingForLogin: () => {
           h.events.push("waiting");
           userLogsIn(page, "https://start.telebank.co.il/apollo/retail2/#/MY_ACCOUNT_HOMEPAGE");
-        } },
+        },
+        onFinishing: () => h.events.push(page.closed ? "finishing-too-late" : "finishing") },
     );
     const result = await scraper.scrape();
 
     expect(result.success).toBe(true);
-    expect(h.events).toEqual(["waiting", "logged-in"]);
+    // The library closes its tab in terminate(); we hear about it first.
+    expect(h.events).toEqual(["waiting", "logged-in", "finishing"]);
     expect(page.gotos).toEqual(["https://start.telebank.co.il/login/#/LOGIN_PAGE"]);
     expect(prepared).toEqual([page]);
     // Library fixes 1024x768, then self-login hands the user a normal window.

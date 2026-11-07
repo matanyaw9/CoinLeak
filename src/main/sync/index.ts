@@ -145,6 +145,7 @@ async function download(
       onLoginFailed: (code) => {
         loginFailure = code;
       },
+      onFinishing: () => session.finishing(),
     },
   );
 

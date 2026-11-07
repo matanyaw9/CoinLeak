@@ -295,6 +295,25 @@ describe("withSyncBrowser", () => {
     expect(err).toMatchObject({ code: "LOGIN_CANCELLED" });
   });
 
+  // Regression: the owner's first real sync. The library closes its own tab in
+  // terminate() after downloading, which was read as the user closing it.
+  it("finishes normally when the library closes its own tab during cleanup", async () => {
+    const libraryPage = new FakePage();
+    browser.pagesOpen.push(libraryPage);
+    const result = await withSyncBrowser(
+      "discount",
+      async (session: SyncSession) => {
+        await session.adoptPage(libraryPage as unknown as Page);
+        session.finishing();
+        await libraryPage.close();
+        await new Promise((r) => setTimeout(r, 10));
+        return "downloaded";
+      },
+      { deps: deps() },
+    );
+    expect(result).toBe("downloaded");
+  });
+
   it("stops with BLOCKED_REQUEST when the bank tab itself navigates off the allowlist", async () => {
     const page = new FakePage();
     const err = await withSyncBrowser(

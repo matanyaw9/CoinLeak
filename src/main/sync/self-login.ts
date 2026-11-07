@@ -46,6 +46,8 @@ export interface SelfLoginHooks {
   onLoggedIn(): void;
   /** Our own failure during login. The library only sees a generic failure. */
   onLoginFailed(code: ErrorCode): void;
+  /** The library starts its own cleanup (it closes its tab), after the download. */
+  onFinishing?(): void;
   loginTimeoutMs?: number;
   pollMs?: number;
 }
@@ -124,6 +126,11 @@ class DiscountSelfLogin extends DiscountScraper {
     this.#hooks = hooks;
   }
 
+  override async terminate(success: boolean): Promise<void> {
+    this.#hooks.onFinishing?.();
+    await super.terminate(success);
+  }
+
   override async login(): Promise<ScraperScrapingResult> {
     const navigate: Navigate = (url, waitUntil) => this.navigateTo(url, waitUntil);
     return selfLogin(this.page, this.getLoginOptions(NO_CREDENTIALS), navigate, this.#hooks);
@@ -136,6 +143,11 @@ class VisaCalSelfLogin extends VisaCalScraper {
   constructor(options: ScraperOptions, hooks: SelfLoginHooks) {
     super(options);
     this.#hooks = hooks;
+  }
+
+  override async terminate(success: boolean): Promise<void> {
+    this.#hooks.onFinishing?.();
+    await super.terminate(success);
   }
 
   override async login(): Promise<ScraperScrapingResult> {

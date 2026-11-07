@@ -55,7 +55,13 @@ function fakeBrowser(stopAfter?: { ms: number; code: ErrorCode }): SyncDeps["wit
     options?.signal?.addEventListener("abort", () => fire("LOGIN_CANCELLED"));
     if (stopAfter) setTimeout(() => fire(stopAfter.code), stopAfter.ms);
     try {
-      const session = { context: {} as never, stopped, stopReason: () => reason, adoptPage: async () => {} };
+      const session = {
+        context: {} as never,
+        stopped,
+        stopReason: () => reason,
+        adoptPage: async () => {},
+        finishing: () => {},
+      };
       return await Promise.race([run(session), stopped]);
     } finally {
       options?.onBlockedHosts?.({ "www.googletagmanager.com": 2 });

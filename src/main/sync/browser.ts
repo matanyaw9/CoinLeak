@@ -87,6 +87,8 @@ export interface SyncSession {
   stopReason(): ErrorCode | undefined;
   /** Takes over the page the library opened: the only tab, watched until the end. */
   adoptPage(page: Page): Promise<void>;
+  /** The library is cleaning up after its download: closing its tab is no longer a cancel. */
+  finishing(): void;
 }
 
 export interface BrowserDeps {
@@ -234,6 +236,8 @@ export async function withSyncBrowser<T>(
   const onAbort = (): void => stop.fire("LOGIN_CANCELLED");
   let browser: Browser | undefined;
   let closing = false;
+  // Set when the library's own cleanup starts; it closes its tab (base-scraper-with-browser.js L94).
+  let finishing = false;
   try {
     signal?.addEventListener("abort", onAbort, { once: true });
     try {
@@ -243,7 +247,7 @@ export async function withSyncBrowser<T>(
     }
     const live = browser;
     live.on("disconnected", () => {
-      if (!closing) stop.fire("LOGIN_CANCELLED");
+      if (!closing && !finishing) stop.fire("LOGIN_CANCELLED");
     });
     await enforceAllowlist(live, provider, blocked);
     if (signal?.aborted) throw new CodedError("LOGIN_CANCELLED");
@@ -254,7 +258,7 @@ export async function withSyncBrowser<T>(
       stopReason: stop.reason,
       async adoptPage(page) {
         page.on("close", () => {
-          if (!closing) stop.fire("LOGIN_CANCELLED");
+          if (!closing && !finishing) stop.fire("LOGIN_CANCELLED");
         });
         page.on("requestfailed", (request) => {
           if (isBlockedMainFrameNavigation(page, request)) stop.fire("BLOCKED_REQUEST");
@@ -263,6 +267,9 @@ export async function withSyncBrowser<T>(
         for (const other of await live.pages()) {
           if (other !== page) await other.close().catch(() => {});
         }
+      },
+      finishing() {
+        finishing = true;
       },
     };
     const work = run(session);
