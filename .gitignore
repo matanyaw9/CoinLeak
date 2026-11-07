@@ -15,3 +15,4 @@ fixtures/raw/
 # Agent worktrees and local Claude Code state
 .claude/worktrees/
 .claude/settings.local.json
+*.tsbuildinfo
