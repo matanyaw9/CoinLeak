@@ -32,6 +32,20 @@ describe("dedupHash", () => {
     expect(first).not.toBe(base);
     expect(second).not.toBe(first);
   });
+
+  it("tells same-day pending foreign purchases at one shop apart by original amount", () => {
+    const pending = { ...coffee, amount: 0, originalAmount: -5000, originalCurrency: "USD" };
+    const other = dedupHash("visaCal", "4321", { ...pending, originalAmount: -1200 });
+    expect(dedupHash("visaCal", "4321", pending)).not.toBe(other);
+    expect(dedupHash("visaCal", "4321", { ...pending, originalCurrency: "EUR" })).not.toBe(
+      dedupHash("visaCal", "4321", pending),
+    );
+  });
+
+  it("leaves the hash of rows with a shekel amount unchanged", () => {
+    const withOriginal = { ...coffee, originalAmount: -500, originalCurrency: "USD" };
+    expect(dedupHash("visaCal", "4321", withOriginal)).toBe(dedupHash("visaCal", "4321", coffee));
+  });
 });
 
 describe("SequenceCounter", () => {

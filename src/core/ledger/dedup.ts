@@ -9,7 +9,8 @@ import type { ProviderId, ScrapedTransaction } from "@shared/types";
 export function dedupHash(
   provider: ProviderId,
   accountNumber: string,
-  t: Pick<ScrapedTransaction, "date" | "amount" | "description" | "installment">,
+  t: Pick<ScrapedTransaction, "date" | "amount" | "description" | "installment"> &
+    Partial<Pick<ScrapedTransaction, "originalAmount" | "originalCurrency">>,
 ): string {
   const parts = [
     `${provider}/${accountNumber}`,
@@ -18,6 +19,11 @@ export function dedupHash(
     normalizeDescription(t.description),
     t.installment ? `${t.installment.number}/${t.installment.total}` : "",
   ];
+  // A pending foreign row has amount 0 until it settles; its original amount
+  // is what tells two same-day purchases at one shop apart.
+  if (t.amount === 0 && t.originalCurrency && t.originalAmount != null) {
+    parts.push(`${t.originalCurrency}:${t.originalAmount}`);
+  }
   return createHash("sha256").update(parts.join("|")).digest("hex");
 }
 

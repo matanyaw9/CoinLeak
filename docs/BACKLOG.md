@@ -5,15 +5,16 @@ into specs when planning a wave. Must-fix items block the first real use.
 
 ## Must fix before real use
 
-- **Cal pending foreign purchases count in the wrong currency** (spec 04
-  review). Cal reports a pending foreign purchase's amount in the purchase
-  currency (`visa-cal.js` L183), so a pending $50 counts as 50 ILS until
-  it settles. Fix at the scraper edge in `normalize.ts`: for a pending row
-  whose currency is not ILS, do not invent a shekel amount; show the
-  original amount and keep it out of totals until it settles (needs a
-  decision on how to display it).
+Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
 
 ## Done
+
+- (Spec 06) Cal pending foreign purchases counted in the wrong currency:
+  now amount 0 until they settle, then pair by original amount.
+- (Spec 06) The sync passes the real download window (`since`) to ingest.
+- (Spec 06) A failed Cal pending fetch no longer turns pending rows gone.
+- (Lead, after spec 06) Same-day pending foreign purchases at one shop get
+  distinct hashes; a pending shekel refund on Cal counts as money in.
 
 - (Spec 04, merged) **Pending rows that change when they settle** (from the spec 02 review).
   A pending card charge can come back completed with a different amount or
@@ -31,16 +32,15 @@ into specs when planning a wave. Must-fix items block the first real use.
 - Confirm on real data which Discount block holds `חיוב זמני למפתח מזומן`.
   If it arrives as completed, gone does not apply and only card-bill
   matching can stop it from counting twice.
-- A failed Cal pending fetch (`visa-cal.js` L366-372) returns no pending
-  rows, so every Cal pending row turns gone for that one sync and comes
-  back next time. Consider skipping the gone step when a Cal download has
-  zero pending rows but the database has recent ones.
 - A pending row whose amount changes while still pending becomes gone plus
   a new pending row; user fields stay on the gone row.
 - "Keep" for gone rows has no channel yet (the UI only hides the action).
-- The sync service should pass `since` (the start date the library really
-  used, in Israel days) to `ingest`. Today it passes nothing, which falls
-  back to the account's earliest downloaded day (safe).
+
+- `judgePending` is per download, not per card: if one Cal card's pending
+  fetch fails while another card has pending rows, the first card's rows
+  still turn gone for one sync.
+- Owner check on real Cal data: what `trnCurrencySymbol` holds for shekels
+  (anything other than ₪, NIS, ILS or ש"ח would zero a pending shekel row).
 
 ## Wave 2 candidates
 

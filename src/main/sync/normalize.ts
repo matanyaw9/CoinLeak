@@ -86,7 +86,12 @@ function amounts(
     // Without the original amount the row would say nothing at all.
     return { amount: 0, originalAmount: origAmount ?? changed(), originalCurrency: origCurrency };
   }
-  const amount = agorot(txn.chargedAmount);
+  let amount = agorot(txn.chargedAmount);
+  // Cal signs every pending charged amount as money out (visa-cal.js L183),
+  // even a refund; the original amount carries the real direction.
+  if (status === "pending" && origAmount !== null && origAmount === -amount && origAmount !== 0) {
+    amount = origAmount;
+  }
   // Keep the original only when it says something the charged amount does not.
   const differs = origAmount !== null && (origCurrency !== "ILS" || origAmount !== amount);
   return { amount, originalAmount: differs ? origAmount : null, originalCurrency: differs ? origCurrency : null };

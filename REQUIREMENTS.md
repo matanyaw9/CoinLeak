@@ -153,8 +153,15 @@ overwritten by a sync.
 - **Gone**: a pending row inside the download's window that neither matches
   nor settles is marked gone: it counts nowhere and waits in review until
   the user deletes it, or a later download brings it back.
-- The window starts at the date the sync asked for, else the account's
+- The window starts at the first day the bank really covered (the
+  library's own limit plus one day, never earlier), else the account's
   earliest downloaded day. Spec 04 has the details.
+- **Foreign pending purchases** have no shekel amount until they settle:
+  amount 0, original amount and currency kept, shown as "$50.00, shekel
+  amount when it settles". They settle by original amount in the same
+  currency. (Spec 06.)
+- A Cal download with no pending rows at all marks nothing gone, because
+  that usually means Cal's pending request failed. (Spec 06.)
 
 ## 6. Screens (v1)
 

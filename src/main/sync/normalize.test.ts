@@ -80,6 +80,13 @@ describe("normalizeAccounts", () => {
     });
   });
 
+  it("takes a pending shekel refund's direction from its original amount", () => {
+    const refund = txn({ status: "pending" as Transaction["status"], chargedAmount: -40, originalAmount: 40 });
+    expect(one(refund, "visaCal")).toMatchObject({ amount: 4000, originalAmount: null, originalCurrency: null });
+    const charge = txn({ status: "pending" as Transaction["status"], chargedAmount: -40, originalAmount: -40 });
+    expect(one(charge, "visaCal")).toMatchObject({ amount: -4000 });
+  });
+
   it("keeps the original amount and currency for a foreign purchase", () => {
     const row = one(txn({ originalAmount: -19.99, originalCurrency: "USD", chargedAmount: -74.37 }), "visaCal");
     expect(row).toMatchObject({ amount: -7437, originalAmount: -1999, originalCurrency: "USD" });
