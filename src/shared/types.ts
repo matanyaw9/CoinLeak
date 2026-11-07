@@ -164,3 +164,46 @@ export interface AppInfo {
   dataDir: string;
   dev: boolean;
 }
+
+// ---- Rules (spec 07) ----
+
+export type RuleMatchField = "description" | "memo";
+/** Every mode ignores case and runs of whitespace. */
+export type RuleMatchMode = "contains" | "starts_with" | "equals" | "regex";
+/** `in`: money in (amount above zero). `out`: everything else, as in the flow. */
+export type RuleDirection = "out" | "in";
+
+/**
+ * A rule as the window writes it. All conditions must hold; at least one
+ * action is set. For each action the first enabled matching rule wins, and
+ * a field the user set is never changed.
+ */
+export interface RuleInput {
+  name: string;
+  enabled: boolean;
+  matchField: RuleMatchField;
+  matchMode: RuleMatchMode;
+  /** At most 200 characters. A `regex` must compile. */
+  matchText: string;
+  accountId: number | null;
+  /** Inclusive bounds on the absolute amount. */
+  amountMin: Agorot | null;
+  amountMax: Agorot | null;
+  direction: RuleDirection | null;
+  setCategoryId: number | null;
+  /** true excludes the row, false counts it (and stops later exclude rules). */
+  setExcluded: boolean | null;
+}
+
+export interface Rule extends RuleInput {
+  id: number;
+  /** Order of evaluation, 1 first. */
+  position: number;
+}
+
+export interface RulePreview {
+  /** Rows whose text, account, amount and direction match today. */
+  matches: number;
+  /** Up to 20 of them, newest first. */
+  sample: TransactionRow[];
+}

@@ -13,6 +13,7 @@ import {
   trend,
   updateTransactions,
 } from "@core/ledger";
+import { createRule, deleteRule, listRules, previewRule, reorderRules, suggestRule, updateRule } from "@core/rules";
 import type { Handlers } from "./ipc";
 import type { SyncService } from "./sync-service";
 
@@ -44,5 +45,18 @@ export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps)
       sync.cancel();
       return null;
     },
+    "rules:list": () => listRules(db),
+    "rules:create": (rule) => createRule(db, rule),
+    "rules:update": ({ id, rule }) => updateRule(db, id, rule),
+    "rules:delete": ({ id }) => {
+      deleteRule(db, id);
+      return null;
+    },
+    "rules:reorder": ({ ids }) => {
+      reorderRules(db, ids);
+      return null;
+    },
+    "rules:preview": (rule) => previewRule(db, rule),
+    "rules:suggest": ({ ids }) => suggestRule(db, ids),
   };
 }
