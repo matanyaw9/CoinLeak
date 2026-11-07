@@ -251,6 +251,7 @@ function generate(today: Date): DemoRow[] {
       excluded: d.excluded ?? false,
       flow: "spending",
       flags: [],
+      ruleId: null,
       cardBill: d.cardBill ?? null,
       userInternal: null,
     };
@@ -282,6 +283,7 @@ function generate(today: Date): DemoRow[] {
         excluded: false,
         flow: "internal",
         flags: [],
+        ruleId: null,
         cardBill: "matched",
         userInternal: null,
       });

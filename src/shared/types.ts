@@ -100,6 +100,8 @@ export interface TransactionRow {
   excluded: boolean;
   flow: Flow;
   flags: ReviewFlag[];
+  /** The last rule, in order, that set this row's category or exclusion. */
+  ruleId: number | null;
 }
 
 export interface TransactionFilter {

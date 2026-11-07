@@ -3,6 +3,8 @@ import type { Db } from "../db";
 import { NOW, accountId, bank, card, categoryId, charge, idOf, newDb, stored, txn } from "../testing/ledger";
 import { ingest } from "./ingest";
 import { listCategories, listTransactions, monthSummary, trend, updateTransactions } from "./queries";
+import { createRule } from "../rules";
+import { ruleInput } from "../testing/rules";
 
 // A hand-built ledger. Totals below are worked out by hand from these rows.
 //
@@ -211,6 +213,18 @@ describe("listTransactions", () => {
     expect(names({ search: "%" })).toEqual([]);
     expect(names({ search: "_" })).toEqual([]);
     expect(listTransactions(db, { search: "   " })).toHaveLength(13);
+  });
+
+  it("names the rule that set a row, and no rule on rows the user set", () => {
+    expect(listTransactions(db).every((t) => t.ruleId === null)).toBe(true);
+    const cards = createRule(db, ruleInput({ matchText: "ישראכרט", setCategoryId: categoryId(db, "Shopping") }));
+    createRule(db, ruleInput({ matchText: "סופר", setCategoryId: categoryId(db, "Groceries") }));
+    const byName = (d: string) => listTransactions(db, { search: d });
+    expect(byName("ישראכרט")).toEqual([expect.objectContaining({ ruleId: cards.id, categorySource: "rule" })]);
+    expect(byName("סופר").map((t) => [t.ruleId, t.categorySource])).toEqual([
+      [null, "user"],
+      [null, "user"],
+    ]);
   });
 
   it("returns installments, pending status and amounts as stored", () => {
