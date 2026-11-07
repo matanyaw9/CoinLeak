@@ -150,9 +150,28 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    /* Inter's open digits and single-storey a, as in Spent. */
+    font-feature-settings: "ss01", "cv11";
+  }
+  button {
+    cursor: default;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 25%, transparent);
   }
   .num {
     font-family: var(--font-serif);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum", "lnum";
+  }
+  /* Thin warm scrollbars that do not shout. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
+  }
+  /* Recharts focus rings around SVG shapes look like glitches. */
+  .recharts-wrapper *:focus,
+  .recharts-surface:focus {
+    outline: none;
   }
 }

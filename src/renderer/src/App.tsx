@@ -1,33 +1,54 @@
-// Placeholder screen for the skeleton. The UI shell spec replaces it.
+// The window's root: query cache, hash router, shared month and sync state,
+// tooltips and toasts.
 
-import { useEffect, useState } from "react";
-import type { AppInfo } from "@shared/types";
-import { formatIls } from "@shared/money";
-import { call } from "./lib/api";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createHashRouter } from "react-router";
+import { RouterProvider } from "react-router/dom";
+import { MonthProvider } from "@/lib/month-context";
+import { SyncProvider } from "@/lib/sync";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
+import { AppShell } from "@/components/layout/app-shell";
+import { HomePage } from "@/pages/home-page";
+import { TransactionsPage } from "@/pages/transactions-page";
+import { CategoriesPage } from "@/pages/categories-page";
+import { AccountsPage } from "@/pages/accounts-page";
+import { SettingsPage } from "@/pages/settings-page";
+import { ErrorPage } from "@/pages/error-page";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    // Local IPC does not flake; a failure is a real answer worth showing.
+    queries: { retry: false, staleTime: 30_000, refetchOnWindowFocus: false },
+  },
+});
+
+const router = createHashRouter([
+  {
+    element: <AppShell />,
+    errorElement: <ErrorPage />,
+    children: [
+      { path: "/", element: <HomePage /> },
+      { path: "/transactions", element: <TransactionsPage /> },
+      { path: "/categories", element: <CategoriesPage /> },
+      { path: "/accounts", element: <AccountsPage /> },
+      { path: "/settings", element: <SettingsPage /> },
+      { path: "*", element: <ErrorPage /> },
+    ],
+  },
+]);
 
 export function App() {
-  const [info, setInfo] = useState<AppInfo | null>(null);
-
-  useEffect(() => {
-    call("app:info", undefined).then(setInfo, () => setInfo(null));
-  }, []);
-
   return (
-    <main className="flex h-full items-center justify-center p-8">
-      <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
-        <p className="text-sm text-muted-foreground">Spent this month</p>
-        <p className="num mt-1 text-5xl text-foreground">{formatIls(0, { decimals: false })}</p>
-        <h1 className="mt-6 font-heading text-2xl">CoinLeak</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Skeleton is running{info ? `, version ${info.version}` : ""}.
-        </p>
-        <div className="mt-6 flex gap-2">
-          <span className="rounded-full bg-primary px-3 py-1 text-xs text-primary-foreground">Local only</span>
-          <span className="rounded-full bg-secondary px-3 py-1 text-xs text-secondary-foreground">
-            {info?.dev ? "Dev data" : "Your data"}
-          </span>
-        </div>
-      </div>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <MonthProvider>
+        <SyncProvider>
+          <TooltipProvider>
+            <RouterProvider router={router} />
+            <Toaster />
+          </TooltipProvider>
+        </SyncProvider>
+      </MonthProvider>
+    </QueryClientProvider>
   );
 }

@@ -23,6 +23,14 @@ export const s = {
     settings: "Settings",
   },
 
+  time: {
+    justNow: "just now",
+    minutes: (n: number) => `${n} min ago`,
+    hours: (n: number) => (n === 1 ? "an hour ago" : `${n} hours ago`),
+    yesterday: (at: string) => `yesterday at ${at}`,
+    days: (n: number) => `${n} days ago`,
+  },
+
   month: {
     previous: "Previous month",
     next: "Next month",
@@ -31,7 +39,6 @@ export const s = {
 
   sync: {
     button: "Sync",
-    syncing: "Syncing",
     title: "Sync your accounts",
     intro: "A private browser opens on your bank's own website. You log in there, and CoinLeak downloads your transactions.",
     syncOne: "Sync",
@@ -68,10 +75,7 @@ export const s = {
     uncategorized: "Uncategorized",
     other: "Other",
     clear: "Clear",
-    loading: "Loading",
-    retry: "Try again",
     transactions: (n: number) => plural(n, "transaction", "transactions"),
-    categories: (n: number) => plural(n, "category", "categories"),
   },
 
   empty: {
@@ -107,10 +111,7 @@ export const s = {
     spentHint: "After refunds, card bills counted once",
     leftHint: "Income minus spending",
     review: (n: number) => `${plural(n, "transaction needs", "transactions need")} a look`,
-    reviewAction: "Review",
     curveTitle: "Spending through the month",
-    curveThis: (month: string) => month,
-    curveLast: (month: string) => month,
     curveByDay: (day: number, month: string) => `by day ${day} in ${month}`,
     curveEmpty: "No spending to draw yet.",
     donutTitle: "Where it went",
@@ -119,7 +120,6 @@ export const s = {
     trendTitle: "Last 12 months",
     trendEmpty: "Not enough history yet.",
     trendHint: "Click a bar to see that month's transactions",
-    viewAll: "All transactions",
   },
 
   transactions: {
@@ -176,7 +176,6 @@ export const s = {
     spending: "Spending",
     income: "Income",
     search: "Search categories",
-    spentIn: (amount: string) => amount,
     noSpend: "Nothing yet",
     emptyTitle: "No categories yet",
     emptyBody: "Categories arrive with your first sync.",
@@ -189,8 +188,6 @@ export const s = {
     bankAccount: "Bank account",
     card: "Card",
     cardMode: { credit: "Credit, billed monthly", debit: "Debit, charged right away" },
-    accountsCount: (n: number) => plural(n, "account", "accounts"),
-    cardsCount: (n: number) => plural(n, "card", "cards"),
     noAccounts: "No accounts yet. Sync once and they will appear here.",
     safeTitle: "Safe by design",
     safe: [

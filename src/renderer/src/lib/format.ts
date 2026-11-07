@@ -3,6 +3,7 @@
 
 import type { Agorot, IsoDate, IsoMonth } from "@shared/types";
 import { formatIls } from "@shared/money";
+import { s } from "@/strings";
 import { parseDate, parseMonth } from "./month";
 
 const BIDI_MARKS = /[‎‏]/g;
@@ -47,13 +48,13 @@ export const formatDateNumeric = (d: IsoDate) => dayNumeric.format(parseDate(d))
 export function formatRelative(iso: string, now: Date = new Date()): string {
   const then = new Date(iso);
   const mins = Math.round((now.getTime() - then.getTime()) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1) return s.time.justNow;
+  if (mins < 60) return s.time.minutes(mins);
   const hours = Math.round(mins / 60);
-  if (hours < 24 && then.getDate() === now.getDate()) return hours === 1 ? "an hour ago" : `${hours} hours ago`;
+  if (hours < 24 && then.getDate() === now.getDate()) return s.time.hours(hours);
   const days = Math.round(hours / 24);
-  if (days <= 1) return `yesterday at ${time.format(then)}`;
-  if (days < 7) return `${days} days ago`;
+  if (days <= 1) return s.time.yesterday(time.format(then));
+  if (days < 7) return s.time.days(days);
   return dayNumeric.format(then);
 }
 
