@@ -331,6 +331,18 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
     return row;
   };
 
+  function rollUp(cats: Map<number | null, { amount: Agorot; count: number }>): MonthSummary["byParent"] {
+    const parents = new Map<number | null, { amount: Agorot; count: number }>();
+    for (const [id, c] of cats) {
+      const key = id === null ? null : (CATEGORIES.find((x) => x.id === id)?.parentId ?? id);
+      const p = parents.get(key) ?? { amount: 0, count: 0 };
+      p.amount += c.amount;
+      p.count += c.count;
+      parents.set(key, p);
+    }
+    return [...parents].map(([categoryId, p]) => ({ categoryId, ...p })).sort((a, b) => b.amount - a.amount);
+  }
+
   function summary(month: IsoMonth): MonthSummary {
     const inMonth = rows.filter((r) => r.date.startsWith(month));
     const counted = inMonth.filter((r) => COUNTED.includes(r.flow));
@@ -356,6 +368,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       byCategory: [...cats]
         .map(([categoryId, c]) => ({ categoryId, ...c }))
         .sort((a, b) => b.amount - a.amount),
+      byParent: rollUp(cats),
       byDay,
       needsReview: inMonth.filter((r) => r.flags.length > 0).length,
     };
@@ -459,6 +472,10 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
         return startSync((args as Args<"sync:start">).provider);
       case "sync:cancel":
         return cancelSync();
+      case "transactions:setInternal":
+      case "transactions:deleteGone":
+      case "accounts:setCardMode":
+        return fail("NOT_IMPLEMENTED");
     }
   }
 
