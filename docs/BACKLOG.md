@@ -9,6 +9,10 @@ Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
 
 ## Done
 
+- (Owner, 2026-11-08) **Discount verified live end to end** after the fix:
+  1 account, 274 rows, 2025-11-10 to 2026-11-05, 1 pending, 26 s. Cal
+  login verified; Cal download still to confirm.
+
 - (Lead, owner's first real login, 2026-11-08) Self-login works live on both
   Discount and Cal: login was detected on each. The sync then failed with
   LOGIN_CANCELLED because the library closes its own tab in `terminate()`
