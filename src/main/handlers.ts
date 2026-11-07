@@ -1,7 +1,6 @@
-// Connects each channel to the module that answers it. Deleting gone rows
-// waits for spec 04.
+// Connects each channel to the module that answers it. Thin by design:
+// all logic lives in core (ledger) and the sync service.
 
-import { CodedError } from "@shared/errors";
 import type { Db } from "@core/db";
 import {
   deleteGoneRows,
@@ -24,10 +23,6 @@ export interface HandlerDeps {
   dev: boolean;
   sync: SyncService;
 }
-
-const notYet = (): never => {
-  throw new CodedError("NOT_IMPLEMENTED");
-};
 
 export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps): Handlers {
   return {
