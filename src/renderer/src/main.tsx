@@ -1,13 +1,12 @@
+// Window entry: apply the saved theme before the first paint, then render.
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { initTheme } from "./lib/theme";
 import "./styles/globals.css";
 
-// Follow the system light or dark setting until a theme setting exists.
-const media = window.matchMedia("(prefers-color-scheme: dark)");
-const applyTheme = () => document.documentElement.classList.toggle("dark", media.matches);
-applyTheme();
-media.addEventListener("change", applyTheme);
+initTheme();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("missing #root");
