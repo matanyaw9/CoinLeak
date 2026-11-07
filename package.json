@@ -17,7 +17,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run lint && npm test && npm run build"
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "sync:try": "tsx --tsconfig tsconfig.node.json scripts/sync-try.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
