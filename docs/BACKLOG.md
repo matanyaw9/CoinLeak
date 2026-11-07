@@ -5,7 +5,7 @@ into specs when planning a wave. Must-fix items block the first real use.
 
 ## Must fix before real use
 
-- **Pending rows that change when they settle** (from the spec 02 review).
+- (In progress: spec 04) **Pending rows that change when they settle** (from the spec 02 review).
   A pending card charge can come back completed with a different amount or
   date (foreign currency), and some pending lines vanish entirely (Discount
   `חיוב זמני למפתח מזומן`). Today the old pending row stays and is counted
@@ -18,9 +18,8 @@ into specs when planning a wave. Must-fix items block the first real use.
 
 ## Wave 2 candidates
 
-- IPC for the user's card-bill decisions: `setInternalByUser` ("this is a
-  card bill" / "this is spending") and `setCardMode` (core functions exist).
+- (Done in main: channels exist) UI for the user's card-bill decisions:
+  "this is a card bill" / "this is spending", and card mode in Accounts.
 - A Cal bank line that pays several cards at once would not match today;
   confirm on real data.
-- Summary grouped by parent category for the donut (`byParent` on
-  `MonthSummary` or a query option), so the window never adds totals.
+- (Done: `MonthSummary.byParent`) Use it for the donut in the UI.
