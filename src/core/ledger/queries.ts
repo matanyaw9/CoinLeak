@@ -289,6 +289,24 @@ function spendingByCategory(
     .map((r) => ({ categoryId: r.categoryId as number | null, amount: r.spent as number, count: r.count as number }));
 }
 
+function spendingByParent(
+  db: Db,
+  from: IsoDate,
+  until: IsoDate,
+): { categoryId: number | null; amount: Agorot; count: number }[] {
+  return db
+    .prepare(
+      `${WITH_LEDGER} SELECT COALESCE(ledger.category_parent_id, ledger.category_id) AS categoryId,
+         -SUM(ledger.amount) AS spent, COUNT(*) AS count
+       FROM ledger
+       WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}
+       GROUP BY 1
+       ORDER BY spent DESC, categoryId IS NULL, categoryId`,
+    )
+    .all(from, until)
+    .map((r) => ({ categoryId: r.categoryId as number | null, amount: r.spent as number, count: r.count as number }));
+}
+
 /** Income, spending after refunds, spending by category and by day. */
 export function monthSummary(db: Db, month: IsoMonth): MonthSummary {
   assertMonth(month);
@@ -312,6 +330,7 @@ export function monthSummary(db: Db, month: IsoMonth): MonthSummary {
     income: t.income,
     spending: t.spending,
     byCategory: spendingByCategory(db, from, until),
+    byParent: spendingByParent(db, from, until),
     byDay,
     needsReview: t.needsReview,
   };

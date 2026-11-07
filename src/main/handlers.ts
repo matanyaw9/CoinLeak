@@ -1,8 +1,18 @@
-// Connects each channel to the module that answers it. Wave 1 answers only
-// app:info; the rest are wired once the ledger and sync modules land.
+// Connects each channel to the module that answers it. Ledger channels are
+// live; sync channels and deleting gone rows wait for their modules.
 
 import { CodedError } from "@shared/errors";
 import type { Db } from "@core/db";
+import {
+  listAccounts,
+  listCategories,
+  listTransactions,
+  monthSummary,
+  setCardMode,
+  setInternalByUser,
+  trend,
+  updateTransactions,
+} from "@core/ledger";
 import type { Handlers } from "./ipc";
 
 export interface HandlerDeps {
@@ -16,15 +26,21 @@ const notYet = (): never => {
   throw new CodedError("NOT_IMPLEMENTED");
 };
 
-export function createHandlers(deps: HandlerDeps): Handlers {
+export function createHandlers({ db, version, dataDir, dev }: HandlerDeps): Handlers {
   return {
-    "app:info": () => ({ version: deps.version, dataDir: deps.dataDir, dev: deps.dev }),
-    "accounts:list": notYet,
-    "categories:list": notYet,
-    "transactions:list": notYet,
-    "transactions:update": notYet,
-    "summary:month": notYet,
-    "summary:trend": notYet,
+    "app:info": () => ({ version, dataDir, dev }),
+    "accounts:list": () => listAccounts(db),
+    "accounts:setCardMode": ({ accountId, mode }) => {
+      setCardMode(db, accountId, mode);
+      return null;
+    },
+    "categories:list": () => listCategories(db),
+    "transactions:list": (filter) => listTransactions(db, filter ?? {}),
+    "transactions:update": ({ ids, patch }) => updateTransactions(db, ids, patch),
+    "transactions:setInternal": ({ ids, internal }) => ({ updated: setInternalByUser(db, ids, internal) }),
+    "transactions:deleteGone": notYet,
+    "summary:month": ({ month }) => monthSummary(db, month),
+    "summary:trend": ({ months }) => trend(db, months),
     "sync:start": notYet,
     "sync:cancel": notYet,
   };

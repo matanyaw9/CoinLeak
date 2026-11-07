@@ -4,6 +4,7 @@
 import type {
   Account,
   AppInfo,
+  CardMode,
   Category,
   IsoMonth,
   MonthSummary,
@@ -23,6 +24,11 @@ export interface IpcContract {
   "categories:list": { args: undefined; result: Category[] };
   "transactions:list": { args: TransactionFilter; result: TransactionRow[] };
   "transactions:update": { args: { ids: number[]; patch: TransactionPatch }; result: { updated: number } };
+  /** The user's word on card bills: true internal, false spending, null back to automatic. */
+  "transactions:setInternal": { args: { ids: number[]; internal: boolean | null }; result: { updated: number } };
+  /** Only rows with status `gone` can be deleted. */
+  "transactions:deleteGone": { args: { ids: number[] }; result: { deleted: number } };
+  "accounts:setCardMode": { args: { accountId: number; mode: CardMode }; result: null };
   "summary:month": { args: { month: IsoMonth }; result: MonthSummary };
   "summary:trend": { args: { months: number }; result: TrendPoint[] };
   "sync:start": { args: { provider: ProviderId }; result: SyncResult };
@@ -44,6 +50,9 @@ export const CHANNELS = [
   "categories:list",
   "transactions:list",
   "transactions:update",
+  "transactions:setInternal",
+  "transactions:deleteGone",
+  "accounts:setCardMode",
   "summary:month",
   "summary:trend",
   "sync:start",

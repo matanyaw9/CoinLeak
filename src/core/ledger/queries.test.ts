@@ -92,6 +92,20 @@ describe("monthSummary and trend on a hand-built ledger", () => {
     ]);
   });
 
+  it("March by parent rolls children up to top-level categories", () => {
+    const march = monthSummary(db, "2026-03");
+    const cats = listCategories(db);
+    const parentOf = (id: number | null) => (id === null ? null : (cats.find((c) => c.id === id)?.parentId ?? id));
+    const expected = new Map<number | null, number>();
+    for (const c of march.byCategory) {
+      const key = parentOf(c.categoryId);
+      expected.set(key, (expected.get(key) ?? 0) + c.amount);
+    }
+    expect(new Map(march.byParent.map((p) => [p.categoryId, p.amount]))).toEqual(expected);
+    expect(march.byParent.every((p) => p.categoryId === null || parentOf(p.categoryId) === p.categoryId)).toBe(true);
+    expect(march.byParent.reduce((s, p) => s + p.amount, 0)).toBe(march.spending);
+  });
+
   it("March by day is the running total of spending", () => {
     const { byDay } = monthSummary(db, "2026-03");
     expect(byDay).toHaveLength(31);

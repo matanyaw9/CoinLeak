@@ -11,7 +11,10 @@ export type IsoMonth = string;
 export type ProviderId = "discount" | "visaCal";
 export type AccountKind = "bank" | "card";
 export type CardMode = "credit" | "debit";
-export type TxnStatus = "pending" | "completed";
+/** What a download can say about a row. */
+export type ScrapedStatus = "pending" | "completed";
+/** `gone`: a pending row that a later download no longer contains. */
+export type TxnStatus = ScrapedStatus | "gone";
 export type CategoryKind = "expense" | "income";
 export type CategorySource = "user" | "rule";
 
@@ -24,11 +27,12 @@ export type CategorySource = "user" | "rule";
  *   bank when that card's rows are also tracked. Counted zero times here
  *   because the card rows are the spending.
  * - excluded: the user said not to count it
+ * - gone: a pending row the bank no longer reports; counts nowhere
  */
-export type Flow = "spending" | "income" | "refund" | "internal" | "excluded";
+export type Flow = "spending" | "income" | "refund" | "internal" | "excluded" | "gone";
 
 /** Why a row needs a human look. */
-export type ReviewFlag = "uncategorized" | "possible_card_bill";
+export type ReviewFlag = "uncategorized" | "possible_card_bill" | "gone";
 
 // ---- Scraper output (sync module produces, ledger consumes) ----
 
@@ -40,7 +44,7 @@ export interface ScrapedTransaction {
   originalCurrency: string | null;
   description: string;
   memo: string | null;
-  status: TxnStatus;
+  status: ScrapedStatus;
   installment: { number: number; total: number } | null;
   /** Bank reference number. Stored, never trusted for identity. */
   identifier: string | null;
@@ -119,6 +123,8 @@ export interface MonthSummary {
   /** Positive number: total money spent after refunds. */
   spending: Agorot;
   byCategory: { categoryId: number | null; amount: Agorot; count: number }[];
+  /** Same money rolled up to top-level categories (null: uncategorized). */
+  byParent: { categoryId: number | null; amount: Agorot; count: number }[];
   /** Cumulative spending per day of the month. */
   byDay: { date: IsoDate; amount: Agorot }[];
   needsReview: number;
