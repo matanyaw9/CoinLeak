@@ -1,5 +1,6 @@
 // Transactions: the month's rows grouped by day, with search, a needs-review
-// view, a category filter from Home, quick categorizing and bulk select.
+// view, a category filter from Home, quick categorizing, bulk select, and the
+// card bill and gone-row answers. Greets instead before the first sync.
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -9,7 +10,15 @@ import type { Category, TransactionFilter, TransactionRow as Row } from "@shared
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
-import { useAccounts, useCategories, useMonthSummary, useTransactions, useUpdateTransactions } from "@/lib/hooks";
+import {
+  useAccounts,
+  useCategories,
+  useFirstRun,
+  useMonthSummary,
+  useTransactions,
+  useUpdateTransactions,
+} from "@/lib/hooks";
+import { useKept, useReviewActions } from "@/lib/review-actions";
 import { useMonth } from "@/lib/month-context";
 import { monthRange } from "@/lib/month";
 import { formatDayLong, formatMonth } from "@/lib/format";
@@ -21,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/common/segmented";
 import { EmptyState, QueryError } from "@/components/common/empty-state";
 import { Money } from "@/components/common/money";
+import { Welcome } from "@/components/common/welcome";
 import { TransactionRow } from "@/components/transactions/transaction-row";
 import { BulkBar } from "@/components/transactions/bulk-bar";
 
@@ -63,6 +73,9 @@ export function TransactionsPage() {
   const rows = useMemo(() => tx.data ?? [], [tx.data]);
   const groups = useMemo(() => groupByDay(rows), [rows]);
   const update = useUpdateTransactions();
+  const actions = useReviewActions();
+  const kept = useKept();
+  const firstRun = useFirstRun();
 
   // Selection belongs to one filter; changing month or filters starts fresh.
   const scope = JSON.stringify(filter);
@@ -109,6 +122,14 @@ export function TransactionsPage() {
 
   const filtered = Boolean(query || categoryParam);
   const reviewCount = summary.data?.needsReview ?? 0;
+
+  if (firstRun) {
+    return (
+      <Page title={s.transactions.title}>
+        <Welcome />
+      </Page>
+    );
+  }
 
   return (
     <Page title={s.transactions.title} withMonth>
@@ -230,6 +251,14 @@ export function TransactionsPage() {
                     selecting={selected.size > 0}
                     onToggle={toggle}
                     onCategory={onRowCategory}
+                    review={{
+                      reviewing: review,
+                      kept: kept.has(row.id),
+                      busy: actions.busy(row),
+                      onAnswer: actions.answer,
+                      onDelete: actions.remove,
+                      onKeep: actions.keep,
+                    }}
                   />
                 ))}
               </Fragment>

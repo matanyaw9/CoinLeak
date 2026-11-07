@@ -13,6 +13,16 @@ export const useAppInfo = () => useQuery({ queryKey: key("app:info"), queryFn: (
 export const useAccounts = () =>
   useQuery({ queryKey: key("accounts:list"), queryFn: () => call("accounts:list", undefined) });
 
+/**
+ * True when no account has been synced yet, so screens greet instead of
+ * charting nothing. Undefined while it is still loading.
+ */
+export function useFirstRun(): boolean | undefined {
+  const accounts = useAccounts();
+  if (accounts.isError) return false;
+  return accounts.data ? accounts.data.length === 0 : undefined;
+}
+
 export const useCategories = () =>
   useQuery({ queryKey: key("categories:list"), queryFn: () => call("categories:list", undefined), staleTime: 5 * 60_000 });
 

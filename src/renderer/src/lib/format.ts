@@ -1,7 +1,7 @@
 // Display formatting for the window: money through the shared formatIls,
 // dates in the Israeli day-month order. No money logic lives here.
 
-import type { Agorot, IsoDate, IsoMonth } from "@shared/types";
+import type { Agorot, IsoDate, IsoMonth, TransactionRow } from "@shared/types";
 import { formatIls } from "@shared/money";
 import { s } from "@/strings";
 import { parseDate, parseMonth } from "./month";
@@ -65,6 +65,20 @@ export function formatForeign(amount: number, currency: string): string {
   } catch {
     return `${(Math.abs(amount) / 100).toFixed(2)} ${currency}`;
   }
+}
+
+/**
+ * A pending purchase abroad that the bank has not priced in shekels yet: it
+ * arrives with amount 0, so show what was paid in its own currency instead.
+ */
+export function awaitingShekels(row: TransactionRow): row is TransactionRow & { originalAmount: number; originalCurrency: string } {
+  return (
+    row.status === "pending" &&
+    row.amount === 0 &&
+    row.originalAmount != null &&
+    row.originalCurrency != null &&
+    row.originalCurrency.toUpperCase() !== "ILS"
+  );
 }
 
 /** Share of a total as a whole percent, for legends. */

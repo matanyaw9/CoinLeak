@@ -1,16 +1,18 @@
 // Home: the month at a glance. Hero, spending curve, categories, 12 months.
+// Before the first sync it greets instead, with no empty charts.
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import type { IsoMonth } from "@shared/types";
 import { s } from "@/strings";
-import { useCategories, useMonthSummary, useTrend } from "@/lib/hooks";
+import { useCategories, useFirstRun, useMonthSummary, useTrend } from "@/lib/hooks";
 import { useMonth } from "@/lib/month-context";
 import { shiftMonth } from "@/lib/month";
 import { indexCategories, type Slice } from "@/lib/categories";
 import { Page } from "@/components/layout/page";
 import { Card, CardSkeleton } from "@/components/common/card";
 import { QueryError } from "@/components/common/empty-state";
+import { Welcome } from "@/components/common/welcome";
 import { HeroCard } from "@/components/home/hero-card";
 import { SpendingCurveCard } from "@/components/home/spending-curve-card";
 import { CategoryDonutCard } from "@/components/home/category-donut-card";
@@ -30,11 +32,20 @@ export function HomePage() {
   const trend = useTrend(12);
   const categories = useCategories();
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
+  const firstRun = useFirstRun();
 
   const open = (slice: Slice, m?: IsoMonth) => {
     if (m) setMonth(m);
     void navigate(sliceLink(slice));
   };
+
+  if (firstRun) {
+    return (
+      <Page title={s.home.title}>
+        <Welcome />
+      </Page>
+    );
+  }
 
   return (
     <Page title={s.home.title} withMonth>

@@ -1,7 +1,8 @@
 // Sync building blocks shared by the top bar and the Accounts page: the
-// stage stepper, and one row per provider with its Sync button.
+// stage stepper, the "log in now" note, and one row per provider with its
+// Sync and Cancel buttons.
 
-import { Check, LoaderCircle, RefreshCw } from "lucide-react";
+import { AppWindow, Check, LoaderCircle, RefreshCw } from "lucide-react";
 import type { Account, ProviderId, SyncStage } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,8 @@ import { ProviderBadge } from "@/components/common/chips";
 
 export const PROVIDERS: ProviderId[] = ["discount", "visaCal"];
 const STEPS: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading", "saving"];
+/** Stages where Cancel still stops something; saving is quick and final. */
+const CANCELLABLE: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading"];
 
 export function lastSync(accounts: Account[] | undefined, provider: ProviderId): string | null {
   const times = (accounts ?? []).flatMap((a) => (a.provider === provider && a.lastSyncedAt ? [a.lastSyncedAt] : []));
@@ -49,6 +52,22 @@ export function SyncSteps({ stage, className }: { stage: SyncStage; className?: 
   );
 }
 
+/** Shown while the bank's login page waits for the user. */
+export function LoginNote({ className }: { className?: string }) {
+  return (
+    <div
+      role="status"
+      className={cn("flex gap-3 rounded-2xl border border-primary/20 bg-primary/[0.06] px-3.5 py-3", className)}
+    >
+      <AppWindow className="mt-0.5 size-4 shrink-0 text-primary" strokeWidth={1.75} />
+      <div className="min-w-0">
+        <p className="text-sm leading-snug font-medium text-pretty">{s.sync.loginTitle}</p>
+        <p className="mt-1 text-xs leading-relaxed text-pretty text-muted-foreground">{s.sync.loginBody}</p>
+      </div>
+    </div>
+  );
+}
+
 export function ProviderSyncRow({
   provider,
   accounts,
@@ -62,6 +81,7 @@ export function ProviderSyncRow({
   const mine = sync.provider === provider;
   const busy = sync.provider != null;
   const when = lastSync(accounts, provider);
+  const stage = mine ? sync.stage : null;
   return (
     <div className={className}>
       <div className="flex items-center gap-3">
@@ -69,13 +89,16 @@ export function ProviderSyncRow({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">{s.providers[provider].name}</div>
           <div className="truncate text-xs text-muted-foreground">
-            {mine && sync.stage ? s.sync.stageShort[sync.stage] : when ? s.sync.lastSynced(formatRelative(when)) : s.sync.never}
+            {stage ? s.sync.stageShort[stage] : when ? s.sync.lastSynced(formatRelative(when)) : s.sync.never}
           </div>
         </div>
         {mine ? (
-          <Button variant="ghost" size="sm" onClick={sync.cancel}>
-            {s.sync.cancel}
-          </Button>
+          stage &&
+          CANCELLABLE.includes(stage) && (
+            <Button variant="outline" size="sm" onClick={sync.cancel}>
+              {s.sync.cancel}
+            </Button>
+          )
         ) : (
           <Button variant="outline" size="sm" disabled={busy} onClick={() => sync.start(provider)}>
             <RefreshCw className="size-3.5" />
@@ -83,7 +106,8 @@ export function ProviderSyncRow({
           </Button>
         )}
       </div>
-      {mine && sync.stage && sync.stage !== "failed" && <SyncSteps stage={sync.stage} className="mt-4 ms-12" />}
+      {stage && stage !== "failed" && <SyncSteps stage={stage} className="mt-4 ms-12" />}
+      {stage === "waiting_for_login" && <LoginNote className="mt-4 ms-12" />}
     </div>
   );
 }

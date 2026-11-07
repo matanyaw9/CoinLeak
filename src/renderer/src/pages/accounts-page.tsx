@@ -1,19 +1,23 @@
-// Accounts: one card per provider with its accounts, card mode, last sync
-// and a Sync button that shows each stage as it happens.
+// Accounts: one card per provider with its accounts, a card mode switch per
+// card, last sync and a Sync button that shows each stage as it happens.
 // Look adapted from Spent (github.com/Shaya16/Spent), settings bank accounts screen.
 
 import { CreditCard, Landmark, ShieldCheck } from "lucide-react";
-import type { Account, ProviderId } from "@shared/types";
+import type { Account, CardMode, ProviderId } from "@shared/types";
 import { s } from "@/strings";
 import { isNotBuilt } from "@/lib/api";
 import { useAccounts } from "@/lib/hooks";
+import { useReviewActions } from "@/lib/review-actions";
 import { formatRelative } from "@/lib/format";
 import { Page } from "@/components/layout/page";
 import { Card } from "@/components/common/card";
 import { QueryError } from "@/components/common/empty-state";
+import { Segmented } from "@/components/common/segmented";
 import { Skeleton } from "@/components/ui/misc";
-import { lastDigits } from "@/components/common/chips";
+import { accountLabel, lastDigits } from "@/components/common/chips";
 import { PROVIDERS, ProviderSyncRow } from "@/components/sync/sync-parts";
+
+const MODES: CardMode[] = ["credit", "debit"];
 
 export function AccountsPage() {
   const accounts = useAccounts();
@@ -77,25 +81,36 @@ function ProviderCard({ provider, accounts, all }: { provider: ProviderId; accou
 
 function AccountLine({ account }: { account: Account }) {
   const Icon = account.kind === "bank" ? Landmark : CreditCard;
+  const actions = useReviewActions();
+  const mode = actions.pendingCardMode(account) ?? account.cardMode;
   return (
-    <li className="flex items-center gap-4 px-6 py-3.5">
-      <span className="flex size-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
-        <Icon className="size-4" strokeWidth={1.75} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className="truncate text-[15px] font-medium">{account.name ?? s.providers[account.provider].short}</span>
-          <span className="num text-sm text-muted-foreground">··{lastDigits(account)}</span>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {account.kind === "bank" ? s.accounts.bankAccount : s.accounts.card}
-          {account.lastSyncedAt && ` · ${s.sync.lastSynced(formatRelative(account.lastSyncedAt))}`}
-        </div>
-      </div>
-      {account.cardMode && (
-        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground/80">
-          {s.accounts.cardMode[account.cardMode]}
+    <li className="px-6 py-4">
+      <div className="flex items-center gap-4">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+          <Icon className="size-4" strokeWidth={1.75} />
         </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="truncate text-[15px] font-medium">{account.name ?? s.providers[account.provider].short}</span>
+            <span className="num text-sm text-muted-foreground">··{lastDigits(account)}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {account.kind === "bank" ? s.accounts.bankAccount : s.accounts.card}
+            {account.lastSyncedAt && ` · ${s.sync.lastSynced(formatRelative(account.lastSyncedAt))}`}
+          </div>
+        </div>
+        {account.kind === "card" && mode && (
+          <Segmented<CardMode>
+            label={s.accounts.cardModeLabel}
+            value={mode}
+            onChange={(next) => next !== mode && actions.setCardMode(account, next, accountLabel(account))}
+            options={MODES.map((m) => ({ value: m, label: s.accounts.cardMode[m] }))}
+            className="shrink-0"
+          />
+        )}
+      </div>
+      {account.kind === "card" && mode && (
+        <p className="mt-2 ps-[52px] text-xs text-muted-foreground">{s.accounts.cardModeHelp[mode]}</p>
       )}
     </li>
   );

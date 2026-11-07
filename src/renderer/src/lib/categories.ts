@@ -81,6 +81,24 @@ export function groupByRoot(index: CategoryIndex, rows: { categoryId: number | n
   return [...slices.values()].filter((x) => x.amount > 0).sort((a, b) => b.amount - a.amount);
 }
 
+/** Core's totals per top-level category as chart slices, largest first. */
+export function parentSlices(index: CategoryIndex, byParent: { categoryId: number | null; amount: Agorot }[]): Slice[] {
+  return byParent
+    .filter((p) => p.amount > 0)
+    .map((p) => {
+      const c = p.categoryId == null ? null : (index.byId.get(p.categoryId) ?? null);
+      return {
+        key: p.categoryId == null ? "none" : String(p.categoryId),
+        categoryId: p.categoryId,
+        name: c ? c.name : p.categoryId == null ? s.common.uncategorized : s.common.other,
+        emoji: c?.emoji ?? null,
+        color: colorOf(c),
+        amount: p.amount,
+      };
+    })
+    .sort((a, b) => b.amount - a.amount);
+}
+
 /** Keeps the biggest `max - 1` slices and folds the rest into "Other". */
 export function topSlices(slices: Slice[], max: number): Slice[] {
   if (slices.length <= max) return slices;
