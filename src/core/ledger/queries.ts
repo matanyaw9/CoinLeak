@@ -211,9 +211,10 @@ function toTransactionRow(r: LedgerRow): TransactionRow {
 }
 
 /**
- * The user's edits. Setting a category (even to none) marks it as the
- * user's, so rules and syncs leave it alone. Excluding or including a row
- * rematches card bills, since excluded bank lines are frozen.
+ * The user's edits. Setting a category (even to none) or excluding or
+ * including a row marks that field as the user's, so rules and syncs leave
+ * it alone. Excluding or including a row rematches card bills, since
+ * excluded bank lines are frozen.
  */
 export function updateTransactions(
   db: Db,
@@ -241,7 +242,7 @@ export function updateTransactions(
   }
   if (patch.excluded !== undefined) {
     check(typeof patch.excluded === "boolean");
-    sets.push("excluded = ?");
+    sets.push("excluded = ?", "excluded_source = 'user'");
     params.push(patch.excluded ? 1 : 0);
   }
   if (sets.length === 0 || ids.length === 0) return { updated: 0 };
