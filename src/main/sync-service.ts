@@ -5,13 +5,13 @@ import { CodedError } from "@shared/errors";
 import type { ProviderId, ScrapedAccount, SyncProgress, SyncResult, SyncStage } from "@shared/types";
 import type { Db } from "@core/db";
 import type { IngestOptions } from "@core/ledger";
-import type { SyncOptions } from "./sync";
+import type { SyncDownload, SyncOptions } from "./sync";
 
 const PROVIDERS: readonly ProviderId[] = ["discount", "visaCal"];
 
 export interface SyncServiceDeps {
   db: Db;
-  runSync(provider: ProviderId, options: SyncOptions): Promise<ScrapedAccount[]>;
+  runSync(provider: ProviderId, options: SyncOptions): Promise<SyncDownload>;
   ingest(db: Db, accounts: ScrapedAccount[], options: IngestOptions): SyncResult;
   emit(progress: SyncProgress): void;
   now?: () => Date;
@@ -34,9 +34,9 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
       current = controller;
       const stage = (s: SyncStage): void => deps.emit({ provider, stage: s });
       try {
-        const accounts = await deps.runSync(provider, { signal: controller.signal, onProgress: stage });
+        const { accounts, since } = await deps.runSync(provider, { signal: controller.signal, onProgress: stage });
         stage("saving");
-        const result = deps.ingest(deps.db, accounts, { now: now(), provider });
+        const result = deps.ingest(deps.db, accounts, { now: now(), provider, since });
         stage("done");
         return result;
       } catch (e) {
@@ -51,3 +51,4 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
     },
   };
 }
+

@@ -1,38 +1,53 @@
 import { describe, expect, it } from "vitest";
 import { CodedError } from "@shared/errors";
-import type { ProviderId, ScrapedAccount, SyncProgress } from "@shared/types";
+import type { ProviderId, ScrapedAccount, ScrapedTransaction, SyncProgress } from "@shared/types";
 import { openDatabase } from "@core/db";
-import { ingest, listTransactions } from "@core/ledger";
-import type { SyncOptions } from "./sync";
+import { ingest, listTransactions, type IngestOptions } from "@core/ledger";
+import type { SyncDownload, SyncOptions } from "./sync";
 import { createSyncService } from "./sync-service";
 
-const download: ScrapedAccount[] = [
-  {
-    provider: "visaCal",
-    accountNumber: "4321",
-    balance: null,
-    transactions: [
-      {
-        date: "2026-03-01",
-        processedDate: "2026-03-10",
-        amount: -1500,
-        originalAmount: null,
-        originalCurrency: null,
-        description: "קפה",
-        memo: null,
-        status: "completed",
-        installment: null,
-        identifier: null,
-      },
-    ],
-  },
-];
+const SINCE = "2025-05-09";
 
-function setup(run: (provider: ProviderId, options: SyncOptions) => Promise<ScrapedAccount[]>) {
+function row(description: string, status: ScrapedTransaction["status"] = "completed"): ScrapedTransaction {
+  return {
+    date: "2026-03-01",
+    processedDate: status === "completed" ? "2026-03-10" : null,
+    amount: -1500,
+    originalAmount: null,
+    originalCurrency: null,
+    description,
+    memo: null,
+    status,
+    installment: null,
+    identifier: null,
+  };
+}
+
+function accounts(provider: ProviderId, ...rows: ScrapedTransaction[][]): ScrapedAccount[] {
+  return rows.map((transactions, i) => ({
+    provider,
+    accountNumber: provider === "visaCal" ? `432${i}` : `100-20030${i}`,
+    balance: null,
+    transactions,
+  }));
+}
+
+const download: SyncDownload = { accounts: accounts("visaCal", [row("קפה")]), since: SINCE };
+
+function setup(run: (provider: ProviderId, options: SyncOptions) => Promise<SyncDownload>) {
   const db = openDatabase(":memory:");
   const events: SyncProgress[] = [];
-  const service = createSyncService({ db, runSync: run, ingest, emit: (p) => events.push(p) });
-  return { db, events, service };
+  const saved: IngestOptions[] = [];
+  const service = createSyncService({
+    db,
+    runSync: run,
+    ingest: (d, a, options) => {
+      saved.push(options);
+      return ingest(d, a, options);
+    },
+    emit: (p) => events.push(p),
+  });
+  return { db, events, saved, service };
 }
 
 describe("sync service", () => {
@@ -81,6 +96,12 @@ describe("sync service", () => {
     service.cancel();
     await expect(first).rejects.toMatchObject({ code: "LOGIN_CANCELLED" });
     expect(seen?.aborted).toBe(true);
+  });
+
+  it("passes the download's first day to the ledger as since", async () => {
+    const { saved, service } = setup(async () => download);
+    await service.start("visaCal");
+    expect(saved).toEqual([expect.objectContaining({ provider: "visaCal", since: SINCE })]);
   });
 
   it("rejects an unknown provider", async () => {
