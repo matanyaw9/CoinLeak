@@ -13,6 +13,7 @@ import type {
   SyncResult,
 } from "@shared/types";
 import { transaction, type Db } from "../db";
+import { applyRulesInTransaction } from "../rules/engine";
 import { applyCardBills } from "./card-bills";
 import { isIsoDate } from "./dates";
 import { SequenceCounter, dedupHash } from "./dedup";
@@ -79,6 +80,9 @@ export function ingest(db: Db, accounts: ScrapedAccount[], opts: IngestOptions):
     }
 
     applyCardBills(db);
+    // All rows, not only this run's: a row settled with drift keeps its old
+    // run but may now fall in a rule's amount range. Cheap: rows times rules.
+    applyRulesInTransaction(db, "all", opts.now);
     db.prepare("UPDATE sync_runs SET accounts = ?, new_rows = ?, updated_rows = ? WHERE id = ?").run(
       accounts.length,
       counts.newRows,

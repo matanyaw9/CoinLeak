@@ -538,6 +538,15 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
         const a = args as Args<"accounts:setCardMode">;
         return setCardMode(a?.accountId, a?.mode);
       }
+      // Rules have no screen yet (a later spec); the demo answers like an unbuilt part.
+      case "rules:list":
+      case "rules:create":
+      case "rules:update":
+      case "rules:delete":
+      case "rules:reorder":
+      case "rules:preview":
+      case "rules:suggest":
+        return fail("NOT_IMPLEMENTED");
     }
   }
 
