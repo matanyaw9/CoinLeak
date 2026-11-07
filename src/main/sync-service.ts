@@ -36,7 +36,8 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
       try {
         const { accounts, since } = await deps.runSync(provider, { signal: controller.signal, onProgress: stage });
         stage("saving");
-        const result = deps.ingest(deps.db, accounts, { now: now(), provider, since });
+        const judgePending = trustsPending(provider, accounts);
+        const result = deps.ingest(deps.db, accounts, { now: now(), provider, since, judgePending });
         stage("done");
         return result;
       } catch (e) {
@@ -52,3 +53,11 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
   };
 }
 
+/**
+ * Whether the download's pending rows can be judged complete. When Cal's
+ * pending request fails the library just returns no pending rows
+ * (visa-cal.js L366-372), which would turn every stored Cal pending row gone.
+ */
+function trustsPending(provider: ProviderId, accounts: ScrapedAccount[]): boolean {
+  return provider !== "visaCal" || accounts.some((a) => a.transactions.some((t) => t.status === "pending"));
+}

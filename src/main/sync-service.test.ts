@@ -104,6 +104,31 @@ describe("sync service", () => {
     expect(saved).toEqual([expect.objectContaining({ provider: "visaCal", since: SINCE })]);
   });
 
+  it.each<[ProviderId, string, ScrapedTransaction[][], boolean]>([
+    ["visaCal", "no pending row on any card", [[row("קפה")], [row("מאפייה")]], false],
+    ["visaCal", "a pending row on one card", [[row("קפה")], [row("מאפייה", "pending")]], true],
+    ["discount", "no pending row", [[row("קפה")]], true],
+    ["discount", "no rows at all", [[]], true],
+  ])("judgePending for %s with %s is %s", async (provider, _label, rows, judged) => {
+    const { saved, service } = setup(async () => ({ accounts: accounts(provider, ...rows), since: SINCE }));
+    await service.start(provider);
+    expect(saved[0]?.judgePending).toBe(judged);
+  });
+
+  it("a Cal download whose pending rows are missing turns no stored pending row gone", async () => {
+    let next: SyncDownload = { accounts: accounts("visaCal", [row("מסעדה", "pending")]), since: SINCE };
+    const { db, service } = setup(async () => next);
+    await service.start("visaCal");
+
+    next = { accounts: accounts("visaCal", [row("קפה")]), since: SINCE };
+    await service.start("visaCal");
+    expect(listTransactions(db).find((t) => t.description === "מסעדה")?.status).toBe("pending");
+
+    next = { accounts: accounts("visaCal", [row("קפה"), row("חניה", "pending")]), since: SINCE };
+    await service.start("visaCal");
+    expect(listTransactions(db).find((t) => t.description === "מסעדה")?.status).toBe("gone");
+  });
+
   it("rejects an unknown provider", async () => {
     const { service } = setup(async () => download);
     await expect(service.start("leumi" as ProviderId)).rejects.toMatchObject({ code: "BAD_REQUEST" });
