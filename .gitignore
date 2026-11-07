@@ -16,3 +16,4 @@ fixtures/raw/
 .claude/worktrees/
 .claude/settings.local.json
 *.tsbuildinfo
+.claude/screenshots/
