@@ -15,10 +15,15 @@ export function dedupHash(
     `${provider}/${accountNumber}`,
     t.date,
     String(t.amount),
-    t.description.replace(/\s+/g, " ").trim(),
+    normalizeDescription(t.description),
     t.installment ? `${t.installment.number}/${t.installment.total}` : "",
   ];
   return createHash("sha256").update(parts.join("|")).digest("hex");
+}
+
+/** Bank text with runs of whitespace collapsed, for comparing descriptions. */
+export function normalizeDescription(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 /** Gives the n-th copy of a hash within one download the sequence n. */

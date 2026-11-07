@@ -4,6 +4,7 @@
 import { CodedError } from "@shared/errors";
 import type { Db } from "@core/db";
 import {
+  deleteGoneRows,
   listAccounts,
   listCategories,
   listTransactions,
@@ -40,7 +41,7 @@ export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps)
     "transactions:list": (filter) => listTransactions(db, filter ?? {}),
     "transactions:update": ({ ids, patch }) => updateTransactions(db, ids, patch),
     "transactions:setInternal": ({ ids, internal }) => ({ updated: setInternalByUser(db, ids, internal) }),
-    "transactions:deleteGone": notYet,
+    "transactions:deleteGone": ({ ids }) => ({ deleted: deleteGoneRows(db, ids) }),
     "summary:month": ({ month }) => monthSummary(db, month),
     "summary:trend": ({ months }) => trend(db, months),
     "sync:start": ({ provider }) => sync.start(provider),
