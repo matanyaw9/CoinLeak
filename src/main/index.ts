@@ -28,7 +28,10 @@ hardenAllWebContents(devServerUrl);
 let db: Db | undefined;
 let mainWindow: BrowserWindow | undefined;
 
-if (!app.requestSingleInstanceLock()) {
+// Dev screenshot runs skip the single-instance lock: it needs a local socket,
+// which sandboxed tooling cannot open. Packaged builds always take the lock.
+const screenshotRun = dev && Boolean(process.env["COINLEAK_SCREENSHOT"]);
+if (!screenshotRun && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("second-instance", () => {

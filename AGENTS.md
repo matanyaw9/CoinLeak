@@ -37,8 +37,26 @@ npm run check     # typecheck, lint, tests, build
 ```
 
 All green, plus every acceptance test in your spec. For UI work, also take
-a screenshot (`COINLEAK_SCREENSHOT=/path/shot.png npm run preview`) and
-look at it.
+screenshots and look at them (see "Working in the sandbox").
+
+## Working in the sandbox
+
+Commands run inside Claude Code's sandbox. To never wait on a permission
+prompt:
+
+- **Dependencies:** in a fresh worktree, do not run `npm ci`. Link the main
+  checkout's packages instead:
+  `ln -s /home/matanya/Projects/CoinLeak/node_modules node_modules`.
+  Only if your spec allows a new dependency, install it in your worktree
+  and say so in your report.
+- **Screenshots:** build once, then shoot headless (no display, no socket):
+  `VITE_DEMO=1 npx electron-vite build` then
+  `COINLEAK_SCREENSHOT=$PWD/.claude/shots/x.png COINLEAK_START_ROUTE=/transactions COINLEAK_THEME=light COINLEAK_SCREENSHOT_DELAY=2500 npm run shot`.
+  Save under your worktree's `.claude/shots/` (inside the project, so the
+  image can be read); the lead copies the final ones. `--no-sandbox` in
+  `npm run shot` is for these demo screenshots only.
+- **Temp files:** use `$TMPDIR`, not `/tmp`.
+- **No `git push`** and no real bank sync: the lead and the owner do those.
 
 ## Scope discipline
 
