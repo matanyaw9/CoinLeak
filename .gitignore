@@ -11,3 +11,7 @@ data/
 *.db-shm
 fixtures/raw/
 .env*
+
+# Agent worktrees and local Claude Code state
+.claude/worktrees/
+.claude/settings.local.json
