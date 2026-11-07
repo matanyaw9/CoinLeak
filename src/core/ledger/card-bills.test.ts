@@ -1,0 +1,318 @@
+import { describe, expect, it } from "vitest";
+import type { Db } from "../db";
+import {
+  NOW,
+  accountId,
+  bank,
+  card,
+  categoryId,
+  charge,
+  idOf,
+  idsOf,
+  newDb,
+  snapshot,
+  stored,
+  txn,
+} from "../testing/ledger";
+import { recomputeCardBills, setCardMode, setInternalByUser } from "./card-bills";
+import { ingest } from "./ingest";
+import { listTransactions, monthSummary, updateTransactions } from "./queries";
+
+const line = (date: string, amount: number, description: string) => txn({ date, amount, description });
+const BILL_4321 = "חיוב לכרטיס ויזה 4321";
+const BILL_8765 = "חיוב לכרטיס ויזה 8765";
+
+// A credit card cycle billed on 2026-03-10: three purchases, one bank line.
+const cycle = () => [
+  charge("2026-02-11", -10000, "סופר הדר", "2026-03-10"),
+  charge("2026-02-20", -2550, "קפה הפינה", "2026-03-10"),
+  charge("2026-03-01", -7450, "חנות ספרים", "2026-03-10"),
+];
+
+function row(db: Db, id: number) {
+  const found = listTransactions(db).find((t) => t.id === id);
+  if (!found) throw new Error(`row ${id} not listed`);
+  return found;
+}
+
+function debitCard(db: Db, last4: string): void {
+  ingest(db, [card(last4, [])], { now: NOW });
+  setCardMode(db, accountId(db, "visaCal", last4), "debit");
+}
+
+describe("credit style", () => {
+  it("matches one bank line to the sum of the card's rows with that processed date", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321)])], { now: NOW });
+
+    const bill = idOf(db, BILL_4321);
+    expect(row(db, bill)).toMatchObject({ flow: "internal", flags: [] });
+    expect(stored(db, bill)).toMatchObject({
+      internal: 1,
+      possible_card_bill: 0,
+      card_bill_account_id: accountId(db, "visaCal", "4321"),
+      card_bill_style: "credit",
+      card_bill_date: "2026-03-10",
+      card_bill_txn_id: null,
+    });
+    for (const id of [...idsOf(db, "סופר הדר"), ...idsOf(db, "קפה הפינה"), ...idsOf(db, "חנות ספרים")]) {
+      expect(row(db, id).flow).toBe("spending");
+    }
+  });
+
+  it("counts the money once: the card rows, not the bill", () => {
+    const db = newDb();
+    const rows = [
+      charge("2026-03-02", -10000, "סופר הדר", "2026-03-10"),
+      charge("2026-03-03", -5000, "קפה הפינה", "2026-03-10"),
+    ];
+    ingest(db, [card("4321", rows)], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -15000, BILL_4321)])], { now: NOW });
+    expect(monthSummary(db, "2026-03").spending).toBe(15000);
+  });
+
+  it("matches a numberless Cal line by amount and date", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-11", -20000, "כ.א.ל חיוב")])], { now: NOW });
+    expect(row(db, idOf(db, "כ.א.ל חיוב")).flow).toBe("internal");
+  });
+
+  it("does not match a numberless line that names another card company", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -20000, "ישראכרט")])], { now: NOW });
+    expect(row(db, idOf(db, "ישראכרט"))).toMatchObject({ flow: "spending", flags: expect.arrayContaining(["possible_card_bill"]) });
+  });
+
+  it("prefers the line that names the card over a numberless one", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-09", -20000, "תשלום אשראי"), line("2026-03-12", -20000, BILL_4321)])], {
+      now: NOW,
+    });
+    expect(row(db, idOf(db, BILL_4321)).flow).toBe("internal");
+    expect(row(db, idOf(db, "תשלום אשראי"))).toMatchObject({ flow: "spending", flags: expect.arrayContaining(["possible_card_bill"]) });
+  });
+});
+
+describe("debit style", () => {
+  it("matches each bank line 1:1 to one card purchase", () => {
+    const db = newDb();
+    debitCard(db, "8765");
+    ingest(
+      db,
+      [
+        card("8765", [
+          charge("2026-03-03", -4500, "מאפייה", "2026-03-04"),
+          charge("2026-03-03", -12000, "תחנת דלק", "2026-03-05"),
+        ]),
+      ],
+      { now: NOW },
+    );
+    ingest(db, [bank([line("2026-03-05", -4500, BILL_8765), line("2026-03-06", -12000, BILL_8765)])], { now: NOW });
+
+    const [small, big] = idsOf(db, BILL_8765) as [number, number];
+    expect(stored(db, small)).toMatchObject({
+      internal: 1,
+      card_bill_style: "debit",
+      card_bill_txn_id: idOf(db, "מאפייה"),
+      card_bill_date: null,
+    });
+    expect(stored(db, big)).toMatchObject({ internal: 1, card_bill_txn_id: idOf(db, "תחנת דלק") });
+  });
+
+  it("pairs two identical purchases with two identical bank lines, one each", () => {
+    const db = newDb();
+    debitCard(db, "8765");
+    const coffee = charge("2026-03-03", -1800, "קפה השכונה", "2026-03-04");
+    ingest(db, [card("8765", [coffee, coffee])], { now: NOW });
+    ingest(db, [bank([line("2026-03-04", -1800, BILL_8765), line("2026-03-04", -1800, BILL_8765)])], { now: NOW });
+    const paid = idsOf(db, BILL_8765).map((id) => stored(db, id).card_bill_txn_id);
+    expect(new Set(paid)).toEqual(new Set(idsOf(db, "קפה השכונה")));
+  });
+
+  it("falls back to the purchase date while a debit purchase is still pending", () => {
+    const db = newDb();
+    debitCard(db, "8765");
+    ingest(db, [card("8765", [txn({ date: "2026-03-20", amount: -3000, description: "מכולת", status: "pending" })])], {
+      now: NOW,
+    });
+    ingest(db, [bank([line("2026-03-21", -3000, "חיוב זמני למפתח מזומן")])], { now: NOW });
+    expect(row(db, idOf(db, "חיוב זמני למפתח מזומן")).flow).toBe("internal");
+  });
+
+  it("a credit card still matches single purchases 1:1 when no cycle fits", () => {
+    const db = newDb();
+    const coffee = charge("2026-03-03", -1800, "קפה השכונה", "2026-03-04");
+    ingest(db, [card("4321", [coffee, coffee])], { now: NOW });
+    ingest(db, [bank([line("2026-03-04", -1800, BILL_4321), line("2026-03-04", -1800, BILL_4321)])], { now: NOW });
+    expect(idsOf(db, BILL_4321).map((id) => row(db, id).flow)).toEqual(["internal", "internal"]);
+  });
+});
+
+describe("untracked and unmatched card bills", () => {
+  it("an untracked card bill stays spending and is flagged", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -30000, "חיוב לכרטיס ויזה 5555")])], { now: NOW });
+    const id = idOf(db, "חיוב לכרטיס ויזה 5555");
+    expect(row(db, id)).toMatchObject({ flow: "spending", flags: ["uncategorized", "possible_card_bill"] });
+    expect(monthSummary(db, "2026-03").spending).toBe(30000 + 7450);
+  });
+
+  it("with no cards tracked at all, every card bill is flagged spending", () => {
+    const db = newDb();
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321), line("2026-03-11", -500, "כ.א.ל חיוב")])], { now: NOW });
+    for (const t of listTransactions(db)) expect(t).toMatchObject({ flow: "spending", flags: expect.arrayContaining(["possible_card_bill"]) });
+  });
+
+  it("amounts off by one agora do not match", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    debitCard(db, "8765");
+    ingest(db, [card("8765", [charge("2026-03-03", -4500, "מאפייה", "2026-03-04")])], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -20001, BILL_4321), line("2026-03-04", -4499, BILL_8765)])], { now: NOW });
+    for (const description of [BILL_4321, BILL_8765]) {
+      expect(row(db, idOf(db, description))).toMatchObject({ flow: "spending", flags: expect.arrayContaining(["possible_card_bill"]) });
+    }
+  });
+
+  it("matches within 3 days of the processed date, not 4", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-14", -20000, BILL_4321)])], { now: NOW });
+    expect(row(db, idOf(db, BILL_4321)).flow).toBe("spending");
+    ingest(db, [bank([line("2026-03-13", -20000, BILL_4321)])], { now: NOW });
+    expect(idsOf(db, BILL_4321).map((id) => row(db, id).flow)).toEqual(["spending", "internal"]);
+  });
+
+  it("ordinary bank lines are never matched or flagged, even with a fitting amount", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -20000, "העברה למיכאל")])], { now: NOW });
+    expect(row(db, idOf(db, "העברה למיכאל"))).toMatchObject({ flow: "spending", flags: ["uncategorized"] });
+  });
+
+  it("a card synced later turns its flagged bills internal", () => {
+    const db = newDb();
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321)])], { now: NOW });
+    expect(row(db, idOf(db, BILL_4321)).flags).toContain("possible_card_bill");
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    expect(row(db, idOf(db, BILL_4321))).toMatchObject({ flow: "internal", flags: [] });
+  });
+});
+
+describe("rerun and user decisions", () => {
+  function mixedLedger(): Db {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    debitCard(db, "8765");
+    ingest(db, [card("8765", [charge("2026-03-03", -4500, "מאפייה", "2026-03-04")])], { now: NOW });
+    ingest(
+      db,
+      [
+        bank([
+          line("2026-03-10", -20000, BILL_4321),
+          line("2026-03-04", -4500, BILL_8765),
+          line("2026-03-15", -9900, "חיוב לכרטיס ויזה 5555"),
+          line("2026-03-16", -100, "משכורת"),
+        ]),
+      ],
+      { now: NOW },
+    );
+    return db;
+  }
+
+  it("rerun is idempotent", () => {
+    const db = mixedLedger();
+    const before = snapshot(db);
+    expect(recomputeCardBills(db)).toEqual({ matched: 2, flagged: 1, changed: 0 });
+    expect(recomputeCardBills(db).changed).toBe(0);
+    expect(snapshot(db)).toEqual(before);
+  });
+
+  it("re-ingesting the same downloads changes nothing", () => {
+    const db = mixedLedger();
+    const before = snapshot(db);
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321)])], { now: NOW });
+    expect(snapshot(db)).toEqual(before);
+  });
+
+  it("never changes a bank line the user excluded", () => {
+    const db = newDb();
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321)])], { now: NOW });
+    const id = idOf(db, BILL_4321);
+    updateTransactions(db, [id], { excluded: true });
+    const before = stored(db, id);
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    recomputeCardBills(db);
+    expect(stored(db, id)).toEqual(before);
+    expect(row(db, id)).toMatchObject({ flow: "excluded", flags: [] });
+  });
+
+  it("an excluded bank line keeps the card rows it already matched", () => {
+    const db = mixedLedger();
+    const id = idOf(db, BILL_4321);
+    updateTransactions(db, [id], { excluded: true });
+    ingest(db, [bank([line("2026-03-11", -20000, "כ.א.ל חיוב")])], { now: NOW });
+    expect(stored(db, id)).toMatchObject({ internal: 1, card_bill_style: "credit" });
+    expect(row(db, idOf(db, "כ.א.ל חיוב")).flags).toContain("possible_card_bill");
+  });
+
+  it("never changes a line the user re-flowed by hand, and can hand it back", () => {
+    const db = mixedLedger();
+    const id = idOf(db, BILL_4321);
+    setInternalByUser(db, [id], false);
+    expect(row(db, id)).toMatchObject({ flow: "spending", flags: ["uncategorized"] });
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    recomputeCardBills(db);
+    expect(stored(db, id)).toMatchObject({ internal: 0, internal_by_user: 1, possible_card_bill: 0 });
+
+    const untracked = idOf(db, "חיוב לכרטיס ויזה 5555");
+    setInternalByUser(db, [untracked], true);
+    recomputeCardBills(db);
+    expect(row(db, untracked)).toMatchObject({ flow: "internal", flags: [] });
+
+    setInternalByUser(db, [id, untracked], null);
+    expect(row(db, id).flow).toBe("internal");
+    expect(row(db, untracked)).toMatchObject({ flow: "spending", flags: expect.arrayContaining(["possible_card_bill"]) });
+  });
+
+  it("a line the user took out frees its card rows for another line", () => {
+    const db = mixedLedger();
+    ingest(db, [bank([line("2026-03-11", -20000, "כ.א.ל חיוב")])], { now: NOW });
+    expect(row(db, idOf(db, "כ.א.ל חיוב")).flow).toBe("spending");
+    setInternalByUser(db, [idOf(db, BILL_4321)], false);
+    expect(row(db, idOf(db, "כ.א.ל חיוב")).flow).toBe("internal");
+  });
+
+  it("a flagged bill the user categorized by hand leaves the review list but still counts", () => {
+    const db = mixedLedger();
+    const id = idOf(db, "חיוב לכרטיס ויזה 5555");
+    updateTransactions(db, [id], { categoryId: categoryId(db, "Bills & Utilities") });
+    expect(row(db, id)).toMatchObject({ flow: "spending", flags: [] });
+  });
+
+  it("switching the card mode rematches its bills", () => {
+    const db = newDb();
+    const coffee = charge("2026-03-03", -1800, "קפה השכונה", "2026-03-04");
+    const bagel = charge("2026-03-03", -1200, "מאפייה", "2026-03-04");
+    ingest(db, [card("8765", [coffee, bagel])], { now: NOW });
+    ingest(db, [bank([line("2026-03-04", -3000, BILL_8765), line("2026-03-04", -1800, BILL_8765)])], { now: NOW });
+    // credit first: the 3000 line takes the whole cycle, the 1800 line finds nothing left
+    expect(idsOf(db, BILL_8765).map((id) => row(db, id).flow)).toEqual(["internal", "spending"]);
+    setCardMode(db, accountId(db, "visaCal", "8765"), "debit");
+    // debit first: the 1800 line takes the coffee, the 3000 line no longer fits
+    expect(idsOf(db, BILL_8765).map((id) => row(db, id).flow)).toEqual(["spending", "internal"]);
+  });
+
+  it("rejects a card mode for a bank account or an unknown mode", () => {
+    const db = mixedLedger();
+    const bankId = (db.prepare("SELECT id FROM accounts WHERE kind = 'bank'").get() as { id: number }).id;
+    expect(() => setCardMode(db, bankId, "debit")).toThrow("BAD_REQUEST");
+    expect(() => setCardMode(db, accountId(db, "visaCal", "4321"), "weekly" as never)).toThrow("BAD_REQUEST");
+  });
+});
