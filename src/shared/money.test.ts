@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toAgorot } from "./money";
+import { formatIls, toAgorot } from "./money";
 
 describe("toAgorot", () => {
   it("rounds float shekels to integer agorot", () => {
@@ -11,5 +11,13 @@ describe("toAgorot", () => {
   it("rejects non-finite input", () => {
     expect(() => toAgorot(Number.NaN)).toThrow();
     expect(() => toAgorot(Number.POSITIVE_INFINITY)).toThrow();
+  });
+});
+
+describe("formatIls", () => {
+  it("puts the shekel sign first, like Spent", () => {
+    expect(formatIls(935350)).toBe("₪9,353.50");
+    expect(formatIls(-935350, { decimals: false })).toBe("-₪9,354");
+    expect(formatIls(123400, { sign: true })).toBe("+₪1,234.00");
   });
 });
