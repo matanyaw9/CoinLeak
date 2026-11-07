@@ -9,6 +9,9 @@ import type {
   IsoMonth,
   MonthSummary,
   ProviderId,
+  Rule,
+  RuleInput,
+  RulePreview,
   SyncProgress,
   SyncResult,
   TransactionFilter,
@@ -33,6 +36,17 @@ export interface IpcContract {
   "summary:trend": { args: { months: number }; result: TrendPoint[] };
   "sync:start": { args: { provider: ProviderId }; result: SyncResult };
   "sync:cancel": { args: undefined; result: null };
+  /** Rules in evaluation order. Every change below reapplies all rules to all rows. */
+  "rules:list": { args: undefined; result: Rule[] };
+  "rules:create": { args: RuleInput; result: Rule };
+  "rules:update": { args: { id: number; rule: RuleInput }; result: Rule };
+  "rules:delete": { args: { id: number }; result: null };
+  /** `ids` is every rule id in the new order. */
+  "rules:reorder": { args: { ids: number[] }; result: null };
+  /** Checks the conditions against today's rows without saving anything. */
+  "rules:preview": { args: RuleInput; result: RulePreview };
+  /** A draft rule from the rows the user selected. */
+  "rules:suggest": { args: { ids: number[] }; result: RuleInput };
 }
 
 export interface IpcEvents {
@@ -57,6 +71,13 @@ export const CHANNELS = [
   "summary:trend",
   "sync:start",
   "sync:cancel",
+  "rules:list",
+  "rules:create",
+  "rules:update",
+  "rules:delete",
+  "rules:reorder",
+  "rules:preview",
+  "rules:suggest",
 ] as const satisfies readonly Channel[];
 
 export const EVENTS = ["sync:progress"] as const satisfies readonly EventName[];
