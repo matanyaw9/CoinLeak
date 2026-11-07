@@ -37,7 +37,7 @@ async function main(): Promise<number> {
   let report: SyncReport = { blockedHosts: {} };
   const started = Date.now();
   try {
-    const accounts = await runSync(provider, {
+    const { accounts } = await runSync(provider, {
       signal: controller.signal,
       onProgress: (stage) => {
         const text = STAGE_TEXT[stage];

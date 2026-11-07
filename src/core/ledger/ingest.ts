@@ -30,6 +30,9 @@ export interface IngestOptions {
   /** First day the sync asked the bank for. Without it, each account's
    *  earliest downloaded day. Only pending rows from then on can be gone. */
   since?: IsoDate;
+  /** False when the download's pending rows cannot be trusted to be complete
+   *  (spec 06): rows still settle with drift, but nothing new becomes gone. */
+  judgePending?: boolean;
 }
 
 /** One downloaded row with its dedup key. */
@@ -49,6 +52,7 @@ export function ingest(db: Db, accounts: ScrapedAccount[], opts: IngestOptions):
   if (!provider || !Object.hasOwn(PROVIDER_KIND, provider)) throw new CodedError("BAD_REQUEST");
   for (const a of accounts) assertAccount(a, provider);
   if (opts.since !== undefined && !isIsoDate(opts.since)) throw new CodedError("BAD_REQUEST");
+  if (opts.judgePending !== undefined && typeof opts.judgePending !== "boolean") throw new CodedError("BAD_REQUEST");
   const now = opts.now.toISOString();
 
   return transaction(db, () => {
@@ -70,7 +74,7 @@ export function ingest(db: Db, accounts: ScrapedAccount[], opts: IngestOptions):
 
     const counts: Counts = { newRows: 0, updatedRows: 0 };
     for (const [accountId, { rows }] of downloads) {
-      const windowStart = opts.since ?? earliestDate(rows);
+      const windowStart = opts.judgePending === false ? null : (opts.since ?? earliestDate(rows));
       saveAccount(db, { accountId, runId, now, windowStart }, rows, counts);
     }
 
@@ -96,6 +100,8 @@ interface StoredPending {
   id: number;
   date: IsoDate;
   amount: number;
+  original_amount: number | null;
+  original_currency: string | null;
   description: string;
   installment_number: number | null;
   installment_total: number | null;
@@ -142,8 +148,9 @@ function saveAccount(db: Db, ctx: SaveContext, rows: Incoming[], counts: Counts)
 
   const stored = db
     .prepare(
-      `SELECT id, date, amount, description, installment_number, installment_total, gone_at FROM transactions
-       WHERE account_id = ? AND status = 'pending' ORDER BY id`,
+      `SELECT id, date, amount, original_amount, original_currency, description, installment_number,
+         installment_total, gone_at
+       FROM transactions WHERE account_id = ? AND status = 'pending' ORDER BY id`,
     )
     .all(accountId) as unknown as StoredPending[];
   const open = stored.filter((r) => !matched.has(r.id)).map(toOpenRow);
@@ -204,6 +211,8 @@ function toOpenRow(r: StoredPending): OpenRow {
     id: r.id,
     date: r.date,
     amount: r.amount,
+    originalAmount: r.original_amount,
+    originalCurrency: r.original_currency,
     description: r.description,
     installment:
       r.installment_number !== null && r.installment_total !== null
