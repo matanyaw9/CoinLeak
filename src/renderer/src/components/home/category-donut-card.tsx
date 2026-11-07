@@ -1,5 +1,5 @@
-// Spending by top-level category as a donut with a clickable legend.
-// Clicking a slice or a row opens the matching transactions.
+// Spending by top-level category as a donut with a clickable legend, from
+// core's per-parent totals. Clicking a slice or a row opens the transactions.
 
 import { useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
@@ -7,7 +7,7 @@ import { Ellipsis, Tag } from "lucide-react";
 import type { MonthSummary } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { groupByRoot, topSlices, type CategoryIndex, type Slice } from "@/lib/categories";
+import { parentSlices, topSlices, type CategoryIndex, type Slice } from "@/lib/categories";
 import { percent } from "@/lib/format";
 import { Card, CardHeader } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
@@ -24,7 +24,7 @@ export function CategoryDonutCard({
   onOpen: (slice: Slice) => void;
 }) {
   const [hover, setHover] = useState<string | null>(null);
-  const slices = topSlices(groupByRoot(index, summary.byCategory), 7);
+  const slices = topSlices(parentSlices(index, summary.byParent), 7);
   const total = summary.spending;
 
   return (
