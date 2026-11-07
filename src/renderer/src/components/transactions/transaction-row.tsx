@@ -103,7 +103,7 @@ export function TransactionRow({
         </div>
       </div>
 
-      <div className="w-44 shrink-0">
+      <div className="w-36 shrink-0 xl:w-44">
         {row.flow === "internal" ? (
           <span className="block truncate px-3 text-sm text-muted-foreground">{s.transactions.reason.internalColumn}</span>
         ) : (
@@ -126,11 +126,11 @@ export function TransactionRow({
         )}
       </div>
 
-      <div className="w-32 shrink-0">
+      <div className="hidden w-32 shrink-0 lg:block">
         <AccountChip account={account} />
       </div>
 
-      <div className="flex w-40 shrink-0 flex-col items-end justify-center gap-1">
+      <div className="flex w-28 shrink-0 flex-col items-end justify-center gap-1 xl:w-36">
         <Money
           amount={moneyIn ? row.amount : -row.amount}
           sign={moneyIn}

@@ -2,7 +2,7 @@
 // the month, clicking a segment opens that month's transactions for it.
 
 import { useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarShapeProps } from "recharts";
 import type { IsoMonth, TrendPoint } from "@shared/types";
 import { s } from "@/strings";
 import { groupByRoot, OTHER_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { Money } from "@/components/common/money";
 import { chartAnimation, ChartTooltip } from "@/components/charts/chart-tooltip";
 
-type Row = { month: IsoMonth; label: string; total: number } & Record<string, number | string>;
+type Row = { month: IsoMonth; label: string; total: number; top?: string } & Record<string, number | string | undefined>;
 
 const MAX_SERIES = 6;
 
@@ -43,6 +43,8 @@ export function TrendCard({
       const k = kept.has(x.key) ? x.key : "other";
       row[k] = ((row[k] as number | undefined) ?? 0) + x.amount;
     }
+    // Only the highest visible segment of each bar gets rounded corners.
+    row.top = allSeries.findLast((x) => Number(row[x.key] ?? 0) > 0)?.key;
     return row;
   });
 
@@ -108,13 +110,15 @@ export function TrendCard({
                     return <ChartTooltip title={formatMonth(row.month)} rows={rows} hint={s.home.trendHint} />;
                   }}
                 />
-                {allSeries.map((x, i) => (
+                {allSeries.map((x) => (
                   <Bar
                     key={x.key}
                     dataKey={x.key}
                     stackId="spend"
                     fill={x.color}
-                    radius={i === allSeries.length - 1 ? [6, 6, 0, 0] : 0}
+                    shape={(props: BarShapeProps) => (
+                      <Rectangle {...props} radius={(props.payload as Row | undefined)?.top === x.key ? [6, 6, 0, 0] : 0} />
+                    )}
                     {...chartAnimation()}
                     className="cursor-pointer"
                     onClick={(entry: { payload?: Row }) => entry.payload && onOpen(x, entry.payload.month)}
