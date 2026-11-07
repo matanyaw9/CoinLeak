@@ -85,9 +85,59 @@ describe("normalizeAccounts", () => {
     expect(row).toMatchObject({ amount: -7437, originalAmount: -1999, originalCurrency: "USD" });
   });
 
+  describe("a foreign row still pending", () => {
+    const pendingTxn = (overrides: Partial<Transaction>) =>
+      txn({ status: "pending" as Transaction["status"], identifier: undefined, ...overrides });
+
+    it("a pending USD row becomes amount 0 with original amount and currency (Cal's shape)", () => {
+      // visa-cal.js L183-184: both fields hold the purchase-currency amount.
+      const row = one(pendingTxn({ chargedAmount: -50, originalAmount: -50, originalCurrency: "USD" }), "visaCal");
+      expect(row).toMatchObject({ status: "pending", amount: 0, originalAmount: -5000, originalCurrency: "USD" });
+    });
+
+    it("ignores a shekel estimate or a missing charged amount", () => {
+      const estimate = one(pendingTxn({ chargedAmount: -185.5, originalAmount: -50, originalCurrency: "$" }));
+      expect(estimate).toMatchObject({ amount: 0, originalAmount: -5000, originalCurrency: "USD" });
+      const noCharge = { chargedAmount: undefined as unknown as number };
+      const missing = one(pendingTxn({ ...noCharge, originalAmount: -12.4, originalCurrency: "€" }));
+      expect(missing).toMatchObject({ amount: 0, originalAmount: -1240, originalCurrency: "EUR" });
+    });
+
+    it("keeps the sign of the original amount, so a pending refund stays money in", () => {
+      // Cal makes chargedAmount negative even for a credit; originalAmount carries the sign.
+      const row = one(pendingTxn({ chargedAmount: -20, originalAmount: 20, originalCurrency: "USD" }), "visaCal");
+      expect(row).toMatchObject({ amount: 0, originalAmount: 2000, originalCurrency: "USD" });
+    });
+
+    it("a completed USD row keeps its charged ILS amount", () => {
+      const row = one(txn({ chargedAmount: -185.5, originalAmount: -50, originalCurrency: "USD" }), "visaCal");
+      expect(row).toMatchObject({ status: "completed", amount: -18550, originalAmount: -5000, originalCurrency: "USD" });
+    });
+
+    it("a pending ILS row is unchanged", () => {
+      for (const originalCurrency of ["ILS", "₪", 'ש"ח', ""]) {
+        expect(one(pendingTxn({ chargedAmount: -42.9, originalAmount: -42.9, originalCurrency }))).toMatchObject({
+          status: "pending",
+          amount: -4290,
+          originalAmount: null,
+          originalCurrency: null,
+        });
+      }
+    });
+
+    it("stops with BANK_CHANGED when the original amount is missing", () => {
+      expect(() =>
+        normalizeAccounts("visaCal", [
+          account([pendingTxn({ originalAmount: Number.NaN, originalCurrency: "USD" })], { accountNumber: "9876" }),
+        ]),
+      ).toThrow(expect.objectContaining({ code: "BANK_CHANGED" }));
+    });
+  });
+
   it("maps currency symbols and spellings of the shekel to ILS", () => {
     expect(one(txn({ originalCurrency: "₪" }))).toMatchObject({ originalAmount: null, originalCurrency: null });
     expect(one(txn({ originalCurrency: " nis " }))).toMatchObject({ originalAmount: null, originalCurrency: null });
+    expect(one(txn({ originalCurrency: 'ש"ח' }))).toMatchObject({ originalAmount: null, originalCurrency: null });
     expect(one(txn({ originalCurrency: "$", originalAmount: -10, chargedAmount: -37 }))).toMatchObject({
       originalCurrency: "USD",
     });

@@ -39,6 +39,7 @@ export type ReviewFlag = "uncategorized" | "possible_card_bill" | "gone";
 export interface ScrapedTransaction {
   date: IsoDate;
   processedDate: IsoDate | null;
+  /** 0 on a pending foreign row means the shekel amount is not known yet; `originalAmount` holds the real one. */
   amount: Agorot;
   originalAmount: Agorot | null;
   originalCurrency: string | null;
@@ -85,6 +86,7 @@ export interface TransactionRow {
   accountId: number;
   date: IsoDate;
   processedDate: IsoDate | null;
+  /** 0 on a pending foreign row means the shekel amount is not known yet; `originalAmount` holds the real one. */
   amount: Agorot;
   originalAmount: Agorot | null;
   originalCurrency: string | null;
