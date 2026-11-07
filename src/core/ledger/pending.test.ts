@@ -209,9 +209,9 @@ describe("settle with drift", () => {
     expect([march.spending, march.income]).toEqual([21100, 200]);
   });
 
-  it("a Cal pending row in the purchase currency becomes gone and its completed row is new", () => {
-    // Cal reports a pending foreign purchase in its own currency (50 USD as -5000)
-    // and the completed row in shekels: too far apart to be the same row.
+  it("a pending row stored in the purchase currency (before spec 06) becomes gone and its completed row is new", () => {
+    // Before spec 06 a Cal pending foreign purchase was saved in its own currency
+    // (50 USD as -5000) and the completed row comes in shekels: too far apart.
     const db = newDb();
     ingest(db, [card("4321", [pending("2026-03-20", -5000, "AMAZON", { originalCurrency: "USD" })])], { now: NOW });
     ingest(db, [card("4321", [completed("2026-03-20", -18500, "AMAZON", { originalAmount: -5000 })])], { now: LATER });
@@ -220,6 +220,75 @@ describe("settle with drift", () => {
       ["gone", -5000],
     ]);
     expect(monthSummary(db, "2026-03").spending).toBe(18500);
+  });
+});
+
+describe("pending foreign purchases (amount 0 until they settle)", () => {
+  const usd = (originalAmount: number) => ({ originalAmount, originalCurrency: "USD" });
+
+  it("a pending $50 settles with drift onto the completed row, keeps its category and counts once", () => {
+    const db = newDb();
+    ingest(db, [card("4321", [pending("2026-03-20", 0, "SYNTH BOOKS", usd(-5000))])], { now: NOW });
+    const id = idOf(db, "SYNTH BOOKS");
+    const hobbies = categoryId(db, "Sports & Hobbies");
+    updateTransactions(db, [id], { categoryId: hobbies, note: "gift" });
+    expect(row(db, id)).toMatchObject({ status: "pending", amount: 0, originalAmount: -5000, originalCurrency: "USD" });
+    expect(monthSummary(db, "2026-03").spending).toBe(0);
+
+    const settled = completed("2026-03-21", -18650, "SYNTH BOOKS", { ...usd(-5040), identifier: "88001" });
+    expect(ingest(db, [card("4321", [settled])], { now: LATER })).toMatchObject({ newRows: 0, updatedRows: 1 });
+
+    expect(idsOf(db, "SYNTH BOOKS")).toEqual([id]);
+    expect(stored(db, id)).toMatchObject({
+      amount: -18650,
+      date: "2026-03-21",
+      original_amount: -5040,
+      original_currency: "USD",
+      status: "completed",
+      identifier: "88001",
+      dedup_hash: dedupHash("visaCal", "4321", settled),
+      category_id: hobbies,
+      category_source: "user",
+      note: "gift",
+      gone_at: null,
+    });
+    const march = monthSummary(db, "2026-03");
+    expect(march.spending).toBe(18650);
+    expect(march.byCategory).toEqual([{ categoryId: hobbies, amount: 18650, count: 1 }]);
+    expect(ingest(db, [card("4321", [settled])], { now: LATEST })).toMatchObject({ newRows: 0, updatedRows: 0 });
+    expect(countRows(db)).toBe(1);
+  });
+
+  it("a pending EUR row never pairs with a USD row", () => {
+    const db = newDb();
+    const eur = { originalAmount: -5000, originalCurrency: "EUR" };
+    ingest(db, [card("4321", [pending("2026-03-20", 0, "SYNTH HOTEL", eur)])], { now: NOW });
+    ingest(db, [card("4321", [completed("2026-03-20", -18500, "SYNTH HOTEL", usd(-5000))])], { now: LATER });
+    expect(listTransactions(db).map((t) => [t.status, t.amount, t.originalCurrency])).toEqual([
+      ["completed", -18500, "USD"],
+      ["gone", 0, "EUR"],
+    ]);
+    expect(monthSummary(db, "2026-03").spending).toBe(18500);
+  });
+
+  it("two pending foreign purchases at one shop pair by their original amounts", () => {
+    const db = newDb();
+    const shop = (originalAmount: number) => pending("2026-03-20", 0, "SYNTH SHOP", usd(originalAmount));
+    ingest(db, [card("4321", [shop(-1000), shop(-4000)])], { now: NOW });
+    const [ten, forty] = idsOf(db, "SYNTH SHOP") as [number, number];
+    ingest(
+      db,
+      [
+        card("4321", [
+          completed("2026-03-21", -14900, "SYNTH SHOP", usd(-4000)),
+          completed("2026-03-21", -3720, "SYNTH SHOP", usd(-1000)),
+        ]),
+      ],
+      { now: LATER },
+    );
+    expect([stored(db, ten).amount, stored(db, forty).amount]).toEqual([-3720, -14900]);
+    expect(countRows(db)).toBe(2);
+    expect(monthSummary(db, "2026-03").spending).toBe(18620);
   });
 });
 
@@ -492,6 +561,8 @@ describe("planPending", () => {
     id,
     date: "2026-03-10",
     amount,
+    originalAmount: null,
+    originalCurrency: null,
     description: "חנות",
     installment: null,
     gone: false,
@@ -500,6 +571,8 @@ describe("planPending", () => {
   const done = (amount: number, extra: Partial<DriftFacts> = {}): DriftFacts => ({
     date: "2026-03-10",
     amount,
+    originalAmount: null,
+    originalCurrency: null,
     description: "חנות",
     installment: null,
     ...extra,
@@ -531,6 +604,30 @@ describe("planPending", () => {
     );
     expect(settles(open(1, -100), done(100))).toBe(false);
     expect(settles(open(1, 100), done(150))).toBe(true);
+  });
+
+  it("compares a pending foreign row (amount 0) by its original amount, in the same currency only", () => {
+    const usd = (originalAmount: number) => ({ originalAmount, originalCurrency: "USD" });
+    const fifty = open(1, 0, usd(-5000));
+    expect(settles(fifty, done(-18650, usd(-5040)))).toBe(true);
+    expect(settles(fifty, done(-18650, usd(-5500)))).toBe(true);
+    expect(settles(fifty, done(-18650, usd(-5501)))).toBe(false);
+    expect(settles(open(1, 0, usd(-2000)), done(-7400, usd(-2000 - DRIFT_FLOOR)))).toBe(true);
+    expect(settles(fifty, done(-18650, { originalAmount: -5040, originalCurrency: "EUR" }))).toBe(false);
+    // A completed row with no original amount is in shekels only: never this row.
+    expect(settles(fifty, done(-5000))).toBe(false);
+    expect(settles(fifty, done(0))).toBe(false);
+  });
+
+  it("takes a pending foreign row's direction from its original amount", () => {
+    const refund = open(1, 0, { originalAmount: 2000, originalCurrency: "USD" });
+    expect(settles(refund, done(7400, { originalAmount: 2000, originalCurrency: "USD" }))).toBe(true);
+    expect(settles(refund, done(-7400, { originalAmount: -2000, originalCurrency: "USD" }))).toBe(false);
+  });
+
+  it("compares a shekel row with an original amount (an installment) by its shekel amount", () => {
+    const plan = { originalAmount: -30000, originalCurrency: "ILS", installment: { number: 1, total: 3 } };
+    expect(settles(open(1, -10000, plan), done(-10100, { ...plan, originalAmount: -90000 }))).toBe(true);
   });
 
   it("pairs closest first: amount change, then days, then id", () => {

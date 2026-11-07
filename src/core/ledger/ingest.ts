@@ -96,6 +96,8 @@ interface StoredPending {
   id: number;
   date: IsoDate;
   amount: number;
+  original_amount: number | null;
+  original_currency: string | null;
   description: string;
   installment_number: number | null;
   installment_total: number | null;
@@ -142,8 +144,9 @@ function saveAccount(db: Db, ctx: SaveContext, rows: Incoming[], counts: Counts)
 
   const stored = db
     .prepare(
-      `SELECT id, date, amount, description, installment_number, installment_total, gone_at FROM transactions
-       WHERE account_id = ? AND status = 'pending' ORDER BY id`,
+      `SELECT id, date, amount, original_amount, original_currency, description, installment_number,
+         installment_total, gone_at
+       FROM transactions WHERE account_id = ? AND status = 'pending' ORDER BY id`,
     )
     .all(accountId) as unknown as StoredPending[];
   const open = stored.filter((r) => !matched.has(r.id)).map(toOpenRow);
@@ -204,6 +207,8 @@ function toOpenRow(r: StoredPending): OpenRow {
     id: r.id,
     date: r.date,
     amount: r.amount,
+    originalAmount: r.original_amount,
+    originalCurrency: r.original_currency,
     description: r.description,
     installment:
       r.installment_number !== null && r.installment_total !== null

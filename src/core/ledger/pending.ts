@@ -1,6 +1,7 @@
 // What happens to a stored pending row that a download does not repeat
-// exactly (spec 04): it settles with drift onto a close completed row, or,
-// when the download covers its date, it becomes gone. Plus the user's delete.
+// exactly (spec 04): it settles with drift onto a close completed row (a
+// foreign one by its original amount, spec 06), or, when the download covers
+// its date, it becomes gone. Plus the user's delete.
 
 import type { Agorot, IsoDate } from "@shared/types";
 import { transaction, type Db } from "../db";
@@ -10,7 +11,7 @@ import { normalizeDescription } from "./dedup";
 import { assertIds } from "./validate";
 
 export const DRIFT_DAYS = 7;
-/** 5 ILS: an amount change this small is always close enough. */
+/** 5 ILS (5 units for a foreign row compared in its own currency): always close enough. */
 export const DRIFT_FLOOR: Agorot = 500;
 /** Otherwise up to a tenth (10%) of the pending amount. */
 const DRIFT_DIVISOR = 10;
@@ -19,6 +20,8 @@ const DRIFT_DIVISOR = 10;
 export interface DriftFacts {
   date: IsoDate;
   amount: Agorot;
+  originalAmount: Agorot | null;
+  originalCurrency: string | null;
   description: string;
   installment: { number: number; total: number } | null;
 }
@@ -47,9 +50,8 @@ export function planPending(open: OpenRow[], completed: DriftFacts[], windowStar
   const pairs: { id: number; index: number; diff: number; days: number }[] = [];
   for (const row of open) {
     completed.forEach((c, index) => {
-      if (isClose(row, c)) {
-        pairs.push({ id: row.id, index, diff: Math.abs(row.amount - c.amount), days: daysApart(row.date, c.date) });
-      }
+      const diff = drift(row, c);
+      if (diff !== null) pairs.push({ id: row.id, index, diff, days: daysApart(row.date, c.date) });
     });
   }
   pairs.sort((a, b) => a.diff - b.diff || a.days - b.days || a.id - b.id || a.index - b.index);
@@ -66,16 +68,34 @@ export function planPending(open: OpenRow[], completed: DriftFacts[], windowStar
   return { settle, gone };
 }
 
-/** Same account is the caller's job. A charge never settles as money in. */
-function isClose(row: DriftFacts, c: DriftFacts): boolean {
-  const diff = Math.abs(row.amount - c.amount);
-  return (
+/**
+ * How much the money changed if `c` can be the settled version of the stored
+ * pending `row`, else null. Same account is the caller's job. A charge never
+ * settles as money in.
+ */
+function drift(row: DriftFacts, c: DriftFacts): number | null {
+  const money = comparable(row, c);
+  if (money === null) return null;
+  const [was, now] = money;
+  const diff = Math.abs(was - now);
+  const close =
     normalizeDescription(row.description) === normalizeDescription(c.description) &&
     installmentKey(row) === installmentKey(c) &&
-    (row.amount > 0) === (c.amount > 0) &&
+    (was > 0) === (now > 0) &&
     daysApart(row.date, c.date) <= DRIFT_DAYS &&
-    (diff <= DRIFT_FLOOR || diff * DRIFT_DIVISOR <= Math.abs(row.amount))
-  );
+    (diff <= DRIFT_FLOOR || diff * DRIFT_DIVISOR <= Math.abs(was));
+  return close ? diff : null;
+}
+
+/**
+ * The two amounts to compare. A pending foreign row has amount 0 until the
+ * bank knows the shekel amount (spec 06), so it compares its original amount
+ * with the completed row's, and only in the same currency.
+ */
+function comparable(row: DriftFacts, c: DriftFacts): [Agorot, Agorot] | null {
+  if (row.amount !== 0 || row.originalAmount === null || row.originalCurrency === null) return [row.amount, c.amount];
+  if (c.originalAmount === null || c.originalCurrency !== row.originalCurrency) return null;
+  return [row.originalAmount, c.originalAmount];
 }
 
 function installmentKey(f: DriftFacts): string {
