@@ -4,6 +4,7 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useLocation, useSearchParams } from "react-router";
 import { DEMO } from "@/lib/api";
+import { useSync } from "@/lib/sync";
 import { AppSidebar } from "./app-sidebar";
 
 export function AppShell() {
@@ -22,6 +23,18 @@ export function AppShell() {
     const id = setTimeout(() => scroller.current?.scrollTo({ top: shotScroll }), 700);
     return () => clearTimeout(id);
   }, [shotScroll]);
+
+  // Demo screenshot aid: `?sync=visaCal` starts a sync with the Sync panel open.
+  const { start, setPanelOpen } = useSync();
+  const shotSync = DEMO ? params.get("sync") : null;
+  useEffect(() => {
+    if (shotSync !== "discount" && shotSync !== "visaCal") return;
+    const id = setTimeout(() => {
+      setPanelOpen(true);
+      start(shotSync);
+    }, 500);
+    return () => clearTimeout(id);
+  }, [shotSync, start, setPanelOpen]);
 
   return (
     <div className="flex h-full">

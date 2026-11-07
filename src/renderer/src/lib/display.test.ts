@@ -3,9 +3,9 @@
 
 import { describe, expect, it } from "vitest";
 import type { Category, TransactionRow } from "@shared/types";
-import { groupByRoot, indexCategories, topSlices } from "./categories";
+import { groupByRoot, indexCategories, parentSlices, topSlices } from "./categories";
 import { groupByDay } from "./day-groups";
-import { ils } from "./format";
+import { awaitingShekels, formatForeign, ils } from "./format";
 
 const cat = (id: number, parentId: number | null): Category => ({
   id, parentId, name: `c${id}`, kind: "expense", emoji: null, color: "#888888", archived: false,
@@ -24,6 +24,17 @@ describe("display helpers", () => {
     expect(topSlices(slices, 2).map((x) => [x.key, x.amount])).toEqual([["1", 500], ["other", 150]]);
   });
 
+  it("draws core's per-parent totals as they are, largest first", () => {
+    const index = indexCategories([cat(1, null), cat(11, 1), cat(2, null)]);
+    const slices = parentSlices(index, [
+      { categoryId: 2, amount: 100 },
+      { categoryId: 1, amount: 500 },
+      { categoryId: null, amount: 50 },
+      { categoryId: 3, amount: -20 },
+    ]);
+    expect(slices.map((x) => [x.key, x.categoryId, x.amount])).toEqual([["1", 1, 500], ["2", 2, 100], ["none", null, 50]]);
+  });
+
   it("groups rows by day with spending after refunds and income apart", () => {
     const row = (id: number, date: string, amount: number, flow: TransactionRow["flow"]) => ({ id, date, amount, flow }) as TransactionRow;
     const days = groupByDay([
@@ -36,6 +47,16 @@ describe("display helpers", () => {
       ["2026-11-07", 700, 0, 3],
       ["2026-11-06", 0, 900000, 1],
     ]);
+  });
+
+  it("shows a pending purchase abroad in its own currency until the bank prices it", () => {
+    const base = { status: "pending", amount: 0, originalAmount: -5000, originalCurrency: "USD" } as TransactionRow;
+    expect(awaitingShekels(base)).toBe(true);
+    expect(awaitingShekels({ ...base, status: "completed" })).toBe(false);
+    expect(awaitingShekels({ ...base, amount: -18600 })).toBe(false);
+    expect(awaitingShekels({ ...base, originalCurrency: "ILS" })).toBe(false);
+    expect(awaitingShekels({ ...base, originalCurrency: null })).toBe(false);
+    expect(formatForeign(-5000, "USD")).toBe("$50.00");
   });
 
   it("formats shekels with formatIls minus the bidi marks", () => {

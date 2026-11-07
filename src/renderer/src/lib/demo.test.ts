@@ -89,6 +89,74 @@ describe("demo ledger", () => {
     expect(updated?.categorySource).toBe("user");
   });
 
+  it("has one gone row that counts nowhere, is in review, and can be deleted", async () => {
+    const demo = createDemo(today);
+    const range = monthRange(current);
+    const gone = await ask(demo, "transactions:list", { ...range, flows: ["gone"] });
+    expect(gone).toHaveLength(1);
+    const [row] = gone;
+    if (!row) throw new Error("no gone row");
+    expect(row.status).toBe("gone");
+    expect(row.flags).toEqual(["gone"]);
+
+    const review = await ask(demo, "transactions:list", { ...range, needsReview: true });
+    expect(review.map((r) => r.id)).toContain(row.id);
+    const counted = await ask(demo, "transactions:list", { ...range, flows: ["spending", "refund", "income"] });
+    expect(counted.map((r) => r.id)).not.toContain(row.id);
+
+    const before = await ask(demo, "summary:month", { month: current });
+    const notGone = counted[0];
+    if (!notGone) throw new Error("no counted row");
+    expect(await ask(demo, "transactions:deleteGone", { ids: [row.id, notGone.id] })).toEqual({ deleted: 1 });
+    const after = await ask(demo, "summary:month", { month: current });
+    expect(after.spending).toBe(before.spending);
+    expect(after.income).toBe(before.income);
+    expect(after.needsReview).toBe(before.needsReview - 1);
+    expect(await ask(demo, "transactions:list", { ...range, flows: ["gone"] })).toEqual([]);
+    expect(await ask(demo, "transactions:list", { search: notGone.description, from: notGone.date, to: notGone.date })).not.toEqual([]);
+  });
+
+  it("has a pending purchase abroad with no shekel amount yet, which adds 0 everywhere", async () => {
+    const demo = createDemo(today);
+    const rows = await ask(demo, "transactions:list", monthRange(current));
+    const abroad = rows.filter((r) => r.status === "pending" && r.amount === 0 && r.originalCurrency === "USD");
+    expect(abroad).toHaveLength(1);
+    expect(abroad[0]?.originalAmount).toBeLessThan(0);
+    expect(abroad[0]?.flags).toEqual([]);
+  });
+
+  it("answers a possible card bill with setInternal, and null hands it back", async () => {
+    const demo = createDemo(today);
+    const range = monthRange(current);
+    const review = await ask(demo, "transactions:list", { ...range, needsReview: true });
+    const bill = review.find((r) => r.flags.includes("possible_card_bill"));
+    if (!bill) throw new Error("no possible card bill");
+    const before = await ask(demo, "summary:month", { month: current });
+    const find = async () => (await ask(demo, "transactions:list", range)).find((r) => r.id === bill.id);
+
+    await ask(demo, "transactions:setInternal", { ids: [bill.id], internal: true });
+    expect(await find()).toMatchObject({ flow: "internal", flags: [] });
+    const internal = await ask(demo, "summary:month", { month: current });
+    expect(internal.spending).toBe(before.spending + bill.amount);
+    expect(internal.needsReview).toBe(before.needsReview - 1);
+
+    await ask(demo, "transactions:setInternal", { ids: [bill.id], internal: false });
+    expect(await find()).toMatchObject({ flow: "spending", flags: ["uncategorized"] });
+
+    await ask(demo, "transactions:setInternal", { ids: [bill.id], internal: null });
+    expect((await find())?.flags).toContain("possible_card_bill");
+    expect(await ask(demo, "summary:month", { month: current })).toEqual(before);
+  });
+
+  it("switches a card's mode and refuses a bank account", async () => {
+    const demo = createDemo(today);
+    expect(await ask(demo, "accounts:setCardMode", { accountId: 2, mode: "debit" })).toBeNull();
+    const accounts = await ask(demo, "accounts:list", undefined);
+    expect(accounts.find((a) => a.id === 2)?.cardMode).toBe("debit");
+    const bank = await demo.invoke("accounts:setCardMode", { accountId: 1, mode: "debit" });
+    expect(bank.ok).toBe(false);
+  });
+
   it("answers bad requests with a fixed error code", async () => {
     const demo = createDemo(today);
     const r = await demo.invoke("transactions:update", { ids: [], patch: {} });

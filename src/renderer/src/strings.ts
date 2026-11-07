@@ -61,6 +61,8 @@ export const s = {
       done: "Done",
       failed: "Stopped",
     } satisfies Record<SyncStage, string>,
+    loginTitle: "Log in to your bank in the window that just opened",
+    loginBody: "Your password goes only to the bank's own page. CoinLeak never sees it.",
     upToDate: (provider: string) => `${provider} is up to date`,
     added: (provider: string, n: number) => `${plural(n, "new transaction", "new transactions")} from ${provider}`,
     updated: (n: number) => plural(n, "row updated", "rows updated"),
@@ -83,6 +85,22 @@ export const s = {
     noDataBody: "Sync your bank and cards on the Accounts page, and your money will show up here.",
     goToAccounts: "Go to Accounts",
     errorTitle: "That did not load",
+  },
+
+  welcome: {
+    eyebrow: "Welcome to CoinLeak",
+    title: "Let's see where your money goes.",
+    body: "CoinLeak brings your bank account and credit cards together in one calm place, right here on this computer. Sync once, and your spending shows up here.",
+    start: "Sync your first account",
+    features: [
+      { title: "Sync in one click", body: "Bring in Discount and Cal whenever you like." },
+      { title: "Every shekel once", body: "Card bills are matched to the card's own purchases." },
+      { title: "Gentle, clear charts", body: "See where it goes, month by month." },
+    ],
+    promiseTitle: "You log in on your bank's own page",
+    promiseBody:
+      "CoinLeak opens your bank's real website in a private window. You type your password there. CoinLeak never sees it and never stores it.",
+    local: "Everything stays in one file on this computer.",
   },
 
   home: {
@@ -135,6 +153,8 @@ export const s = {
     pendingHint: "Not final yet. The amount or date can still change.",
     installment: (n: number, total: number) => `${n} of ${total}`,
     foreign: (amount: string) => `Paid ${amount}`,
+    awaitingShekels: "Shekel amount when it settles",
+    awaitingShekelsHint: "Paid abroad and still pending. The bank sets the amount in shekels when it settles, and it counts from then.",
     chooseCategory: "Choose a category",
     reason: {
       internal: "Card bill",
@@ -151,7 +171,7 @@ export const s = {
     noMatchTitle: "Nothing matches",
     noMatchBody: "Try a different search, or clear the filters.",
     reviewDoneTitle: "All caught up",
-    reviewDoneBody: "Every transaction this month has a category. Nice.",
+    reviewDoneBody: "Nothing this month needs a look. Nice.",
     selected: (n: number) => `${n.toLocaleString("en-IL")} selected`,
     categorize: "Categorize",
     clearSelection: "Clear selection",
@@ -160,6 +180,37 @@ export const s = {
       n === 1 ? `Moved to ${name}` : `Moved ${plural(n, "transaction", "transactions")} to ${name}`,
     uncategorizedDone: (n: number) => (n === 1 ? "Category removed" : `Removed the category from ${n} transactions`),
     count: (n: number) => plural(n, "transaction", "transactions"),
+  },
+
+  review: {
+    cardBillTitle: "Is this a card bill?",
+    cardBillBody: "It counts as spending for now.",
+    tracked: "This pays a card I track",
+    spending: "This is spending",
+    internalTitle: "A card bill, not counted",
+    countIt: "Count it as spending",
+    countItHint: "This line is a real expense, not a card bill.",
+    letDecide: "Let CoinLeak decide",
+    letDecideHint: "Match it to a card you track, automatically.",
+    answered: {
+      tracked: "Marked as a card bill",
+      trackedBody: "Its card's purchases are counted instead.",
+      spending: "Counted as spending",
+      auto: "CoinLeak will decide this one",
+    },
+    undo: "Undo",
+    undone: "Back as it was",
+    goneChip: "No longer reported by the bank",
+    goneHint: "This was a pending charge, and the bank's latest download no longer has it. It is not counted.",
+    goneColumn: "Not counted",
+    goneTitle: "The bank dropped this pending charge.",
+    goneBody: "It is not counted.",
+    delete: "Delete",
+    keep: "Keep",
+    deleted: "Deleted",
+    deletedBody: "It was not counted anywhere.",
+    kept: "Kept",
+    keptBody: "It stays in your list and is still not counted.",
   },
 
   picker: {
@@ -187,7 +238,14 @@ export const s = {
     intro: "Each sync opens your bank's own login page. You type your password there, never in CoinLeak, and the app never sees or stores it.",
     bankAccount: "Bank account",
     card: "Card",
-    cardMode: { credit: "Credit, billed monthly", debit: "Debit, charged right away" },
+    cardModeLabel: "How this card is paid",
+    cardMode: { credit: "Billed monthly", debit: "Charged per purchase" },
+    cardModeHelp: {
+      credit: "Purchases add up to one card bill on your bank statement each month.",
+      debit: "Each purchase leaves your bank account on its own, within a few days.",
+    },
+    cardModeSaved: (card: string, mode: string) => `${card} is now ${mode.toLowerCase()}`,
+    cardModeSavedBody: "Card bills were matched again.",
     noAccounts: "No accounts yet. Sync once and they will appear here.",
     safeTitle: "Safe by design",
     safe: [

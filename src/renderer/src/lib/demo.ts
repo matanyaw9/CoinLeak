@@ -82,7 +82,10 @@ const CARD_ONLINE = 3;
 
 type CardBill = "matched" | "untracked" | null;
 interface DemoRow extends TransactionRow {
+  /** What the matcher found: a tracked card's bill, an untracked one, or nothing. */
   cardBill: CardBill;
+  /** The user's word on card bills (setInternal); null leaves it to the matcher. */
+  userInternal: boolean | null;
 }
 
 // ---- Deterministic randomness ----
@@ -207,33 +210,40 @@ function generate(today: Date): DemoRow[] {
     });
   }
 
-  // This month: a few rows waiting for a human, one excluded, one untracked card bill.
+  // This month: a few rows waiting for a human, one excluded, one untracked
+  // card bill, one pending line the bank stopped reporting (gone), and one
+  // pending purchase abroad whose shekel amount is not known yet (amount 0).
   const cur = (d: number) => (d <= today.getDate() ? `${current}-${String(d).padStart(2, "0")}` : null);
   const firstOr = (d: number) => cur(d) ?? `${current}-01`;
   drafts.push(
     { accountId: BANK, date: firstOr(2), amount: -200000, description: "העברה לחשבון חיסכון", memo: "פיקדון", categoryId: null, excluded: true },
     { accountId: BANK, date: firstOr(4), amount: -128460, description: "מקס איט פיננסים", memo: "חיוב כרטיס", categoryId: null, cardBill: "untracked" },
     { accountId: BANK, date: firstOr(5), amount: -12000, description: "העברה ב-BIT", memo: "דנה", categoryId: null },
+    { accountId: BANK, date: firstOr(3), amount: -35000, description: "חיוב זמני למפתח מזומן", memo: null, categoryId: null, status: "gone" },
     { accountId: CARD_MAIN, date: firstOr(6), amount: -8500, description: "PAYBOX", memo: null, categoryId: null },
     { accountId: CARD_MAIN, date: firstOr(3), amount: -24900, description: "ח.י. שיווק בע״מ", memo: null, categoryId: null },
+    {
+      accountId: CARD_ONLINE, date: toIsoDate(today), amount: 0, description: "ETSY.COM", memo: null, categoryId: 41,
+      status: "pending", original: { amount: -5000, currency: "USD" },
+    },
   );
 
   // Card rows are billed on the 10th of the next month; the last two days are still pending.
   const pendingFrom = toIsoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1));
   const rows: DemoRow[] = drafts.map((d) => {
     const isCard = d.accountId !== BANK;
-    const pending = isCard && d.date >= pendingFrom;
+    const status = d.status ?? (isCard && d.date >= pendingFrom ? "pending" : "completed");
     return {
       id: 0,
       accountId: d.accountId,
       date: d.date,
-      processedDate: isCard ? (pending ? null : `${shiftMonth(d.date.slice(0, 7), 1)}-10`) : d.date,
+      processedDate: status !== "completed" ? null : isCard ? `${shiftMonth(d.date.slice(0, 7), 1)}-10` : d.date,
       amount: d.amount,
       originalAmount: d.original?.amount ?? null,
       originalCurrency: d.original?.currency ?? null,
       description: d.description,
       memo: d.memo ?? null,
-      status: pending ? "pending" : "completed",
+      status,
       installment: d.installment ?? null,
       categoryId: d.categoryId,
       categorySource: d.categoryId == null ? null : "rule",
@@ -242,6 +252,7 @@ function generate(today: Date): DemoRow[] {
       flow: "spending",
       flags: [],
       cardBill: d.cardBill ?? null,
+      userInternal: null,
     };
   });
 
@@ -272,6 +283,7 @@ function generate(today: Date): DemoRow[] {
         flow: "internal",
         flags: [],
         cardBill: "matched",
+        userInternal: null,
       });
     }
   }
@@ -289,14 +301,21 @@ const byId = new Map(CATEGORIES.map((c) => [c.id, c]));
 const COUNTED: Flow[] = ["spending", "refund"];
 
 function derive(r: DemoRow): void {
+  const internal = r.userInternal ?? r.cardBill === "matched";
   let flow: Flow;
-  if (r.excluded) flow = "excluded";
-  else if (r.cardBill === "matched") flow = "internal";
+  if (r.status === "gone") flow = "gone";
+  else if (r.excluded) flow = "excluded";
+  else if (internal) flow = "internal";
   else if (r.amount > 0) flow = r.categoryId != null && byId.get(r.categoryId)?.kind === "expense" ? "refund" : "income";
   else flow = "spending";
+  // Like core: only counted rows need a look, and the user's answer settles a card bill.
+  const counted = flow === "spending" || flow === "income";
   const flags: ReviewFlag[] = [];
-  if (r.categoryId == null && flow !== "internal" && flow !== "excluded") flags.push("uncategorized");
-  if (r.cardBill === "untracked" && flow === "spending") flags.push("possible_card_bill");
+  if (flow === "gone") flags.push("gone");
+  if (counted && r.categoryId == null) flags.push("uncategorized");
+  if (counted && r.cardBill === "untracked" && r.userInternal === null && r.categorySource !== "user") {
+    flags.push("possible_card_bill");
+  }
   r.flow = flow;
   r.flags = flags;
 }
@@ -326,10 +345,13 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
   const fail = (code: ErrorCode): Result<never> => ({ ok: false, error: { code, message: ERROR_MESSAGES[code] } });
   const ok = <T,>(value: T): Result<T> => ({ ok: true, value: structuredClone(value) });
   const publicRow = (r: DemoRow): TransactionRow => {
-    const { cardBill, ...row } = r;
+    const { cardBill, userInternal, ...row } = r;
     void cardBill;
+    void userInternal;
     return row;
   };
+  const validIds = (ids: unknown): ids is number[] =>
+    Array.isArray(ids) && ids.length > 0 && ids.every((id) => Number.isInteger(id) && id > 0);
 
   function rollUp(cats: Map<number | null, { amount: Agorot; count: number }>): MonthSummary["byParent"] {
     const parents = new Map<number | null, { amount: Agorot; count: number }>();
@@ -417,11 +439,45 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
     return ok({ updated });
   }
 
+  function setInternal(ids: unknown, internal: unknown): Result<{ updated: number }> {
+    if (!validIds(ids) || !(internal === null || typeof internal === "boolean")) return fail("BAD_REQUEST");
+    let updated = 0;
+    for (const r of rows) {
+      if (!ids.includes(r.id)) continue;
+      r.userInternal = internal;
+      derive(r);
+      updated++;
+    }
+    return ok({ updated });
+  }
+
+  function deleteGone(ids: unknown): Result<{ deleted: number }> {
+    if (!validIds(ids)) return fail("BAD_REQUEST");
+    let deleted = 0;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const r = rows[i];
+      if (r && r.status === "gone" && ids.includes(r.id)) {
+        rows.splice(i, 1);
+        deleted++;
+      }
+    }
+    return ok({ deleted });
+  }
+
+  // Demo card bills are fixed in advance, so switching mode only records it.
+  function setCardMode(accountId: unknown, mode: unknown): Result<null> {
+    const account = accounts.find((a) => a.id === accountId && a.kind === "card");
+    if (!account || (mode !== "credit" && mode !== "debit")) return fail("BAD_REQUEST");
+    account.cardMode = mode;
+    return ok(null);
+  }
+
   function startSync(provider: ProviderId): Promise<Result<Res<"sync:start">>> {
     if (sync) return Promise.resolve(fail("SYNC_IN_PROGRESS"));
     return new Promise((resolve) => {
       const stages: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading", "saving", "done"];
-      const at = [0, 1, 3, 4, 5];
+      // Logging in takes the longest, as it does at a real bank.
+      const at = [0, 1, 6, 7, 8];
       const timers = stages.map((stage, i) =>
         setTimeout(() => {
           emit("sync:progress", { provider, stage });
@@ -472,10 +528,16 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
         return startSync((args as Args<"sync:start">).provider);
       case "sync:cancel":
         return cancelSync();
-      case "transactions:setInternal":
+      case "transactions:setInternal": {
+        const a = args as Args<"transactions:setInternal">;
+        return setInternal(a?.ids, a?.internal);
+      }
       case "transactions:deleteGone":
-      case "accounts:setCardMode":
-        return fail("NOT_IMPLEMENTED");
+        return deleteGone((args as Args<"transactions:deleteGone">)?.ids);
+      case "accounts:setCardMode": {
+        const a = args as Args<"accounts:setCardMode">;
+        return setCardMode(a?.accountId, a?.mode);
+      }
     }
   }
 

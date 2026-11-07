@@ -1,5 +1,6 @@
 // The top bar Sync button: opens a small panel with one row per provider,
-// and shows the running stage while a sync is in progress.
+// and shows the running stage while a sync is in progress. Whether the panel
+// is open lives in the sync context, so a welcome screen can open it too.
 
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { s } from "@/strings";
@@ -15,7 +16,7 @@ export function SyncButton() {
   const accounts = useAccounts();
   const busy = sync.provider != null;
   return (
-    <Popover>
+    <Popover open={sync.panelOpen} onOpenChange={sync.setPanelOpen}>
       <PopoverTrigger className={cn(buttonVariants(), "h-9 rounded-xl px-4")}>
         {busy ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
         {busy && sync.stage ? s.sync.stageShort[sync.stage] : s.sync.button}
