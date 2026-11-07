@@ -30,6 +30,9 @@ export interface IngestOptions {
   /** First day the sync asked the bank for. Without it, each account's
    *  earliest downloaded day. Only pending rows from then on can be gone. */
   since?: IsoDate;
+  /** False when the download's pending rows cannot be trusted to be complete
+   *  (spec 06): rows still settle with drift, but nothing new becomes gone. */
+  judgePending?: boolean;
 }
 
 /** One downloaded row with its dedup key. */
@@ -49,6 +52,7 @@ export function ingest(db: Db, accounts: ScrapedAccount[], opts: IngestOptions):
   if (!provider || !Object.hasOwn(PROVIDER_KIND, provider)) throw new CodedError("BAD_REQUEST");
   for (const a of accounts) assertAccount(a, provider);
   if (opts.since !== undefined && !isIsoDate(opts.since)) throw new CodedError("BAD_REQUEST");
+  if (opts.judgePending !== undefined && typeof opts.judgePending !== "boolean") throw new CodedError("BAD_REQUEST");
   const now = opts.now.toISOString();
 
   return transaction(db, () => {
@@ -70,7 +74,7 @@ export function ingest(db: Db, accounts: ScrapedAccount[], opts: IngestOptions):
 
     const counts: Counts = { newRows: 0, updatedRows: 0 };
     for (const [accountId, { rows }] of downloads) {
-      const windowStart = opts.since ?? earliestDate(rows);
+      const windowStart = opts.judgePending === false ? null : (opts.since ?? earliestDate(rows));
       saveAccount(db, { accountId, runId, now, windowStart }, rows, counts);
     }
 

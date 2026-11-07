@@ -11,12 +11,13 @@ import {
   idOf,
   idsOf,
   newDb,
+  snapshot,
   stored,
   txn,
 } from "../testing/ledger";
 import { setCardMode } from "./card-bills";
 import { ingest } from "./ingest";
-import { listAccounts, updateTransactions } from "./queries";
+import { listAccounts, listTransactions, monthSummary, updateTransactions } from "./queries";
 
 const day = (d: number, amount: number, description = `קנייה ${d}`) =>
   txn({ date: `2026-03-${String(d).padStart(2, "0")}`, amount, description });
@@ -134,6 +135,54 @@ describe("pending rows", () => {
   });
 });
 
+describe("judgePending: false (a download whose pending rows may be missing)", () => {
+  const later = new Date("2026-04-02T08:00:00Z");
+  const open = (date: string, amount: number, description: string) =>
+    txn({ date, amount, description, status: "pending" });
+  const statusOf = (db: ReturnType<typeof newDb>, description: string) =>
+    listTransactions(db).find((t) => t.description === description)?.status;
+
+  it("marks nothing gone but still settles", () => {
+    const db = newDb();
+    ingest(db, [card("4321", [open("2026-03-20", -5600, "מסעדה בעיר"), open("2026-03-25", -12000, "חנות נעליים")])], {
+      now: NOW,
+    });
+    const restaurant = idOf(db, "מסעדה בעיר");
+    updateTransactions(db, [restaurant], { note: "dinner" });
+
+    const settled = txn({ date: "2026-03-21", amount: -5650, description: "מסעדה בעיר", processedDate: "2026-04-10" });
+    const result = ingest(db, [card("4321", [settled])], { now: later, since: "2026-03-01", judgePending: false });
+
+    expect(result).toMatchObject({ newRows: 0, updatedRows: 1 });
+    expect(stored(db, restaurant)).toMatchObject({ status: "completed", amount: -5650, note: "dinner" });
+    expect(statusOf(db, "חנות נעליים")).toBe("pending");
+    expect(listTransactions(db, { flows: ["gone"] })).toEqual([]);
+    expect(monthSummary(db, "2026-03").spending).toBe(17650);
+  });
+
+  it("changes nothing for an empty download, and true or unset judges as before", () => {
+    const db = newDb();
+    ingest(db, [card("4321", [open("2026-03-25", -12000, "חנות נעליים")])], { now: NOW });
+    const before = snapshot(db);
+    ingest(db, [card("4321", [])], { now: later, since: "2026-03-01", judgePending: false });
+    expect(snapshot(db)).toEqual(before);
+
+    ingest(db, [card("4321", [])], { now: later, since: "2026-03-01", judgePending: true });
+    expect(statusOf(db, "חנות נעליים")).toBe("gone");
+  });
+
+  it("a gone row stays gone, and comes back when the download has it", () => {
+    const db = newDb();
+    const shoes = open("2026-03-25", -12000, "חנות נעליים");
+    ingest(db, [card("4321", [shoes])], { now: NOW });
+    ingest(db, [card("4321", [])], { now: NOW, since: "2026-03-01" });
+    ingest(db, [card("4321", [])], { now: later, since: "2026-03-01", judgePending: false });
+    expect(statusOf(db, "חנות נעליים")).toBe("gone");
+    ingest(db, [card("4321", [shoes])], { now: later, since: "2026-03-01", judgePending: false });
+    expect(statusOf(db, "חנות נעליים")).toBe("pending");
+  });
+});
+
 describe("user fields", () => {
   it("survive a re-sync", () => {
     const db = newDb();
@@ -235,5 +284,6 @@ describe("bad input", () => {
     rejects(() => ingest(db, [bank([]), card("4321", [])], { now: NOW }));
     rejects(() => ingest(db, [], { now: NOW }));
     rejects(() => ingest(db, [], { now: NOW, provider: "toString" as never }));
+    rejects(() => ingest(db, [card("4321", [])], { now: NOW, judgePending: "no" as never }));
   });
 });
