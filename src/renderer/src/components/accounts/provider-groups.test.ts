@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PROVIDERS, providerInfo } from "@shared/providers";
 import type { Account } from "@shared/types";
-import { groupProviders, visibleProviders } from "./provider-groups";
+import { groupProviders, removedAccounts, syncingAccounts, visibleProviders } from "./provider-groups";
 
 const account = (provider: Account["provider"], id = 1): Account => ({
   id,
@@ -47,5 +47,21 @@ describe("visibleProviders", () => {
 
   it("is empty before anything is synced or added", () => {
     expect(visibleProviders(undefined, [])).toEqual([]);
+  });
+
+  it("leaves out providers whose every account was removed from syncing, and brings them back", () => {
+    const removed = { ...account("visaCal", 2), syncEnabled: false };
+    const accounts = [{ ...account("discount", 1), syncEnabled: true }, removed];
+    expect(visibleProviders(accounts, [])).toEqual(["discount"]);
+    expect(syncingAccounts(accounts).map((a) => a.id)).toEqual([1]);
+    expect(removedAccounts(accounts).map((a) => a.id)).toEqual([2]);
+    const back = [accounts[0] as Account, { ...removed, syncEnabled: true }];
+    expect(visibleProviders(back, [])).toEqual(["discount", "visaCal"]);
+    expect(removedAccounts(back)).toEqual([]);
+  });
+
+  it("keeps a provider with one account still syncing", () => {
+    const accounts = [account("visaCal", 1), { ...account("visaCal", 2), syncEnabled: false }];
+    expect(visibleProviders(accounts, [])).toEqual(["visaCal"]);
   });
 });

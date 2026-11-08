@@ -8,6 +8,7 @@ import m0004 from "./migrations/0004_rules.sql?raw";
 import m0005 from "./migrations/0005_trash.sql?raw";
 import m0006 from "./migrations/0006_transfers.sql?raw";
 import m0007 from "./migrations/0007_rule_conditions.sql?raw";
+import m0008 from "./migrations/0008_accounts_settings.sql?raw";
 
 export interface Migration {
   version: number;
@@ -22,4 +23,5 @@ export const MIGRATIONS: Migration[] = [
   { version: 5, sql: m0005 },
   { version: 6, sql: m0006 },
   { version: 7, sql: m0007 },
+  { version: 8, sql: m0008 },
 ];

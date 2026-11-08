@@ -36,7 +36,7 @@ const NEEDS_REVIEW_SQL = "(ledger.flag_uncategorized OR ledger.flag_possible_car
 export function listAccounts(db: Db): Account[] {
   const rows = db
     .prepare(
-      `SELECT id, provider, kind, account_number, name, card_mode, last_synced_at FROM accounts
+      `SELECT id, provider, kind, account_number, name, card_mode, last_synced_at, sync_enabled FROM accounts
        ORDER BY kind = 'card', provider, account_number`,
     )
     .all() as {
@@ -47,6 +47,7 @@ export function listAccounts(db: Db): Account[] {
     name: string | null;
     card_mode: Account["cardMode"];
     last_synced_at: string | null;
+    sync_enabled: number;
   }[];
   return rows.map((r) => ({
     id: r.id,
@@ -56,6 +57,7 @@ export function listAccounts(db: Db): Account[] {
     name: r.name,
     cardMode: r.card_mode,
     lastSyncedAt: r.last_synced_at,
+    syncEnabled: r.sync_enabled === 1,
   }));
 }
 
@@ -63,7 +65,10 @@ export function listAccounts(db: Db): Account[] {
 export function listCategories(db: Db): Category[] {
   const rows = db
     .prepare(
-      `SELECT c.id, c.parent_id, c.name, c.kind, c.emoji, c.color, c.archived FROM categories c
+      `SELECT c.id, c.parent_id, c.name, c.kind, c.emoji, c.color, c.archived,
+         (SELECT COUNT(*) FROM transactions t WHERE t.category_id = c.id) AS row_count,
+         (SELECT COUNT(*) FROM rules r WHERE r.set_category_id = c.id) AS rule_count
+       FROM categories c
        LEFT JOIN categories p ON p.id = c.parent_id
        ORDER BY c.kind = 'income', COALESCE(p.sort_order, c.sort_order), COALESCE(p.id, c.id),
          c.parent_id IS NOT NULL, c.sort_order, c.name`,
@@ -76,6 +81,8 @@ export function listCategories(db: Db): Category[] {
     emoji: string | null;
     color: string | null;
     archived: number;
+    row_count: number;
+    rule_count: number;
   }[];
   return rows.map((r) => ({
     id: r.id,
@@ -85,6 +92,8 @@ export function listCategories(db: Db): Category[] {
     emoji: r.emoji,
     color: r.color,
     archived: r.archived === 1,
+    rowCount: r.row_count,
+    ruleCount: r.rule_count,
   }));
 }
 

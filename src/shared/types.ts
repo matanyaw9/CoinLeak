@@ -77,6 +77,9 @@ export interface Account {
   name: string | null;
   cardMode: CardMode | null;
   lastSyncedAt: string | null;
+  /** False when the user removed it from syncing (spec 15). Its rows stay and
+   *  keep counting. Always set by core; absent only in older test fixtures. */
+  syncEnabled?: boolean;
 }
 
 export interface Category {
@@ -87,6 +90,10 @@ export interface Category {
   emoji: string | null;
   color: string | null;
   archived: boolean;
+  /** Rows filed under it, trashed ones included (spec 15). Set by core. */
+  rowCount?: number;
+  /** Rules whose action sets it (spec 15). Set by core. */
+  ruleCount?: number;
 }
 
 export interface TransactionRow {
@@ -366,3 +373,51 @@ export interface MoneyFlow {
   nodes: MoneyFlowNode[];
   links: MoneyFlowLink[];
 }
+
+// ---- Categories editor, money accounts, settings (spec 15) ----
+
+/** A new category. `parentId` null makes a top-level (meta) category. */
+export interface CategoryInput {
+  name: string;
+  kind: CategoryKind;
+  parentId: number | null;
+  emoji: string | null;
+  /** `#RRGGBB`. */
+  color: string | null;
+}
+
+/** Fields left out stay as they are. The kind never changes after creation. */
+export interface CategoryPatch {
+  name?: string;
+  emoji?: string | null;
+  color?: string | null;
+  parentId?: number | null;
+}
+
+/**
+ * Why core refused a category change. Fixed codes; the window turns them
+ * into friendly text. The two-level and same-kind rules are the database's.
+ */
+export type CategoryProblem =
+  | "name_taken"
+  | "parent_not_top_level"
+  | "parent_other_kind"
+  | "has_children"
+  | "in_use"
+  | "target_other_kind";
+
+export type CategoryChange = { ok: true; category: Category } | { ok: false; problem: CategoryProblem };
+
+/** Deleting: `moved` rows and rules went to `moveTo` first. */
+export type CategoryDeleteResult =
+  | { ok: true; movedRows: number; movedRules: number }
+  | { ok: false; problem: CategoryProblem };
+
+/** Every setting the app keeps in its database, with its value type. */
+export interface AppSettings {
+  /** Providers the user added in the picker that may have no money accounts yet. */
+  addedProviders: ProviderId[];
+}
+
+export type SettingKey = keyof AppSettings;
+export type SettingEntry = { [K in SettingKey]: { key: K; value: AppSettings[K] } }[SettingKey];

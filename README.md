@@ -17,6 +17,21 @@ npm run dev
 
 `npm run check` runs types, lint, tests and the build.
 
+### Linux dock icon
+
+GNOME on Wayland shows an app's logo only when a desktop entry for it is
+installed. Run this once from the checkout you start CoinLeak from:
+
+```bash
+npm run desktop:install
+```
+
+It writes `~/.local/share/applications/coinleak.desktop` (which runs this
+checkout's `npm run dev`) and the icons under `~/.local/share/icons/hicolor/`,
+for your user only. Start CoinLeak from the app grid or with `npm run dev`.
+Run it again if you move the checkout. The icon files live in `build/`
+(`scripts/make-icons.sh` renders them from `build/icon.svg`).
+
 ## How it is built
 
 - `REQUIREMENTS.md`: what and why, decisions, security model.

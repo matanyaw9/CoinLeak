@@ -32,12 +32,22 @@ export function groupProviders(providers: readonly ProviderInfo[] = PROVIDERS): 
   };
 }
 
-/** Providers with money accounts or added by the user, in registry order. */
+/** Money accounts still syncing: removed ones keep their rows but leave the Sync panel (spec 15). */
+export function syncingAccounts(accounts: readonly Account[] | undefined): Account[] {
+  return (accounts ?? []).filter((a) => a.syncEnabled !== false);
+}
+
+/** Money accounts the user removed from syncing. */
+export function removedAccounts(accounts: readonly Account[] | undefined): Account[] {
+  return (accounts ?? []).filter((a) => a.syncEnabled === false);
+}
+
+/** Providers with money accounts still syncing or added by the user, in registry order. */
 export function visibleProviders(
   accounts: readonly Account[] | undefined,
   added: readonly ProviderId[],
   providers: readonly ProviderInfo[] = PROVIDERS,
 ): ProviderId[] {
-  const show = new Set<ProviderId>([...(accounts ?? []).map((a) => a.provider), ...added]);
+  const show = new Set<ProviderId>([...syncingAccounts(accounts).map((a) => a.provider), ...added]);
   return providers.filter((p) => show.has(p.id)).map((p) => p.id);
 }

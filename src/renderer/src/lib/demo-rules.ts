@@ -328,6 +328,10 @@ export interface DemoRules {
   answer: (channel: Channel, args: unknown) => Result<unknown> | null;
   /** Reapplies every rule to every row that is not trashed. */
   reapply: () => DemoRun;
+  /** How many rules set this category (the categories editor's delete). */
+  usingCategory: (id: number) => number;
+  /** Points every rule that sets `from` at `to` instead. */
+  moveCategory: (from: number, to: number) => void;
 }
 
 export function createDemoRules(host: DemoRulesHost, seeds: RuleInput[]): DemoRules {
@@ -555,5 +559,10 @@ export function createDemoRules(host: DemoRulesHost, seeds: RuleInput[]): DemoRu
     }
   }
 
-  return { answer, reapply };
+  const usingCategory = (id: number) => rules.filter((r) => r.setCategoryId === id).length;
+  const moveCategory = (from: number, to: number) => {
+    rules = rules.map((r) => (r.setCategoryId === from ? { ...r, setCategoryId: to } : r));
+  };
+
+  return { answer, reapply, usingCategory, moveCategory };
 }

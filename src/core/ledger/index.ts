@@ -15,3 +15,5 @@ export {
   trend,
   updateTransactions,
 } from "./queries";
+export { createCategory, deleteCategory, updateCategory } from "./categories";
+export { setAccountsSyncing } from "./accounts";

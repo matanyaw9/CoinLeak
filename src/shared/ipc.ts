@@ -5,8 +5,13 @@ import type {
   Account,
   AppInfo,
   CardMode,
+  AppSettings,
   Category,
+  CategoryChange,
   CategoryCurve,
+  CategoryDeleteResult,
+  CategoryInput,
+  CategoryPatch,
   ExclusionState,
   IsoMonth,
   KnownPlaceAdded,
@@ -17,6 +22,8 @@ import type {
   Rule,
   RuleInput,
   RulePreview,
+  SettingEntry,
+  SettingKey,
   RuleSaved,
   RulesApplied,
   StarterPreview,
@@ -69,6 +76,15 @@ export interface IpcContract {
   "rules:preview": { args: RuleInput; result: RulePreview };
   /** A draft rule from the rows the user selected. */
   "rules:suggest": { args: { ids: number[] }; result: RuleInput };
+  /** Categories editor (spec 15). Refusals come back as a fixed problem code. */
+  "categories:create": { args: CategoryInput; result: CategoryChange };
+  "categories:update": { args: { id: number; patch: CategoryPatch }; result: CategoryChange };
+  /** Refused while rows or rules use it, unless `moveTo` names where they go first. */
+  "categories:delete": { args: { id: number; moveTo: number | null }; result: CategoryDeleteResult };
+  /** Remove money accounts from syncing, or add them back. Rows always stay and count. */
+  "accounts:setSyncing": { args: { ids: number[]; enabled: boolean }; result: { updated: number } };
+  "settings:get": { args: { key: SettingKey }; result: AppSettings[SettingKey] };
+  "settings:set": { args: SettingEntry; result: null };
   // ---- spec 13 ----
   /**
    * Creates (`id` null) or updates a rule and reapplies all rules. `alsoChange`
@@ -122,6 +138,12 @@ export const CHANNELS = [
   "rules:reorder",
   "rules:preview",
   "rules:suggest",
+  "categories:create",
+  "categories:update",
+  "categories:delete",
+  "accounts:setSyncing",
+  "settings:get",
+  "settings:set",
   "rules:save",
   "rules:apply",
   "rules:knownPlaces",
