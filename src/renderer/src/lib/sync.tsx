@@ -6,9 +6,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ProviderId, SyncStage } from "@shared/types";
-import { isEnabledProvider } from "@shared/providers";
 import { s } from "@/strings";
-import { ApiError, DEMO, call, listen } from "./api";
+import { loadAddedProviders, type AddedStore } from "@/components/sync/added-providers";
+import { ApiError, call, listen } from "./api";
 
 interface SyncState {
   provider: ProviderId | null;
@@ -27,29 +27,23 @@ interface SyncState {
   removeProvider: (provider: ProviderId) => void;
 }
 
-// No settings channel exists yet, so the added list lives in this window's
-// localStorage. Ids only, never anything about the accounts themselves.
-const ADDED_KEY = "coinleak.addedProviders";
-// Demo: one provider added but never synced, to show that state.
-const DEMO_ADDED: ProviderId[] = ["max"];
+// The added list lives in the database settings (spec 15). Ids only, never
+// anything about the accounts themselves.
+const addedStore: AddedStore = {
+  get: () => call("settings:get", { key: "addedProviders" }),
+  set: (list) => call("settings:set", { key: "addedProviders", value: list }).then(() => undefined),
+};
 
-function readAdded(): ProviderId[] {
+function legacyStorage(): Storage | null {
   try {
-    const raw = localStorage.getItem(ADDED_KEY);
-    if (raw == null) return DEMO ? DEMO_ADDED : [];
-    const list: unknown = JSON.parse(raw);
-    return Array.isArray(list) ? list.filter(isEnabledProvider) : [];
+    return window.localStorage;
   } catch {
-    return DEMO ? DEMO_ADDED : [];
+    return null;
   }
 }
 
 function saveAdded(list: ProviderId[]): void {
-  try {
-    localStorage.setItem(ADDED_KEY, JSON.stringify(list));
-  } catch {
-    // Storage blocked: the list still holds for this session.
-  }
+  addedStore.set(list).catch(() => toast.error(s.errors.crashBody));
 }
 
 const SyncContext = createContext<SyncState | null>(null);
@@ -60,8 +54,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [stage, setStage] = useState<SyncStage | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [added, setAdded] = useState<ProviderId[]>(readAdded);
+  const [added, setAdded] = useState<ProviderId[]>([]);
   const active = useRef(false);
+
+  useEffect(() => {
+    let live = true;
+    loadAddedProviders(addedStore, legacyStorage())
+      .then((list) => live && setAdded((now) => [...new Set([...list, ...now])]))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
 
   useEffect(
     () =>
