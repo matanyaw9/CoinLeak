@@ -77,3 +77,8 @@ function isTypingTarget(target: EventTarget | null): boolean {
   const role = el.getAttribute?.("role");
   return role === "slider" || role === "radio" || role === "tab" || role === "listbox" || role === "option";
 }
+
+/** The Today button shows only when another month is on screen. */
+export function showToday(month: IsoMonth, current: IsoMonth): boolean {
+  return month !== current;
+}
