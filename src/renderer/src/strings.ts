@@ -397,6 +397,34 @@ export const s = {
     offerEnd: "?",
     offerBody: "A rule can sort it for you from now on.",
   },
+
+  // spec 10
+  money: {
+    add: "Add a bank or card",
+    addTitle: "Add a bank or card",
+    addIntro: "Pick where your money is. You log in on its own website when you sync, never in CoinLeak.",
+    group: { bank: "Banks", card: "Credit cards" },
+    experimental: "Experimental",
+    experimentalHint: "Works in tests, not yet confirmed on a real account.",
+    added: "Added",
+    whyMissing: "Why isn't my bank here?",
+    whyMissingIntro: "CoinLeak syncs only where you can log in on the bank's own website, so your password never passes through the app. These can't be synced right now.",
+    addedTitle: (name: string) => `${name} is ready to sync`,
+    addedBody: "Sync now to log in on its own website and bring in your money accounts. You can also do it later from the Sync button.",
+    syncNow: "Sync now",
+    later: "Later",
+    close: "Close",
+    back: "Back",
+    remove: "Remove",
+    removed: (name: string) => `Removed ${name}`,
+    nothingTitle: "No banks or cards yet",
+    nothingBody: "Add your bank and credit cards, then sync them to bring in your money.",
+    neverSynced: "never synced",
+    syncedToday: (at: string) => `synced today ${at}`,
+    syncedYesterday: (at: string) => `synced yesterday ${at}`,
+    syncedOn: (date: string) => `synced ${date}`,
+    accountLine: (label: string, when: string) => `${label}: ${when}`,
+  },
 };
 
 export type Strings = typeof s;
