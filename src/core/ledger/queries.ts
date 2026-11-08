@@ -19,6 +19,7 @@ import type {
   TransactionFilter,
   TransactionPatch,
   TransactionRow,
+  TransactionSort,
   TrendPoint,
 } from "@shared/types";
 import { transaction, type Db } from "../db";
@@ -124,7 +125,8 @@ interface LedgerRow {
 }
 
 /**
- * Newest first. Empty arrays in the filter mean "no constraint". A parent
+ * Newest first unless `sort` says otherwise (spec 17). Empty arrays in the
+ * filter mean "no constraint". A parent
  * category id also matches its children; `null` matches uncategorized rows.
  * Trashed rows show only when `flows` asks for them.
  */
@@ -193,10 +195,34 @@ export function listTransactions(db: Db, filter: TransactionFilter = {}): Transa
     params.push(filter.needsReview ? 1 : 0);
   }
 
+  // A gone row keeps its stored 'pending' status, but it is not pending.
+  check(filter.pending === undefined || typeof filter.pending === "boolean");
+  if (filter.pending !== undefined) {
+    where.push(`(ledger.status = 'pending' AND ledger.flow <> 'gone') = ?`);
+    params.push(filter.pending ? 1 : 0);
+  }
+
+  const sort = filter.sort ?? "date";
+  check(SORTS.includes(sort));
   const sql = `${WITH_LEDGER} SELECT * FROM ledger
     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-    ORDER BY ledger.date DESC, ledger.id DESC`;
-  return (db.prepare(sql).all(...params) as unknown as LedgerRow[]).map(toTransactionRow);
+    ORDER BY ${ORDER_SQL[sort]}`;
+  const rows = (db.prepare(sql).all(...params) as unknown as LedgerRow[]).map(toTransactionRow);
+  // SQLite has no Hebrew-aware natural order, so names sort here.
+  return sort === "name" ? rows.sort(byName) : rows;
+}
+
+const SORTS: readonly TransactionSort[] = ["date", "amount_desc", "amount_asc", "name"];
+const ORDER_SQL: Record<TransactionSort, string> = {
+  date: "ledger.date DESC, ledger.id DESC",
+  amount_desc: "ABS(ledger.amount) DESC, ledger.id DESC",
+  amount_asc: "ABS(ledger.amount) ASC, ledger.id DESC",
+  name: "ledger.id DESC",
+};
+const NAMES = new Intl.Collator(["he", "en"], { numeric: true, sensitivity: "base" });
+
+function byName(a: TransactionRow, b: TransactionRow): number {
+  return NAMES.compare(a.description.trim(), b.description.trim()) || b.id - a.id;
 }
 
 function toTransactionRow(r: LedgerRow): TransactionRow {
