@@ -47,6 +47,34 @@ describe("setAccountsSyncing", () => {
     expect(listAccounts(db).every((a) => a.syncEnabled)).toBe(true);
   });
 
+  it("a sync leaves a removed account alone: no new rows, no settling, no sync time", () => {
+    const db = ledger();
+    const cardId = accountId(db, "visaCal", "4321");
+    setAccountsSyncing(db, [cardId], false);
+    const before = snapshot(db);
+    const syncedAt = listAccounts(db).find((a) => a.id === cardId)?.lastSyncedAt;
+    const later = new Date(NOW.getTime() + 86_400_000);
+    const fresh = txn({ date: "2026-03-20", amount: -500, description: "SYNTH NEW" });
+
+    const result = ingest(
+      db,
+      [
+        card("4321", [charge("2026-03-03", -8_000, "SYNTH MARKET", "2026-04-10"), fresh]),
+        card("8765", [txn({ date: "2026-03-21", amount: -700, description: "SYNTH OTHER" })]),
+      ],
+      { now: later },
+    );
+
+    expect(result).toEqual({ provider: "visaCal", accounts: 1, newRows: 1, updatedRows: 0 });
+    const mine = (rows: Record<string, unknown>[]) => rows.filter((r) => r.account_id === cardId);
+    expect(mine(snapshot(db))).toEqual(mine(before));
+    expect(listAccounts(db).find((a) => a.id === cardId)?.lastSyncedAt).toBe(syncedAt);
+
+    setAccountsSyncing(db, [cardId], true);
+    ingest(db, [card("4321", [fresh])], { now: later });
+    expect(listTransactions(db).some((t) => t.description === "SYNTH NEW")).toBe(true);
+  });
+
   it("new accounts sync by default", () => {
     expect(listAccounts(ledger()).map((a) => a.syncEnabled)).toEqual([true, true]);
   });

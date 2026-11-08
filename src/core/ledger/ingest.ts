@@ -1,6 +1,7 @@
 // Saves one provider's download: upserts its accounts, adds rows that are new,
 // settles pending rows in place (exactly or with drift), marks pending rows the
 // download no longer has as gone, then rematches card bills. One transaction.
+// Accounts the user removed from syncing (spec 15) are left exactly as they are.
 // Rules: REQUIREMENTS section 5 and spec 04. User fields are never written.
 
 import { CodedError } from "@shared/errors";
@@ -58,13 +59,15 @@ export function ingest(db: Db, accounts: ScrapedAccount[], opts: IngestOptions):
   const now = opts.now.toISOString();
 
   return transaction(db, () => {
+    const removed = db.prepare("SELECT 1 FROM accounts WHERE provider = ? AND account_number = ? AND sync_enabled = 0");
+    const syncing = accounts.filter((a) => removed.get(provider, a.accountNumber) === undefined);
     const runId = Number(
       db.prepare("INSERT INTO sync_runs (provider, synced_at) VALUES (?, ?)").run(provider, now).lastInsertRowid,
     );
 
     // Per account, so a card listed twice in one download still counts copies once.
     const downloads = new Map<number, { counter: SequenceCounter; rows: Incoming[] }>();
-    for (const account of accounts) {
+    for (const account of syncing) {
       const accountId = upsertAccount(db, provider, account, now);
       const download = downloads.get(accountId) ?? { counter: new SequenceCounter(), rows: [] };
       downloads.set(accountId, download);
@@ -85,12 +88,12 @@ export function ingest(db: Db, accounts: ScrapedAccount[], opts: IngestOptions):
     // run but may now fall in a rule's amount range. Cheap: rows times rules.
     applyRulesInTransaction(db, "all", opts.now);
     db.prepare("UPDATE sync_runs SET accounts = ?, new_rows = ?, updated_rows = ? WHERE id = ?").run(
-      accounts.length,
+      syncing.length,
       counts.newRows,
       counts.updatedRows,
       runId,
     );
-    return { provider, accounts: accounts.length, ...counts };
+    return { provider, accounts: syncing.length, ...counts };
   });
 }
 
