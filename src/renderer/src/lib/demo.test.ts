@@ -210,3 +210,36 @@ describe("demo ledger", () => {
     expect(stages).toEqual(["opening_browser", "waiting_for_login", "downloading", "saving", "done"]);
   });
 });
+
+describe("demo list order and filters (spec 17)", () => {
+  const range = monthRange(current);
+
+  it("sorts by amount size, by name, and by date like core", async () => {
+    const demo = createDemo(today);
+    const size = (r: { amount: number }) => Math.abs(r.amount);
+    const desc = await ask(demo, "transactions:list", { ...range, sort: "amount_desc" });
+    expect(desc.length).toBeGreaterThan(5);
+    expect(desc.map(size)).toEqual(desc.map(size).sort((a, b) => b - a));
+    const asc = await ask(demo, "transactions:list", { ...range, sort: "amount_asc" });
+    expect(asc.map(size)).toEqual(asc.map(size).sort((a, b) => a - b));
+    const names = (await ask(demo, "transactions:list", { ...range, sort: "name" })).map((r) => r.description.trim());
+    const collator = new Intl.Collator(["he", "en"], { numeric: true, sensitivity: "base" });
+    expect(names).toEqual([...names].sort(collator.compare));
+    expect(await ask(demo, "transactions:list", { ...range, sort: "date" })).toEqual(
+      await ask(demo, "transactions:list", range),
+    );
+  });
+
+  it("filters pending rows and combines them with search", async () => {
+    const demo = createDemo(today);
+    const pending = await ask(demo, "transactions:list", { pending: true });
+    expect(pending.length).toBeGreaterThan(0);
+    expect(pending.every((r) => r.status === "pending")).toBe(true);
+    const settled = await ask(demo, "transactions:list", { pending: false });
+    expect(settled.some((r) => r.status === "pending")).toBe(false);
+    const word = pending[0]!.description.trim().split(" ")[0]!;
+    const both = await ask(demo, "transactions:list", { pending: true, search: word });
+    expect(both.length).toBeGreaterThan(0);
+    expect(both.every((r) => r.status === "pending" && r.description.includes(word))).toBe(true);
+  });
+});
