@@ -2,6 +2,7 @@
 // first enabled rule in order whose conditions match sets it. A field the
 // user set is never touched; a field a rule set earlier is recomputed, and
 // cleared when no rule matches any more, so editing a rule fixes old rows.
+// Trashed rows are left alone until the user restores them.
 
 import type { CategorySource } from "@shared/types";
 import { transaction, type Db } from "../db";
@@ -137,13 +138,13 @@ function pickFields(row: StoredRow): RuleFields {
 
 function loadRows(db: Db, scope: RuleScope): StoredRow[] {
   const select = `SELECT id, account_id, amount, description, memo, category_id, category_source, excluded,
-    excluded_source, rule_id FROM transactions`;
+    excluded_source, rule_id FROM transactions WHERE trashed_at IS NULL`;
   if (scope === "all") return db.prepare(`${select} ORDER BY id`).all() as unknown as StoredRow[];
   if ("runId" in scope) {
-    return db.prepare(`${select} WHERE sync_run_id = ? ORDER BY id`).all(scope.runId) as unknown as StoredRow[];
+    return db.prepare(`${select} AND sync_run_id = ? ORDER BY id`).all(scope.runId) as unknown as StoredRow[];
   }
   return db
-    .prepare(`${select} WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id`)
+    .prepare(`${select} AND id IN (SELECT value FROM json_each(?)) ORDER BY id`)
     .all(JSON.stringify(scope.ids)) as unknown as StoredRow[];
 }
 

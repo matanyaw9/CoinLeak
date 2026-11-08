@@ -116,6 +116,41 @@ describe("demo ledger", () => {
     expect(await ask(demo, "transactions:list", { search: notGone.description, from: notGone.date, to: notGone.date })).not.toEqual([]);
   });
 
+  it("trash: hidden from lists and totals, restored exactly, emptied for good (spec 11)", async () => {
+    const demo = createDemo(today);
+    const range = monthRange(current);
+    const seeded = await ask(demo, "transactions:list", { flows: ["trashed"] });
+    expect(seeded.length).toBeGreaterThan(0);
+    const all = await ask(demo, "transactions:list", {});
+    expect(all.some((r) => r.flow === "trashed")).toBe(false);
+
+    const before = await ask(demo, "summary:month", { month: current });
+    const rows = await ask(demo, "transactions:list", { ...range, flows: ["spending"] });
+    const victim = rows[0];
+    if (!victim) throw new Error("no spending row");
+    expect(await ask(demo, "transactions:trash", { ids: [victim.id] })).toEqual({ updated: 1 });
+    const trashed = await ask(demo, "summary:month", { month: current });
+    expect(trashed.spending).toBe(before.spending + victim.amount);
+    expect((await ask(demo, "transactions:list", range)).map((r) => r.id)).not.toContain(victim.id);
+
+    expect(await ask(demo, "transactions:restore", { ids: [victim.id] })).toEqual({ updated: 1 });
+    expect(await ask(demo, "summary:month", { month: current })).toEqual(before);
+
+    const total = (await ask(demo, "transactions:list", {})).length;
+    expect(await ask(demo, "transactions:emptyTrash", undefined)).toEqual({ deleted: seeded.length });
+    expect(await ask(demo, "transactions:list", { flows: ["trashed"] })).toEqual([]);
+    expect((await ask(demo, "transactions:list", {})).length).toBe(total);
+  });
+
+  it("hides card bills when asked", async () => {
+    const demo = createDemo(today);
+    const all = await ask(demo, "transactions:list", {});
+    const hidden = await ask(demo, "transactions:list", { hideInternal: true });
+    const bills = all.filter((r) => r.flow === "internal").length;
+    expect(bills).toBeGreaterThan(0);
+    expect(hidden).toHaveLength(all.length - bills);
+  });
+
   it("has a pending purchase abroad with no shekel amount yet, which adds 0 everywhere", async () => {
     const demo = createDemo(today);
     const rows = await ask(demo, "transactions:list", monthRange(current));

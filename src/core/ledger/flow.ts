@@ -6,6 +6,8 @@ import type { Agorot, CategoryKind, CategorySource, Flow, ReviewFlag } from "@sh
 
 export interface FlowFacts {
   amount: Agorot;
+  /** The user moved the row to Trash (`trashed_at` is set). */
+  trashed: boolean;
   /** A pending row the bank no longer reports (`gone_at` is set). */
   gone: boolean;
   excluded: boolean;
@@ -14,6 +16,7 @@ export interface FlowFacts {
 }
 
 export function flowOf(f: FlowFacts): Flow {
+  if (f.trashed) return "trashed";
   if (f.gone) return "gone";
   if (f.excluded) return "excluded";
   if (f.internal) return "internal";
@@ -29,7 +32,7 @@ export interface FlagFacts extends FlowFacts {
 
 /**
  * Only rows that count in the totals need a look, plus gone rows, which wait
- * for the user to delete them. A possible card bill is settled once the user
+ * for the user to delete them. A trashed row never needs a look. A possible card bill is settled once the user
  * excludes it, marks it internal, or categorizes it by hand (they looked and
  * said what it is).
  */
@@ -45,6 +48,7 @@ export function flagsOf(f: FlagFacts): ReviewFlag[] {
 
 /** Same rules as `flowOf`. Needs `transactions t LEFT JOIN categories c`. */
 export const FLOW_SQL = `(CASE
+  WHEN t.trashed_at IS NOT NULL THEN 'trashed'
   WHEN t.gone_at IS NOT NULL THEN 'gone'
   WHEN t.excluded = 1 THEN 'excluded'
   WHEN t.internal = 1 THEN 'internal'

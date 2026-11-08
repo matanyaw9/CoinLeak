@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "../db";
-import { NOW, accountId, bank, card, categoryId, charge, idOf, newDb, stored, txn } from "../testing/ledger";
+import { NOW, accountId, bank, card, categoryId, charge, countRows, idOf, newDb, snapshot, stored, txn } from "../testing/ledger";
 import { ingest } from "./ingest";
-import { listCategories, listTransactions, monthSummary, trend, updateTransactions } from "./queries";
+import {
+  emptyTrash,
+  listCategories,
+  listTransactions,
+  monthSummary,
+  restoreTransactions,
+  trashTransactions,
+  trend,
+  updateTransactions,
+} from "./queries";
 import { createRule } from "../rules";
 import { ruleInput } from "../testing/rules";
 
@@ -341,5 +350,98 @@ describe("summary input", () => {
     expect(() => monthSummary(db, "March")).toThrow("BAD_REQUEST");
     expect(() => trend(db, 0)).toThrow("BAD_REQUEST");
     expect(() => trend(db, 1.5)).toThrow("BAD_REQUEST");
+  });
+});
+
+describe("trash (spec 11)", () => {
+  const LATER = new Date("2026-04-01T10:00:00Z");
+
+  it("a trashed row counts nowhere, needs no review, and leaves the list", () => {
+    const db = handBuiltLedger();
+    const before = monthSummary(db, "2026-03");
+    const atm = idOf(db, "כספומט");
+    const untracked = idOf(db, "ישראכרט 9999");
+    expect(trashTransactions(db, [atm, untracked, atm], LATER)).toEqual({ updated: 2 });
+
+    const after = monthSummary(db, "2026-03");
+    expect(after.spending).toBe(before.spending - 20000 - 12345);
+    expect(after.income).toBe(before.income);
+    expect(after.needsReview).toBe(before.needsReview - 1);
+    expect(after.byCategory.find((c) => c.categoryId === categoryId(db, "Cash & ATM"))).toBeUndefined();
+    expect(trend(db, 1, { now: NOW })[0]?.spending).toBe(after.spending);
+
+    const listed = listTransactions(db).map((t) => t.id);
+    expect(listed).not.toContain(atm);
+    expect(listTransactions(db, { needsReview: true }).map((t) => t.id)).not.toContain(untracked);
+    const trashed = listTransactions(db, { flows: ["trashed"] });
+    expect(trashed.map((t) => t.id).sort()).toEqual([atm, untracked].sort());
+    expect(trashed.every((t) => t.flow === "trashed" && t.flags.length === 0)).toBe(true);
+    expect(stored(db, atm).trashed_at).toBe(LATER.toISOString());
+  });
+
+  it("restore brings the totals and the row back exactly", () => {
+    const db = handBuiltLedger();
+    const before = monthSummary(db, "2026-03");
+    const rows = listTransactions(db);
+    const ids = [idOf(db, "כספומט"), idOf(db, "מתנה לחבר"), idOf(db, "חיוב לכרטיס ויזה 4321"), idOf(db, "חנות בגדים")];
+    trashTransactions(db, ids, LATER);
+    expect(monthSummary(db, "2026-03")).not.toEqual(before);
+    expect(restoreTransactions(db, [...ids, idOf(db, "שכר דירה")], LATER)).toEqual({ updated: 4 });
+    expect(monthSummary(db, "2026-03")).toEqual(before);
+    expect(listTransactions(db)).toEqual(rows);
+    expect(listTransactions(db, { flows: ["trashed"] })).toEqual([]);
+  });
+
+  it("emptyTrash deletes only trashed rows", () => {
+    const db = handBuiltLedger();
+    const total = countRows(db);
+    const ids = [idOf(db, "כספומט"), idOf(db, "קפה הפינה")];
+    trashTransactions(db, ids, LATER);
+    const kept = snapshot(db).filter((r) => !ids.includes(r.id as number));
+    expect(emptyTrash(db)).toEqual({ deleted: 2 });
+    expect(countRows(db)).toBe(total - 2);
+    expect(snapshot(db)).toEqual(kept);
+    expect(emptyTrash(db)).toEqual({ deleted: 0 });
+  });
+
+  it("a card row the user decided a bank line pays can still be trashed and emptied", () => {
+    const db = newDb();
+    ingest(db, [card("4321", [charge("2026-03-03", -4500, "מאפייה", "2026-03-04")])], { now: NOW });
+    ingest(db, [bank([txn({ date: "2026-03-04", amount: -4500, description: "חיוב לכרטיס ויזה 4321" })])], { now: NOW });
+    const bill = idOf(db, "חיוב לכרטיס ויזה 4321");
+    const bakery = idOf(db, "מאפייה");
+    db.prepare("UPDATE transactions SET card_bill_txn_id = ? WHERE id = ?").run(bakery, bill);
+    trashTransactions(db, [bakery], LATER);
+    expect(emptyTrash(db)).toEqual({ deleted: 1 });
+    expect(stored(db, bill).card_bill_txn_id).toBeNull();
+  });
+
+  it("refuses bad ids", () => {
+    const db = handBuiltLedger();
+    expect(() => trashTransactions(db, [0])).toThrow();
+    expect(() => restoreTransactions(db, ["1" as unknown as number])).toThrow();
+    expect(trashTransactions(db, [])).toEqual({ updated: 0 });
+  });
+});
+
+describe("listTransactions hides rows (spec 11)", () => {
+  it("hides internal rows only when asked", () => {
+    const db = handBuiltLedger();
+    const bill = idOf(db, "חיוב לכרטיס ויזה 4321");
+    expect(listTransactions(db).map((t) => t.id)).toContain(bill);
+    const hidden = listTransactions(db, { hideInternal: true });
+    expect(hidden.map((t) => t.id)).not.toContain(bill);
+    expect(hidden).toHaveLength(listTransactions(db).length - 1);
+    expect(listTransactions(db, { hideInternal: false }).map((t) => t.id)).toContain(bill);
+    expect(() => listTransactions(db, { hideInternal: "yes" as unknown as boolean })).toThrow();
+  });
+
+  it("shows trashed rows only when flows asks for them, alone or with others", () => {
+    const db = handBuiltLedger();
+    const atm = idOf(db, "כספומט");
+    trashTransactions(db, [atm]);
+    expect(listTransactions(db, { flows: ["spending"] }).map((t) => t.id)).not.toContain(atm);
+    expect(listTransactions(db, { search: "כספומט" })).toEqual([]);
+    expect(listTransactions(db, { flows: ["spending", "trashed"] }).map((t) => t.id)).toContain(atm);
   });
 });

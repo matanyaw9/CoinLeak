@@ -9,6 +9,7 @@ import {
   Lock,
   Settings,
   Shapes,
+  Trash2,
   FlaskConical,
   WandSparkles,
   type LucideIcon,
@@ -62,6 +63,7 @@ export function AppSidebar() {
           <Item key={item.to} {...item} />
         ))}
         <div className="mx-3 my-3 h-px bg-sidebar-border" />
+        <Item to="/trash" label={s.trash.nav} icon={Trash2} />
         <Item to="/settings" label={s.nav.settings} icon={Settings} />
       </nav>
 

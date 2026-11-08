@@ -5,6 +5,7 @@ export { recomputeCardBills, setCardMode, setInternalByUser, type CardBillStats 
 export { flowOf, flagsOf, type FlowFacts, type FlagFacts } from "./flow";
 export { categoryCurves } from "./curves";
 export { deleteGoneRows } from "./pending";
+export { emptyTrash, restoreTransactions, trashTransactions } from "./queries";
 export {
   listAccounts,
   listCategories,

@@ -5,6 +5,7 @@ import m0001 from "./migrations/0001_init.sql?raw";
 import m0002 from "./migrations/0002_ledger.sql?raw";
 import m0003 from "./migrations/0003_pending.sql?raw";
 import m0004 from "./migrations/0004_rules.sql?raw";
+import m0005 from "./migrations/0005_trash.sql?raw";
 
 export interface Migration {
   version: number;
@@ -16,4 +17,5 @@ export const MIGRATIONS: Migration[] = [
   { version: 2, sql: m0002 },
   { version: 3, sql: m0003 },
   { version: 4, sql: m0004 },
+  { version: 5, sql: m0005 },
 ];

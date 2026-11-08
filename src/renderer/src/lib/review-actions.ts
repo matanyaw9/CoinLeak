@@ -1,15 +1,17 @@
 // Review actions for components: run the call, refresh what shows money,
 // and toast the outcome with Undo where one exists. Also remembers which
 // gone rows the user chose to keep, for as long as the window is open.
+// Row menu and Trash actions (spec 11) live in `useRowActions`.
 
 import { useSyncExternalStore } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Account, CardMode, TransactionRow } from "@shared/types";
 import { s } from "@/strings";
-import { ApiError } from "./api";
+import { ApiError, call } from "./api";
 import { refreshLedger } from "./hooks";
 import { answerCardBill, deleteGone, switchCardMode, type InternalChoice } from "./review";
+import { restoreRows, setIgnored, trashRows } from "./review-rows";
 
 const failed = (e: unknown) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody);
 
@@ -91,6 +93,59 @@ export function useReviewActions() {
     /** The mode being saved for this card, so the switch moves at once. */
     pendingCardMode: (account: Account): CardMode | undefined =>
       cardMode.isPending && cardMode.variables?.account.id === account.id ? cardMode.variables.mode : undefined,
+  };
+}
+
+// ---- Row menu and Trash (spec 11): every change toasts with Undo ----
+
+type Undoable = { updated: number; undo: () => Promise<unknown> };
+
+export function useRowActions() {
+  const client = useQueryClient();
+  const refresh = () => refreshLedger(client);
+
+  const run = useMutation({
+    mutationFn: ({ act }: { act: () => Promise<Undoable>; title: (n: number) => string; description?: string }) => act(),
+    onSuccess: ({ updated, undo }, { title, description }) => {
+      if (updated === 0) return;
+      toast.success(title(updated), {
+        description,
+        action: {
+          label: s.review.undo,
+          onClick: () => {
+            undo()
+              .then(() => toast(s.review.undone), failed)
+              .finally(() => void refresh());
+          },
+        },
+      });
+    },
+    onError: failed,
+    onSettled: refresh,
+  });
+
+  const empty = useMutation({
+    mutationFn: () => call("transactions:emptyTrash", undefined),
+    onSuccess: ({ deleted }) => toast.success(s.trash.emptied(deleted)),
+    onError: failed,
+    onSettled: refresh,
+  });
+
+  return {
+    trash: (rows: TransactionRow[], after?: () => void) =>
+      run.mutate(
+        { act: () => trashRows(rows.map((r) => r.id)), title: s.rowMenu.trashed, description: s.rowMenu.trashedBody },
+        { onSuccess: after },
+      ),
+    restore: (ids: number[], after?: () => void) =>
+      run.mutate({ act: () => restoreRows(ids), title: s.trash.restored }, { onSuccess: after }),
+    setIgnored: (rows: TransactionRow[], excluded: boolean, after?: () => void) =>
+      run.mutate(
+        { act: () => setIgnored(rows, excluded), title: excluded ? s.rowMenu.ignored : s.rowMenu.counted },
+        { onSuccess: after },
+      ),
+    emptyTrash: (after?: () => void) => empty.mutate(undefined, { onSuccess: after }),
+    busy: run.isPending || empty.isPending,
   };
 }
 

@@ -16,6 +16,7 @@ import { CategoriesPage } from "@/pages/categories-page";
 import { RulesPage } from "@/pages/rules-page";
 import { AccountsPage } from "@/pages/accounts-page";
 import { SettingsPage } from "@/pages/settings-page";
+import { TrashPage } from "@/pages/trash-page";
 import { ErrorPage } from "@/pages/error-page";
 
 const queryClient = new QueryClient({
@@ -35,6 +36,7 @@ const router = createHashRouter([
       { path: "/categories", element: <CategoriesPage /> },
       { path: "/rules", element: <RulesPage /> },
       { path: "/accounts", element: <AccountsPage /> },
+      { path: "/trash", element: <TrashPage /> },
       { path: "/settings", element: <SettingsPage /> },
       { path: "*", element: <ErrorPage notFound /> },
     ],

@@ -92,6 +92,8 @@ interface DemoRow extends TransactionRow {
   userInternal: boolean | null;
   /** Who excluded the row, as in core: rules never undo the user's choice. */
   excludedSource: "user" | "rule" | null;
+  /** In Trash (spec 11): counts nowhere, rules skip it, until restored. */
+  trashed: boolean;
 }
 
 // The rules a person might have after a few months: every match mode, each
@@ -151,6 +153,7 @@ interface Draft {
   original?: { amount: Agorot; currency: string };
   excluded?: boolean;
   cardBill?: CardBill;
+  trashed?: boolean;
 }
 
 interface Spend {
@@ -262,6 +265,9 @@ function generate(today: Date): DemoRow[] {
       accountId: CARD_ONLINE, date: toIsoDate(today), amount: 0, description: "ETSY.COM", memo: null, categoryId: 41,
       status: "pending", original: { amount: -5000, currency: "USD" },
     },
+    // Two lines the user already put in Trash (spec 11).
+    { accountId: BANK, date: firstOr(4), amount: -1500, description: "עמלת פעולה בערוץ ישיר", memo: null, categoryId: null, trashed: true },
+    { accountId: BANK, date: firstOr(1), amount: 4000, description: "החזר עמלה", memo: null, categoryId: null, trashed: true },
   );
 
   // Real statements name the branch, so one chain reads a few ways.
@@ -297,6 +303,7 @@ function generate(today: Date): DemoRow[] {
       cardBill: d.cardBill ?? null,
       userInternal: null,
       excludedSource: d.excluded ? "user" : null,
+      trashed: d.trashed ?? false,
     };
   });
 
@@ -330,6 +337,7 @@ function generate(today: Date): DemoRow[] {
         cardBill: "matched",
         userInternal: null,
         excludedSource: null,
+        trashed: false,
       });
     }
   }
@@ -349,7 +357,8 @@ const COUNTED: Flow[] = ["spending", "refund"];
 function derive(r: DemoRow): void {
   const internal = r.userInternal ?? r.cardBill === "matched";
   let flow: Flow;
-  if (r.status === "gone") flow = "gone";
+  if (r.trashed) flow = "trashed";
+  else if (r.status === "gone") flow = "gone";
   else if (r.excluded) flow = "excluded";
   else if (internal) flow = "internal";
   else if (r.amount > 0) flow = r.categoryId != null && byId.get(r.categoryId)?.kind === "expense" ? "refund" : "income";
@@ -385,7 +394,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
     }
   }
   const reapply = () => {
-    applyRules(rows, rules);
+    applyRules(rows.filter((r) => !r.trashed), rules);
     rows.forEach(derive);
   };
   reapply();
@@ -406,10 +415,11 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
   const fail = (code: ErrorCode): Result<never> => ({ ok: false, error: { code, message: ERROR_MESSAGES[code] } });
   const ok = <T,>(value: T): Result<T> => ({ ok: true, value: structuredClone(value) });
   const publicRow = (r: DemoRow): TransactionRow => {
-    const { cardBill, userInternal, excludedSource, ...row } = r;
+    const { cardBill, userInternal, excludedSource, trashed, ...row } = r;
     void cardBill;
     void userInternal;
     void excludedSource;
+    void trashed;
     return row;
   };
   const validIds = (ids: unknown): ids is number[] =>
@@ -492,7 +502,9 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
           (!f.to || r.date <= f.to) &&
           (!f.accountIds || f.accountIds.includes(r.accountId)) &&
           (!f.categoryIds || f.categoryIds.includes(r.categoryId)) &&
-          (!f.flows || f.flows.includes(r.flow)) &&
+          (!f.flows?.length || f.flows.includes(r.flow)) &&
+          (r.flow !== "trashed" || Boolean(f.flows?.includes("trashed"))) &&
+          (!f.hideInternal || r.flow !== "internal") &&
           (!f.needsReview || r.flags.length > 0) &&
           (!q || [r.description, r.memo, r.note].some((t) => t?.toLowerCase().includes(q))),
       )
@@ -540,6 +552,31 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
     for (let i = rows.length - 1; i >= 0; i--) {
       const r = rows[i];
       if (r && r.status === "gone" && ids.includes(r.id)) {
+        rows.splice(i, 1);
+        deleted++;
+      }
+    }
+    return ok({ deleted });
+  }
+
+  // ---- Trash, as in core: a user field that sync and rules never touch ----
+
+  function setTrashed(ids: unknown, trashed: boolean): Result<{ updated: number }> {
+    if (!validIds(ids)) return fail("BAD_REQUEST");
+    let updated = 0;
+    for (const r of rows) {
+      if (!ids.includes(r.id) || r.trashed === trashed) continue;
+      r.trashed = trashed;
+      updated++;
+    }
+    reapply();
+    return ok({ updated });
+  }
+
+  function emptyTrash(): Result<{ deleted: number }> {
+    let deleted = 0;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i]?.trashed) {
         rows.splice(i, 1);
         deleted++;
       }
@@ -681,6 +718,12 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       }
       case "transactions:deleteGone":
         return deleteGone((args as Args<"transactions:deleteGone">)?.ids);
+      case "transactions:trash":
+        return setTrashed((args as Args<"transactions:trash">)?.ids, true);
+      case "transactions:restore":
+        return setTrashed((args as Args<"transactions:restore">)?.ids, false);
+      case "transactions:emptyTrash":
+        return emptyTrash();
       case "accounts:setCardMode": {
         const a = args as Args<"accounts:setCardMode">;
         return setCardMode(a?.accountId, a?.mode);

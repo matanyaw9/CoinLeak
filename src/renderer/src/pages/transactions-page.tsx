@@ -1,11 +1,13 @@
 // Transactions: the month's rows grouped by day, with search, a needs-review
 // view, a category filter from Home, quick categorizing, bulk select, and the
 // card bill and gone-row answers. Greets instead before the first sync.
+// Spec 11: the row menu (rule, ignore, trash), card bills hidden behind a
+// toggle, and the "Always put X in Y?" offer after sorting a row by hand.
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { CircleCheck, Search, SearchX, X } from "lucide-react";
+import { ArrowLeftRight, CircleCheck, Eye, EyeOff, Search, SearchX, Trash2, WandSparkles, X } from "lucide-react";
 import type { Category, TransactionFilter, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
@@ -18,11 +20,13 @@ import {
   useTransactions,
   useUpdateTransactions,
 } from "@/lib/hooks";
-import { useKept, useReviewActions } from "@/lib/review-actions";
+import { useKept, useReviewActions, useRowActions } from "@/lib/review-actions";
+import { allIgnored, menuTargets, shouldOfferRule, suggestFor } from "@/lib/review-rows";
+import { useShot } from "@/lib/shot";
 import { useMonth } from "@/lib/month-context";
-import { monthRange } from "@/lib/month";
+import { monthRange, shiftMonth } from "@/lib/month";
 import { formatDayLong, formatMonth } from "@/lib/format";
-import { colorOf, idsUnder, indexCategories } from "@/lib/categories";
+import { colorOf, idsUnder, indexCategories, type CategoryIndex } from "@/lib/categories";
 import { groupByDay } from "@/lib/day-groups";
 import { Page } from "@/components/layout/page";
 import { Input, Skeleton } from "@/components/ui/misc";
@@ -33,8 +37,12 @@ import { Money } from "@/components/common/money";
 import { Welcome } from "@/components/common/welcome";
 import { TransactionRow } from "@/components/transactions/transaction-row";
 import { BulkBar } from "@/components/transactions/bulk-bar";
+import type { RowMenuModel } from "@/components/transactions/row-menu";
+import { Hint } from "@/components/ui/tooltip";
+import { useRuleEditor } from "@/components/rules/rule-editor-provider";
 
 const NONE = new Set<number>();
+const failed = (e: unknown) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody);
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -46,11 +54,12 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 export function TransactionsPage() {
-  const { month } = useMonth();
+  const { month, setMonth } = useMonth();
   const [params, setParams] = useSearchParams();
   const review = params.get("review") === "1";
   const categoryParam = params.get("category");
   const [search, setSearch] = useState("");
+  const [showBills, setShowBills] = useState(false);
   const query = useDebounced(search.trim(), 200);
 
   const categories = useCategories();
@@ -69,13 +78,18 @@ export function TransactionsPage() {
     return f;
   }, [month, query, review, categoryParam, index]);
 
-  const tx = useTransactions(filter);
+  // Card bills never count, so they stay out of the way unless asked for.
+  const tx = useTransactions(showBills ? filter : { ...filter, hideInternal: true });
+  const bills = useTransactions({ ...filter, flows: ["internal"] });
+  const billCount = bills.data?.length ?? 0;
   const rows = useMemo(() => tx.data ?? [], [tx.data]);
   const groups = useMemo(() => groupByDay(rows), [rows]);
   const update = useUpdateTransactions();
   const actions = useReviewActions();
   const kept = useKept();
   const firstRun = useFirstRun();
+  const rowActions = useRowActions();
+  const { openEditor } = useRuleEditor();
 
   // Selection belongs to one filter; changing month or filters starts fresh.
   const scope = JSON.stringify(filter);
@@ -95,19 +109,78 @@ export function TransactionsPage() {
     anchor.current = id;
   };
 
-  const categorize = (ids: number[], category: Category | null) => {
+  const clearSelection = () => setSelection({ scope, ids: NONE });
+  const selectedRows = rows.filter((r) => selected.has(r.id));
+
+  const makeRule = (targets: Row[], category?: Category) =>
+    suggestFor(targets.map((r) => r.id), category).then((draft) => openEditor({ draft, optIn: true }), failed);
+
+  /** A gentle offer to let a rule do this next time (spec 09, item 4). */
+  const offerRule = (row: Row, category: Category, still?: boolean) =>
+    toast(`${s.rules.offerLead}${row.description.trim()}${s.rules.offerInto}${category.name}${s.rules.offerEnd}`, {
+      description: s.rules.offerBody,
+      duration: still ? Infinity : 8000,
+      // Hidden screenshot runs never advance transitions; demo shots skip them.
+      className: still ? "!transition-none" : undefined,
+      action: { label: s.rules.makeRule, onClick: () => void makeRule([row], category) },
+    });
+
+  const categorize = (ids: number[], category: Category | null, one?: Row) => {
+    const offer = one !== undefined && shouldOfferRule(one, category);
     update.mutate(
       { ids, patch: { categoryId: category?.id ?? null } },
       {
         onSuccess: ({ updated }) => {
-          toast.success(category ? s.transactions.categorized(category.name, updated) : s.transactions.uncategorizedDone(updated));
-          setSelection({ scope, ids: NONE });
+          if (offer && one && category) offerRule(one, category);
+          else toast.success(category ? s.transactions.categorized(category.name, updated) : s.transactions.uncategorizedDone(updated));
+          clearSelection();
         },
-        onError: (e) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody),
+        onError: failed,
       },
     );
   };
-  const onRowCategory = (row: Row, c: Category | null) => categorize([row.id], c);
+  const onRowCategory = (row: Row, c: Category | null) => categorize([row.id], c, row);
+
+  const menuFor = (row: Row): RowMenuModel => {
+    const targets = menuTargets(row, selected, rows);
+    const many = targets.length > 1;
+    const ignoredAll = allIgnored(targets);
+    const after = many ? clearSelection : undefined;
+    return {
+      heading: many ? s.rowMenu.forSelection(targets.length) : undefined,
+      entries: [
+        {
+          key: "rule",
+          label: many ? s.rowMenu.makeRuleMany(targets.length) : s.rowMenu.makeRule(row.description.trim()),
+          icon: WandSparkles,
+          onSelect: () => void makeRule(targets),
+        },
+        {
+          key: "ignore",
+          label: ignoredAll ? s.rowMenu.countAgain : s.rowMenu.ignore,
+          hint: ignoredAll ? undefined : s.rowMenu.ignoreHint,
+          icon: ignoredAll ? Eye : EyeOff,
+          onSelect: () => rowActions.setIgnored(targets, !ignoredAll, after),
+        },
+        {
+          key: "trash",
+          label: s.rowMenu.trash,
+          hint: s.rowMenu.trashHint,
+          icon: Trash2,
+          danger: true,
+          onSelect: () => rowActions.trash(targets, clearSelection),
+        },
+      ],
+    };
+  };
+
+  const shot = useDemoShot(rows, {
+    select: (ids) => setSelection({ scope, ids }),
+    setShowBills,
+    lastMonth: () => setMonth(shiftMonth(month, -1)),
+    offerRule,
+    index,
+  });
 
   const setParam = (key: string, value: string | null) =>
     setParams(
@@ -172,6 +245,22 @@ export function TransactionsPage() {
                 <X />
               </Button>
             </span>
+          )}
+          {(billCount > 0 || showBills) && (
+            <Hint label={s.cardBills.hint}>
+              <button
+                type="button"
+                aria-pressed={showBills}
+                onClick={() => setShowBills((v) => !v)}
+                className={cn(
+                  "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
+                  showBills ? "border-foreground/20 bg-accent text-foreground" : "border-border bg-background text-muted-foreground",
+                )}
+              >
+                <ArrowLeftRight className="size-3.5" />
+                {showBills ? s.cardBills.hide : s.cardBills.show(billCount)}
+              </button>
+            </Hint>
           )}
           <label className="relative ms-auto w-72">
             <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -251,6 +340,8 @@ export function TransactionsPage() {
                     selecting={selected.size > 0}
                     onToggle={toggle}
                     onCategory={onRowCategory}
+                    menu={() => menuFor(row)}
+                    menuOpen={shot.menuRow === row.id}
                     review={{
                       reviewing: review,
                       kept: kept.has(row.id),
@@ -273,12 +364,53 @@ export function TransactionsPage() {
       {selected.size > 0 && (
         <BulkBar
           count={selected.size}
-          pending={update.isPending}
+          pending={update.isPending || rowActions.busy}
           index={index}
+          ignored={allIgnored(selectedRows)}
           onCategory={(c) => categorize([...selected], c)}
-          onClear={() => setSelection({ scope, ids: NONE })}
+          onMakeRule={() => void makeRule(selectedRows)}
+          onIgnore={() => rowActions.setIgnored(selectedRows, !allIgnored(selectedRows), clearSelection)}
+          onTrash={() => rowActions.trash(selectedRows, clearSelection)}
+          onClear={clearSelection}
         />
       )}
     </Page>
   );
+}
+
+/**
+ * Demo screenshot aid: `?shot=menu` opens the "..." menu on a row,
+ * `?shot=select` selects three rows, `?shot=offer` shows the "Always put X
+ * in Y?" toast, and `?shot=bills` or `?shot=bills-on` go to last month
+ * (which has card bills) with them hidden or shown.
+ */
+function useDemoShot(
+  rows: Row[],
+  aids: {
+    select: (ids: Set<number>) => void;
+    setShowBills: (show: boolean) => void;
+    lastMonth: () => void;
+    offerRule: (row: Row, category: Category, still: boolean) => void;
+    index: CategoryIndex;
+  },
+): { menuRow: number | null } {
+  const shot = useShot();
+  const ready = rows.length > 0;
+  const [menuRow, setMenuRow] = useState<number | null>(null);
+  useEffect(() => {
+    if (!shot || !ready) return;
+    const id = setTimeout(() => {
+      const spending = rows.filter((r) => r.flow === "spending" && r.categorySource !== "rule" && r.amount < 0);
+      if (shot === "menu") setMenuRow(spending[0]?.id ?? null);
+      if (shot === "select") aids.select(new Set(spending.slice(0, 3).map((r) => r.id)));
+      if (shot === "bills" || shot === "bills-on") aids.lastMonth();
+      if (shot === "bills-on") aids.setShowBills(true);
+      const groceries = [...aids.index.byId.values()].find((c) => c.name === "Groceries");
+      if (shot === "offer" && spending[0] && groceries) aids.offerRule(spending[0], groceries, true);
+    }, 400);
+    return () => clearTimeout(id);
+    // Once per load: refreshed rows must not repeat it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shot, ready]);
+  return { menuRow };
 }
