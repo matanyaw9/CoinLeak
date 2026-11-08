@@ -1,5 +1,6 @@
 // First run: a warm hello on Home and Transactions before any account is
-// synced. Says what CoinLeak does, the self-login promise, and opens Sync.
+// synced. Says what CoinLeak does, the self-login promise, and opens the
+// Sync panel, or the Add picker when no bank or card has been added yet.
 
 import { ChartPie, Coins, LoaderCircle, Lock, RefreshCw, ShieldCheck, type LucideIcon } from "lucide-react";
 import { s } from "@/strings";
@@ -27,7 +28,11 @@ export function Welcome() {
       <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-pretty text-muted-foreground">{s.welcome.body}</p>
 
       <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <Button size="lg" className="h-11 rounded-xl px-5 text-[15px]" onClick={() => sync.setPanelOpen(true)}>
+        <Button
+          size="lg"
+          className="h-11 rounded-xl px-5 text-[15px]"
+          onClick={() => (sync.added.length > 0 ? sync.setPanelOpen(true) : sync.setPickerOpen(true))}
+        >
           {busy ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
           {busy && sync.stage ? s.sync.stageShort[sync.stage] : s.welcome.start}
         </Button>

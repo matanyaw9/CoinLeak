@@ -20,7 +20,7 @@ export const s = {
     home: "Home",
     transactions: "Transactions",
     categories: "Categories",
-    accounts: "Accounts",
+    accounts: "Money accounts",
     settings: "Settings",
   },
 
@@ -40,7 +40,7 @@ export const s = {
 
   sync: {
     button: "Sync",
-    title: "Sync your accounts",
+    title: "Sync your money accounts",
     intro: "A private browser opens on your bank's own website. You log in there, and CoinLeak downloads your transactions.",
     syncOne: "Sync",
     cancel: "Cancel",
@@ -83,18 +83,18 @@ export const s = {
 
   empty: {
     noDataTitle: "Nothing here yet",
-    noDataBody: "Sync your bank and cards on the Accounts page, and your money will show up here.",
-    goToAccounts: "Go to Accounts",
+    noDataBody: "Add your bank and cards on the Money accounts page, sync them, and your money will show up here.",
+    goToAccounts: "Go to Money accounts",
     errorTitle: "That did not load",
   },
 
   welcome: {
     eyebrow: "Welcome to CoinLeak",
     title: "Let's see where your money goes.",
-    body: "CoinLeak brings your bank account and credit cards together in one calm place, right here on this computer. Sync once, and your spending shows up here.",
+    body: "CoinLeak brings your bank and credit cards together in one calm place, right here on this computer. Sync once, and your spending shows up here.",
     start: "Sync your first account",
     features: [
-      { title: "Sync in one click", body: "Bring in Discount and Cal whenever you like." },
+      { title: "Sync in one click", body: "Bring in your bank and credit cards whenever you like." },
       { title: "Every shekel once", body: "Card bills are matched to the card's own purchases." },
       { title: "Gentle, clear charts", body: "See where it goes, month by month." },
     ],
@@ -235,7 +235,7 @@ export const s = {
   },
 
   accounts: {
-    title: "Accounts",
+    title: "Money accounts",
     intro: "Each sync opens your bank's own login page. You type your password there, never in CoinLeak, and the app never sees or stores it.",
     bankAccount: "Bank account",
     card: "Card",
@@ -247,7 +247,7 @@ export const s = {
     },
     cardModeSaved: (card: string, mode: string) => `${card} is now ${mode.toLowerCase()}`,
     cardModeSavedBody: "Card bills were matched again.",
-    noAccounts: "No accounts yet. Sync once and they will appear here.",
+    noAccounts: "No money accounts yet. Sync once and they will appear here.",
     safeTitle: "Safe by design",
     safe: [
       "Your password goes only to the bank's own website.",
@@ -415,6 +415,34 @@ export const s = {
     hint: "Click a point to see these transactions",
     legendHint: "Click a name to hide or show its line",
     byDay: (day: number, month: string) => `by day ${day} in ${month}`,
+  },
+
+  // spec 10
+  money: {
+    add: "Add a bank or card",
+    addTitle: "Add a bank or card",
+    addIntro: "Pick where your money is. You log in on its own website when you sync, never in CoinLeak.",
+    group: { bank: "Banks", card: "Credit cards" },
+    experimental: "Experimental",
+    experimentalHint: "Works in tests, not yet confirmed on a real account.",
+    added: "Added",
+    whyMissing: "Why isn't my bank here?",
+    whyMissingIntro: "CoinLeak syncs only where you can log in on the bank's own website, so your password never passes through the app. These can't be synced right now.",
+    addedTitle: (name: string) => `${name} is ready to sync`,
+    addedBody: "Sync now to log in on its own website and bring in your money accounts. You can also do it later from the Sync button.",
+    syncNow: "Sync now",
+    later: "Later",
+    close: "Close",
+    back: "Back",
+    remove: "Remove",
+    removed: (name: string) => `Removed ${name}`,
+    nothingTitle: "No banks or cards yet",
+    nothingBody: "Add your bank and credit cards, then sync them to bring in your money.",
+    neverSynced: "never synced",
+    syncedToday: (at: string) => `synced today ${at}`,
+    syncedYesterday: (at: string) => `synced yesterday ${at}`,
+    syncedOn: (date: string) => `synced ${date}`,
+    accountLine: (label: string, when: string) => `${label}: ${when}`,
   },
 };
 
