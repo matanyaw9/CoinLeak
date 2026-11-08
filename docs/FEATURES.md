@@ -17,7 +17,7 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 | F7 | Trash: see trashed transactions and restore them | spec 11 | New: a `trashed` flag (not a real delete, so a sync never brings the row back as new). Trashed rows count nowhere. Fits "never silently drop": everything is visible in Trash and reversible. |
 | F17 | Rename "Accounts" to "Money accounts" | spec 10 | Text only. |
 | F19 | Hover over Sync: last sync time per money account | spec 10 | Data exists (`sync_runs`). |
-| F13 | "Today" button next to the month arrows | spec 12 | Small. |
+| F13 | "Today" button next to the month arrows | done (spec 12) | Small. |
 
 ## Wave 5 candidates
 
@@ -35,8 +35,8 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| F4 | Research which charts best show the flow of money | spec 12 | Research only, no code: a report with options (Sankey flow, waterfall, calendar heatmap, and so on) and pictures, for the owner to choose. Can run any time. |
-| F5 | Spending through the month per category: pick one category, or see the top categories together | spec 12 | After F4, so it uses the chosen style. |
+| F4 | Research which charts best show the flow of money | done (spec 12) | Research only, no code: a report with options (Sankey flow, waterfall, calendar heatmap, and so on) and pictures, for the owner to choose. Can run any time. |
+| F5 | Spending through the month per category: pick one category, or see the top categories together | done (spec 12) | After F4, so it uses the chosen style. |
 | F1 | Scraper updates: stay current without trusting blindly | planned | Already pinned to an exact version (6.12.2), install scripts off. Missing: a routine. Proposal: `npm run scraper:check` lists newer versions at least two weeks old and prints the code diff; the lead reviews it for new network addresses, file or process access, new dependencies, or obfuscated code, writes a short review note in `docs/`, then upgrades. Done monthly or when a bank breaks. |
 | F15 | Transactions have an ID | done | Every transaction already has a permanent number in the database, plus a content hash for dedup. |
 

@@ -86,3 +86,12 @@ Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
 - A Cal bank line that pays several cards at once would not match today;
   confirm on real data.
 - (Done: `MonthSummary.byParent`) Use it for the donut in the UI.
+
+## From spec 12
+
+- The category curves card has no amount axis; amounts show only on hover.
+  Add a light left axis or end-of-line labels.
+- Demo has no test for `summary:curves` (each curve's last day should equal
+  that parent's `byParent` amount).
+- Top categories mode includes Uncategorized when it is big; confirm the
+  owner wants that.
