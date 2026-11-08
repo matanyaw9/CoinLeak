@@ -61,8 +61,8 @@ function ledger(): Db {
 }
 
 /** The curve's value on each listed day of the month (1-based). */
-function on(points: CategoryCurve["byDay"], ...days: number[]): number[] {
-  return days.map((d) => points[d - 1]?.amount ?? Number.NaN);
+function on(points: CategoryCurve["byDay"] | undefined, ...days: number[]): number[] {
+  return days.map((d) => points?.[d - 1]?.amount ?? Number.NaN);
 }
 
 describe("categoryCurves", () => {
@@ -88,25 +88,25 @@ describe("categoryCurves", () => {
     expect(groceries?.byDay[30]?.date).toBe("2026-03-31");
     // 10,000 on the 2nd, a 2,000 refund on the 7th; the excluded gift and
     // the internal card bill do not count.
-    expect(on(groceries!.byDay, 1, 2, 6, 7, 10, 12, 31)).toEqual([0, 10000, 10000, 8000, 8000, 8000, 8000]);
+    expect(on(groceries?.byDay, 1, 2, 6, 7, 10, 12, 31)).toEqual([0, 10000, 10000, 8000, 8000, 8000, 8000]);
   });
 
   it("a top-level category includes its subcategories and its own rows", () => {
     const [food] = categoryCurves(db, { month: "2026-03", categoryIds: [categoryId(db, "Food")] });
-    expect(on(food!.byDay, 1, 2, 5, 7, 31)).toEqual([0, 15000, 18000, 16000, 16000]);
+    expect(on(food?.byDay, 1, 2, 5, 7, 31)).toEqual([0, 15000, 18000, 16000, 16000]);
   });
 
   it("null is uncategorized, without the gone or excluded rows", () => {
     const [none] = categoryCurves(db, { month: "2026-03", categoryIds: [null] });
     expect(none?.categoryId).toBeNull();
-    expect(on(none!.byDay, 9, 10, 15, 31)).toEqual([0, 4000, 4000, 4000]);
+    expect(on(none?.byDay, 9, 10, 15, 31)).toEqual([0, 4000, 4000, 4000]);
   });
 
   it("gives last month for comparison, over that month's own days", () => {
     const [food] = categoryCurves(db, { month: "2026-03", categoryIds: [categoryId(db, "Food")] });
     expect(food?.previousByDay).toHaveLength(28);
     expect(food?.previousByDay[0]?.date).toBe("2026-02-01");
-    expect(on(food!.previousByDay, 9, 10, 28)).toEqual([0, 7000, 7000]);
+    expect(on(food?.previousByDay, 9, 10, 28)).toEqual([0, 7000, 7000]);
   });
 
   it("answers in the order asked and agrees with the month summary", () => {
