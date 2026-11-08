@@ -12,7 +12,7 @@ import { useShot } from "@/lib/shot";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AddProviderDialog } from "@/components/accounts/add-provider-dialog";
-import { visibleProviders } from "@/components/accounts/provider-groups";
+import { syncingAccounts, visibleProviders } from "@/components/accounts/provider-groups";
 import { cn } from "@/lib/utils";
 import { ProviderSyncRow } from "./sync-parts";
 
@@ -21,6 +21,8 @@ export function SyncButton() {
   const accounts = useAccounts();
   const busy = sync.provider != null;
   const shown = visibleProviders(accounts.data, sync.added);
+  // Accounts removed from syncing keep their rows but leave this panel (spec 15).
+  const syncing = syncingAccounts(accounts.data);
   const shot = useDemoShot(accounts.isSuccess);
 
   const openPicker = () => {
@@ -44,7 +46,7 @@ export function SyncButton() {
               <ProviderSyncRow
                 key={p}
                 provider={p}
-                accounts={accounts.data}
+                accounts={syncing}
                 withTooltip
                 tooltipOpen={shot === `sync-tip-${p}` ? true : undefined}
               />

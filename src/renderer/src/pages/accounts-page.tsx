@@ -1,8 +1,10 @@
 // Money accounts: one card per provider the user has (synced or added), with
 // its name and tag, each money account's last sync, a card mode switch per
-// card, and a Sync button that shows each stage as it happens.
+// card, and a Sync button that shows each stage as it happens. Accounts can be
+// removed from syncing (spec 15): they move to a Removed group, rows intact.
 // Look adapted from Spent (github.com/Shaya16/Spent), settings bank accounts screen.
 
+import { useEffect, useState } from "react";
 import { CreditCard, Landmark, Plus, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import type { Account, CardMode, ProviderId } from "@shared/types";
@@ -11,6 +13,7 @@ import { isNotBuilt } from "@/lib/api";
 import { useAccounts } from "@/lib/hooks";
 import { useSync } from "@/lib/sync";
 import { useReviewActions } from "@/lib/review-actions";
+import { useShot } from "@/lib/shot";
 import { Page } from "@/components/layout/page";
 import { Card } from "@/components/common/card";
 import { EmptyState, QueryError } from "@/components/common/empty-state";
@@ -19,7 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { accountLabel, lastDigits } from "@/components/common/chips";
 import { ProviderSyncRow } from "@/components/sync/sync-parts";
-import { visibleProviders } from "@/components/accounts/provider-groups";
+import { removedAccounts, syncingAccounts, visibleProviders } from "@/components/accounts/provider-groups";
+import { RemoveSyncDialog, RemovedGroup, type RemoveTarget } from "@/components/accounts/remove-sync";
 import { syncedText } from "@/components/accounts/sync-time";
 
 const MODES: CardMode[] = ["credit", "debit"];
@@ -30,6 +34,14 @@ export function AccountsPage() {
   const list = accounts.data ?? [];
   const hardError = accounts.isError && !isNotBuilt(accounts.error);
   const shown = visibleProviders(list, sync.added);
+  const syncing = syncingAccounts(list);
+  const [removing, setRemoving] = useState<{ target: RemoveTarget; key: number } | null>(null);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const askRemove = (target: RemoveTarget) => {
+    setRemoving({ target, key: (removing?.key ?? 0) + 1 });
+    setRemoveOpen(true);
+  };
+  useDemoShot(syncing, askRemove);
 
   return (
     <Page title={s.accounts.title}>
@@ -70,9 +82,18 @@ export function AccountsPage() {
             </Card>
           ) : (
             shown.map((p) => (
-              <ProviderCard key={p} provider={p} accounts={list.filter((a) => a.provider === p)} all={list} />
+              <ProviderCard
+                key={p}
+                provider={p}
+                accounts={syncing.filter((a) => a.provider === p)}
+                all={syncing}
+                onRemove={askRemove}
+              />
             ))
           )}
+          <div id="removed-accounts">
+            <RemovedGroup accounts={removedAccounts(list)} />
+          </div>
         </div>
 
         <div className="mt-10 px-1">
@@ -87,11 +108,25 @@ export function AccountsPage() {
           </ul>
         </div>
       </div>
+      {removing && (
+        <RemoveSyncDialog key={removing.key} target={removing.target} open={removeOpen} onOpenChange={setRemoveOpen} />
+      )}
     </Page>
   );
 }
 
-function ProviderCard({ provider, accounts, all }: { provider: ProviderId; accounts: Account[]; all: Account[] }) {
+function ProviderCard({
+  provider,
+  accounts,
+  all,
+  onRemove,
+}: {
+  provider: ProviderId;
+  /** This provider's money accounts that still sync. */
+  accounts: Account[];
+  all: Account[];
+  onRemove: (target: RemoveTarget) => void;
+}) {
   const sync = useSync();
   const removable = accounts.length === 0 && sync.provider !== provider;
   const remove = () => {
@@ -102,11 +137,26 @@ function ProviderCard({ provider, accounts, all }: { provider: ProviderId; accou
     <Card className="p-0">
       <ProviderSyncRow provider={provider} accounts={all} className="p-6" />
       {accounts.length > 0 ? (
-        <ul className="divide-y divide-border border-t border-border">
-          {accounts.map((a) => (
-            <AccountLine key={a.id} account={a} />
-          ))}
-        </ul>
+        <>
+          <ul className="divide-y divide-border border-t border-border">
+            {accounts.map((a) => (
+              <AccountLine key={a.id} account={a} onRemove={() => onRemove({ account: a })} />
+            ))}
+          </ul>
+          {accounts.length > 1 && (
+            <div className="flex justify-end border-t border-border px-4 py-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                disabled={sync.provider === provider}
+                onClick={() => onRemove({ provider, accounts })}
+              >
+                {s.removeSync.removeAll}
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="flex items-center justify-between gap-4 border-t border-border px-6 py-3">
           <p className="text-sm text-muted-foreground">{s.accounts.noAccounts}</p>
@@ -121,7 +171,7 @@ function ProviderCard({ provider, accounts, all }: { provider: ProviderId; accou
   );
 }
 
-function AccountLine({ account }: { account: Account }) {
+function AccountLine({ account, onRemove }: { account: Account; onRemove: () => void }) {
   const Icon = account.kind === "bank" ? Landmark : CreditCard;
   const actions = useReviewActions();
   const mode = actions.pendingCardMode(account) ?? account.cardMode;
@@ -151,9 +201,39 @@ function AccountLine({ account }: { account: Account }) {
           />
         )}
       </div>
-      {account.kind === "card" && mode && (
-        <p className="mt-2 ps-[52px] text-xs text-muted-foreground">{s.accounts.cardModeHelp[mode]}</p>
-      )}
+      <div className="mt-1 flex items-center justify-between gap-3 ps-[52px]">
+        {account.kind === "card" && mode ? (
+          <p className="text-xs text-muted-foreground">{s.accounts.cardModeHelp[mode]}</p>
+        ) : (
+          <span />
+        )}
+        <Button variant="ghost" size="xs" className="-me-2 shrink-0 text-muted-foreground" onClick={onRemove}>
+          {s.removeSync.remove}
+        </Button>
+      </div>
     </li>
   );
+}
+
+/**
+ * Demo screenshot aid: `?shot=remove-2` asks to remove account 2,
+ * `?shot=remove-visaCal` a whole provider, `?shot=removed` scrolls to the Removed group.
+ */
+function useDemoShot(syncing: Account[], ask: (target: RemoveTarget) => void) {
+  const shot = useShot();
+  const ready = syncing.length > 0;
+  useEffect(() => {
+    if (!shot?.startsWith("remove") || !ready) return;
+    const id = setTimeout(() => {
+      if (shot === "removed") document.getElementById("removed-accounts")?.scrollIntoView({ block: "end" });
+      const key = shot.slice("remove-".length);
+      const account = syncing.find((a) => String(a.id) === key);
+      const mine = syncing.filter((a) => a.provider === key);
+      if (account) ask({ account });
+      else if (mine.length > 0) ask({ provider: key as ProviderId, accounts: mine });
+    }, 400);
+    return () => clearTimeout(id);
+    // Once per load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shot, ready]);
 }

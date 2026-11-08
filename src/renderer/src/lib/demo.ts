@@ -5,8 +5,10 @@
 import type {
   Account,
   Agorot,
+  AppSettings,
   Category,
   CategoryCurve,
+  CategoryProblem,
   Flow,
   IsoDate,
   IsoMonth,
@@ -23,6 +25,7 @@ import type {
 } from "@shared/types";
 import type { Args, Channel, EventName, IpcEvents, Res } from "@shared/ipc";
 import { ERROR_MESSAGES, type ErrorCode, type Result } from "@shared/errors";
+import { isEnabledProvider } from "@shared/providers";
 import { daysInMonth, parseMonth, shiftMonth, toIsoDate, toIsoMonth } from "./month";
 import { applyRules, cleanConditions, cleanRule, matcher, suggest } from "./demo-rules";
 
@@ -404,7 +407,14 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
     { id: BANK, provider: "discount", kind: "bank", accountNumber: "0123456789", name: "Current account", cardMode: null, lastSyncedAt: synced },
     { id: CARD_MAIN, provider: "visaCal", kind: "card", accountNumber: "4821", name: "Everyday card", cardMode: "credit", lastSyncedAt: synced },
     { id: CARD_ONLINE, provider: "visaCal", kind: "card", accountNumber: "7390", name: "Online card", cardMode: "credit", lastSyncedAt: synced },
+    // spec 15: a card the user removed from syncing, shown in the Removed group.
+    { id: 4, provider: "isracard", kind: "card", accountNumber: "5512", name: "Old card", cardMode: "credit", lastSyncedAt: new Date(today.getTime() - 95 * 86400 * 1000).toISOString() },
   ];
+  for (const a of accounts) a.syncEnabled = a.id !== 4;
+  // spec 15: categories the editor can change, and the settings table.
+  const catList: Category[] = CATEGORIES.map((c) => ({ ...c }));
+  let nextCategoryId = 100;
+  const settings: AppSettings = { addedProviders: ["max"] };
 
   const listeners = new Map<EventName, Set<(p: never) => void>>();
   const emit = <E extends EventName>(event: E, payload: IpcEvents[E]) => {
@@ -428,7 +438,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
   function rollUp(cats: Map<number | null, { amount: Agorot; count: number }>): MonthSummary["byParent"] {
     const parents = new Map<number | null, { amount: Agorot; count: number }>();
     for (const [id, c] of cats) {
-      const key = id === null ? null : (CATEGORIES.find((x) => x.id === id)?.parentId ?? id);
+      const key = id === null ? null : (catList.find((x) => x.id === id)?.parentId ?? id);
       const p = parents.get(key) ?? { amount: 0, count: 0 };
       p.amount += c.amount;
       p.count += c.count;
@@ -478,7 +488,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
 
   // spec 12: the same curves core draws, from the demo rows.
   function curves(month: IsoMonth, ids: (number | null)[]): CategoryCurve[] {
-    const parentOf = (id: number | null) => (id === null ? null : CATEGORIES.find((c) => c.id === id)?.parentId);
+    const parentOf = (id: number | null) => (id === null ? null : catList.find((c) => c.id === id)?.parentId);
     const curve = (id: number | null, m: IsoMonth) => {
       const mine = rows.filter(
         (r) => r.date.startsWith(m) && COUNTED.includes(r.flow) && (r.categoryId === id || (id !== null && parentOf(r.categoryId) === id)),
@@ -587,7 +597,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
   // ---- Rules, answered like core: every change reapplies all rules ----
 
   const accountIds = () => new Set(accounts.map((a) => a.id));
-  const categoryIds = new Set(CATEGORIES.map((c) => c.id));
+  const categoryIds = new Set(catList.map((c) => c.id));
   const ordered = () => [...rules].sort((a, b) => a.position - b.position);
   const renumber = (list: Rule[]) => {
     rules = list.map((r, i) => ({ ...r, position: i + 1 }));
@@ -651,6 +661,115 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
     return ok(null);
   }
 
+  // ---- spec 15: categories editor, answered like core ----
+
+  function listCats(): Category[] {
+    return catList.map((c) => ({
+      ...c,
+      rowCount: rows.filter((r) => r.categoryId === c.id).length,
+      ruleCount: rules.filter((r) => r.setCategoryId === c.id).length,
+    }));
+  }
+
+  type CatChange = Res<"categories:create">;
+  const refuse = (problem: CategoryProblem): Result<CatChange> => ok({ ok: false, problem });
+  const cleanName = (v: unknown) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ") : "");
+  const taken = (parentId: number | null, name: string, self: number | null) =>
+    catList.some((c) => c.parentId === parentId && c.id !== self && c.name.toLowerCase() === name.toLowerCase());
+  const parentProblem = (parentId: number, kind: Category["kind"]): CategoryProblem | "bad" | null => {
+    const parent = catList.find((c) => c.id === parentId);
+    if (!parent) return "bad";
+    if (parent.parentId !== null) return "parent_not_top_level";
+    return parent.kind !== kind ? "parent_other_kind" : null;
+  };
+  const okColor = (v: unknown) => v === null || (typeof v === "string" && /^#[0-9A-Fa-f]{6}$/.test(v));
+  const okEmoji = (v: unknown) => v === null || (typeof v === "string" && v.length <= 16);
+  const withCounts = (id: number) => listCats().find((c) => c.id === id) as Category;
+  /** Children follow their parent, as in core's order. */
+  const place = (c: Category) => {
+    const p = c.parentId;
+    const after = p === null ? catList.length - 1 : catList.map((x) => x.id === p || x.parentId === p).lastIndexOf(true);
+    catList.splice(after + 1, 0, c);
+  };
+
+  function createCat(input: Args<"categories:create">): Result<CatChange> {
+    const name = cleanName(input?.name);
+    if (!name || name.length > 60 || !okColor(input.color) || !okEmoji(input.emoji)) return fail("BAD_REQUEST");
+    if (input.kind !== "expense" && input.kind !== "income") return fail("BAD_REQUEST");
+    if (input.parentId !== null) {
+      const problem = parentProblem(input.parentId, input.kind);
+      if (problem === "bad") return fail("BAD_REQUEST");
+      if (problem) return refuse(problem);
+    }
+    if (taken(input.parentId, name, null)) return refuse("name_taken");
+    const c: Category = {
+      id: nextCategoryId++,
+      parentId: input.parentId,
+      name,
+      kind: input.kind,
+      emoji: input.emoji || null,
+      color: input.color,
+      archived: false,
+    };
+    place(c);
+    categoryIds.add(c.id);
+    return ok({ ok: true, category: withCounts(c.id) });
+  }
+
+  function updateCat(id: unknown, patch: Args<"categories:update">["patch"]): Result<CatChange> {
+    const c = catList.find((x) => x.id === id);
+    if (!c) return fail("BAD_REQUEST");
+    const name = patch.name === undefined ? c.name : cleanName(patch.name);
+    if (!name || name.length > 60) return fail("BAD_REQUEST");
+    if (patch.color !== undefined && !okColor(patch.color)) return fail("BAD_REQUEST");
+    if (patch.emoji !== undefined && !okEmoji(patch.emoji)) return fail("BAD_REQUEST");
+    const parentId = patch.parentId === undefined ? c.parentId : patch.parentId;
+    const moving = parentId !== c.parentId;
+    if (moving && parentId !== null) {
+      if (parentId === c.id) return fail("BAD_REQUEST");
+      const problem = parentProblem(parentId, c.kind);
+      if (problem === "bad") return fail("BAD_REQUEST");
+      if (problem) return refuse(problem);
+      if (catList.some((x) => x.parentId === c.id)) return refuse("has_children");
+    }
+    if (taken(parentId, name, c.id)) return refuse("name_taken");
+    c.name = name;
+    if (patch.emoji !== undefined) c.emoji = patch.emoji || null;
+    if (patch.color !== undefined) c.color = patch.color;
+    if (moving) {
+      catList.splice(catList.indexOf(c), 1);
+      c.parentId = parentId;
+      place(c);
+    }
+    return ok({ ok: true, category: withCounts(c.id) });
+  }
+
+  function deleteCat(id: unknown, moveTo: number | null): Result<Res<"categories:delete">> {
+    const c = catList.find((x) => x.id === id);
+    if (!c || moveTo === id) return fail("BAD_REQUEST");
+    if (catList.some((x) => x.parentId === c.id)) return ok({ ok: false, problem: "has_children" });
+    const mine = rows.filter((r) => r.categoryId === c.id);
+    const ruled = rules.filter((r) => r.setCategoryId === c.id);
+    if (mine.length + ruled.length > 0) {
+      if (moveTo === null) return ok({ ok: false, problem: "in_use" });
+      const target = catList.find((x) => x.id === moveTo);
+      if (!target) return fail("BAD_REQUEST");
+      if (target.kind !== c.kind) return ok({ ok: false, problem: "target_other_kind" });
+      mine.forEach((r) => (r.categoryId = moveTo));
+      rules = rules.map((r) => (r.setCategoryId === c.id ? { ...r, setCategoryId: moveTo } : r));
+    }
+    catList.splice(catList.indexOf(c), 1);
+    categoryIds.delete(c.id);
+    return ok({ ok: true, movedRows: mine.length, movedRules: ruled.length });
+  }
+
+  /** Spec 13's known places, until its own demo answer lands: each category rule's text. */
+  function knownPlaces(): { categoryId: number; ruleId: number; names: string[] }[] {
+    return ordered()
+      .filter((r) => r.setCategoryId !== null && r.matchMode !== "regex")
+      .map((r) => ({ categoryId: r.setCategoryId as number, ruleId: r.id, names: [r.matchText] }));
+  }
+
   function startSync(provider: ProviderId): Promise<Result<Res<"sync:start">>> {
     if (sync) return Promise.resolve(fail("SYNC_IN_PROGRESS"));
     return new Promise((resolve) => {
@@ -690,7 +809,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       case "accounts:list":
         return ok(accounts);
       case "categories:list":
-        return ok(CATEGORIES);
+        return ok(listCats());
       case "transactions:list":
         return ok(list((args ?? {}) as TransactionFilter));
       case "transactions:update": {
@@ -744,6 +863,40 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
         return previewRule(args);
       case "rules:suggest":
         return suggestRule((args as Args<"rules:suggest">)?.ids);
+      case "categories:create":
+        return createCat(args as Args<"categories:create">);
+      case "categories:update": {
+        const a = args as Args<"categories:update">;
+        return updateCat(a?.id, a?.patch ?? {});
+      }
+      case "categories:delete": {
+        const a = args as Args<"categories:delete">;
+        return deleteCat(a?.id, a?.moveTo ?? null);
+      }
+      case "accounts:setSyncing": {
+        const a = args as Args<"accounts:setSyncing">;
+        if (!validIds(a?.ids) || typeof a.enabled !== "boolean") return fail("BAD_REQUEST");
+        const mine = accounts.filter((x) => a.ids.includes(x.id));
+        if (mine.length !== new Set(a.ids).size) return fail("BAD_REQUEST");
+        const changed = mine.filter((x) => x.syncEnabled !== a.enabled);
+        changed.forEach((x) => (x.syncEnabled = a.enabled));
+        return ok({ updated: changed.length });
+      }
+      case "settings:get": {
+        const key = (args as Args<"settings:get">)?.key;
+        return key === "addedProviders" ? ok(settings[key]) : fail("BAD_REQUEST");
+      }
+      case "settings:set": {
+        const a = args as Args<"settings:set">;
+        const value: unknown = a?.value;
+        if (a?.key !== "addedProviders" || !Array.isArray(value) || !value.every(isEnabledProvider)) return fail("BAD_REQUEST");
+        settings.addedProviders = [...new Set(value)];
+        return ok(null);
+      }
+      default:
+        // Spec 13's known places channel, answered here until it lands.
+        if ((channel as string) === "rules:knownPlaces") return ok(knownPlaces());
+        return fail("NOT_IMPLEMENTED");
     }
   }
 
