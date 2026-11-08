@@ -19,9 +19,12 @@ export function openDatabase(path: string): Db {
 
 export function migrate(db: Db): void {
   db.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
-  const row = db.prepare("SELECT COALESCE(MAX(version), 0) AS v FROM schema_migrations").get() as { v: number };
+  // Every missing version, not only those above the newest: a branch build
+  // may have recorded a later number before an earlier one reached main.
+  const done = db.prepare("SELECT version FROM schema_migrations").all() as { version: number }[];
+  const applied = new Set(done.map((r) => r.version));
   for (const m of MIGRATIONS) {
-    if (m.version <= row.v) continue;
+    if (applied.has(m.version)) continue;
     transaction(db, () => {
       db.exec(m.sql);
       db.prepare("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)").run(

@@ -1,7 +1,8 @@
 // App entry: hardening, data folder, database, IPC, and the one window.
 
 import { app, BrowserWindow, nativeTheme, session } from "electron";
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDatabase, type Db } from "@core/db";
 import { ingest } from "@core/ledger";
@@ -19,7 +20,12 @@ const here = import.meta.dirname;
 
 // Dev runs keep their own data so experiments never touch real data.
 if (dev) app.setPath("userData", join(app.getPath("appData"), "CoinLeak-dev"));
-const dataDir = process.env["COINLEAK_DATA_DIR"] ?? join(app.getPath("userData"), "data");
+const screenshotRun = dev && Boolean(process.env["COINLEAK_SCREENSHOT"]);
+// Screenshot runs show demo data and must never open (and migrate) the dev
+// database: a branch build once stamped a migration number main did not have.
+const dataDir =
+  process.env["COINLEAK_DATA_DIR"] ??
+  (screenshotRun ? mkdtempSync(join(tmpdir(), "coinleak-shot-")) : join(app.getPath("userData"), "data"));
 
 app.enableSandbox();
 registerAppScheme();
@@ -30,7 +36,6 @@ let mainWindow: BrowserWindow | undefined;
 
 // Dev screenshot runs skip the single-instance lock: it needs a local socket,
 // which sandboxed tooling cannot open. Packaged builds always take the lock.
-const screenshotRun = dev && Boolean(process.env["COINLEAK_SCREENSHOT"]);
 if (!screenshotRun && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
