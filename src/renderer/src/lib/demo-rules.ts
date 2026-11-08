@@ -26,6 +26,7 @@ type Conditions = Pick<RuleInput, "join" | "conditions">;
 /** The fields of a demo row that rules read and write. */
 export interface RuleTarget {
   id: number;
+  date: string;
   accountId: number;
   amount: Agorot;
   description: string;
@@ -348,13 +349,26 @@ export function createDemoRules(host: DemoRulesHost, seeds: RuleInput[]): DemoRu
   };
   const categoryIds = () => new Set(host.categories().map((c) => c.id));
 
-  // Seeding: rows a seeded rule fits are the rule's, every other sorted row the user's.
-  for (const rule of rules.filter((r) => r.enabled)) {
-    const fits = matcher(rule);
+  // Seeding: rows a seeded rule fits are the rule's, every other sorted row
+  // the user's. Recent rows from shops on a starter list wait unsorted,
+  // so "Add starter lists" has something to sort.
+  const seeded = rules.filter((r) => r.enabled).map((r) => ({ rule: r, fits: matcher(r) }));
+  for (const { rule, fits } of seeded) {
     for (const r of host.rows().filter(fits)) {
       if (rule.setCategoryId !== null) [r.categoryId, r.categorySource] = [null, null];
       if (rule.setExcluded !== null) [r.excluded, r.excludedSource] = [false, null];
     }
+  }
+  const starter = matcher({
+    join: "any",
+    conditions: DEMO_STARTERS.map((x) => ({ kind: "text", field: "description", mode: "contains", values: x.names })),
+  });
+  // The last six weeks: from 42 days before the newest row.
+  const newest = host.rows().reduce((m, r) => (r.date > m ? r.date : m), "");
+  const since = new Date(Date.parse(newest) - 42 * 86_400_000).toISOString().slice(0, 10);
+  for (const r of host.rows()) {
+    if (r.date < since || r.categorySource !== "user" || !starter(r)) continue;
+    if (!seeded.some(({ rule, fits }) => rule.setCategoryId !== null && fits(r))) [r.categoryId, r.categorySource] = [null, null];
   }
   reapply();
 
