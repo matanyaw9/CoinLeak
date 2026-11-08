@@ -1,5 +1,6 @@
 // Home hero: what was spent this month in one big sentence, how that
-// compares with last month, and income, spending and what was left.
+// compares with last month, and income, spending and what was left, plus
+// what moved to savings when anything did (spec 14).
 // Look adapted from Spent (github.com/Shaya16/Spent), src/components/dashboard/hero-card.tsx.
 
 import { Link } from "react-router";
@@ -38,6 +39,7 @@ export function HeroCard({
   const cmp = comparison(summary, prev, isCurrent, day);
   const left = summary.income - summary.spending;
   const spent = summary.spending > 0;
+  const moved = summary.transfers;
 
   return (
     <Card className="relative overflow-hidden px-10 pt-9 pb-8">
@@ -89,7 +91,7 @@ export function HeroCard({
         </p>
       )}
 
-      <div className="mt-9 grid grid-cols-3 gap-6 border-t border-border pt-7">
+      <div className={cn("mt-9 grid gap-6 border-t border-border pt-7", moved !== 0 ? "grid-cols-4" : "grid-cols-3")}>
         <Kpi label={s.home.income} hint={s.home.incomeHint}>
           <Money amount={summary.income} className="text-status-on-track" />
         </Kpi>
@@ -99,6 +101,14 @@ export function HeroCard({
         <Kpi label={isCurrent ? s.home.leftSoFar : s.home.left} hint={left < 0 ? s.home.overspent : s.home.leftHint}>
           <Money amount={left} className={left < 0 ? "text-status-over" : "text-foreground"} />
         </Kpi>
+        {moved !== 0 && (
+          <Kpi
+            label={moved > 0 ? s.flow.movedToSavings : s.flow.takenFromSavings}
+            hint={moved > 0 ? s.flow.movedHint : s.flow.takenHint}
+          >
+            <Money amount={Math.abs(moved)} className="text-foreground" />
+          </Kpi>
+        )}
       </div>
     </Card>
   );
