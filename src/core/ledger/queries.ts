@@ -305,10 +305,16 @@ export function restoreTransactions(db: Db, ids: number[], now = new Date()): { 
 
 /**
  * Deletes every trashed row for good. A bank line that still points at one
- * (a card bill decided by hand) lets go of it first.
+ * (a card bill decided by hand) lets go of it first. Each row leaves a
+ * tombstone (its dedup key and copy number) so a later sync never adds it
+ * back (spec 14).
  */
-export function emptyTrash(db: Db): { deleted: number } {
+export function emptyTrash(db: Db, now = new Date()): { deleted: number } {
   return transaction(db, () => {
+    db.prepare(
+      `INSERT OR IGNORE INTO trash_tombstones (account_id, dedup_hash, dedup_seq, emptied_at)
+       SELECT account_id, dedup_hash, dedup_seq, ? FROM transactions WHERE trashed_at IS NOT NULL`,
+    ).run(now.toISOString());
     db.prepare(
       `UPDATE transactions SET card_bill_txn_id = NULL
        WHERE card_bill_txn_id IN (SELECT id FROM transactions WHERE trashed_at IS NOT NULL)`,
@@ -321,18 +327,20 @@ export function emptyTrash(db: Db): { deleted: number } {
 
 // ---- Summaries ----
 
-interface Totals {
+export interface Totals {
   income: Agorot;
   spending: Agorot;
+  transfers: Agorot;
   needsReview: number;
 }
 
-function totals(db: Db, from: IsoDate, until: IsoDate): Totals {
+export function totals(db: Db, from: IsoDate, until: IsoDate): Totals {
   return db
     .prepare(
       `${WITH_LEDGER} SELECT
          COALESCE(SUM(CASE WHEN ledger.flow = 'income' THEN ledger.amount END), 0) AS income,
          COALESCE(-SUM(CASE WHEN ledger.flow IN ${SPENDING_FLOWS_SQL} THEN ledger.amount END), 0) AS spending,
+         COALESCE(-SUM(CASE WHEN ledger.flow = 'transfer' THEN ledger.amount END), 0) AS transfers,
          COALESCE(SUM(${NEEDS_REVIEW_SQL}), 0) AS needsReview
        FROM ledger WHERE ledger.date >= ? AND ledger.date < ?`,
     )
@@ -356,7 +364,7 @@ function spendingByCategory(
     .map((r) => ({ categoryId: r.categoryId as number | null, amount: r.spent as number, count: r.count as number }));
 }
 
-function spendingByParent(
+export function spendingByParent(
   db: Db,
   from: IsoDate,
   until: IsoDate,
@@ -396,6 +404,7 @@ export function monthSummary(db: Db, month: IsoMonth): MonthSummary {
     month,
     income: t.income,
     spending: t.spending,
+    transfers: t.transfers,
     byCategory: spendingByCategory(db, from, until),
     byParent: spendingByParent(db, from, until),
     byDay,

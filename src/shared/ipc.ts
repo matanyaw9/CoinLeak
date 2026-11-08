@@ -8,6 +8,7 @@ import type {
   Category,
   CategoryCurve,
   IsoMonth,
+  MoneyFlow,
   MonthSummary,
   ProviderId,
   Rule,
@@ -42,6 +43,8 @@ export interface IpcContract {
   "summary:trend": { args: { months: number }; result: TrendPoint[] };
   /** One curve per requested category, in the order asked. `null` is uncategorized. */
   "summary:curves": { args: { month: IsoMonth; categoryIds: (number | null)[] }; result: CategoryCurve[] };
+  /** Where the month's money came from and went, for the Sankey (spec 14). */
+  "summary:flow": { args: { month: IsoMonth }; result: MoneyFlow };
   "sync:start": { args: { provider: ProviderId }; result: SyncResult };
   "sync:cancel": { args: undefined; result: null };
   /** Rules in evaluation order. Every change below reapplies all rules to all rows. */
@@ -81,6 +84,7 @@ export const CHANNELS = [
   "summary:month",
   "summary:trend",
   "summary:curves",
+  "summary:flow",
   "sync:start",
   "sync:cancel",
   "rules:list",
