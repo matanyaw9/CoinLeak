@@ -89,7 +89,9 @@ Glossary. Use these words in code, UI and docs.
 - **Transaction**: one row on one account. `amount` in agorot, negative is
   money out. `date` is the purchase or booking date; `processed_date` is
   when a card charge hits the bank. `status` is `pending`, `completed`, or
-  `gone` (a pending row a later download no longer contains).
+  `gone` (a pending row a later download no longer contains). A row the
+  user trashed keeps its status, gets `trashed_at`, and counts nowhere until
+  restored.
 - **Category**: two-level tree with a kind (`expense` or `income`), emoji
   and color.
 - **Rule**: ordered condition (text, account, amount, direction) to action
@@ -107,6 +109,7 @@ Glossary. Use these words in code, UI and docs.
 
 | flow      | when |
 |-----------|------|
+| trashed   | the user moved the row to Trash (counts nowhere, restorable) |
 | gone      | the bank stopped reporting this pending row (counts nowhere) |
 | excluded  | the user excluded the row |
 | internal  | a bank line matched to a tracked card's bill (or debit charge) |
@@ -172,7 +175,8 @@ overwritten by a sync.
 - **Transactions**: dense list grouped by day, search and filters, quick
   category picker, bulk select and categorize, needs-review view.
 - **Categories**: manage the tree, emoji, colors; rules list and editor.
-- **Accounts and sync**: providers, accounts and card mode, last sync,
+- **Money accounts and sync** (named so to tell them apart from the
+  computer login): providers, accounts and card mode, last sync,
   Sync buttons with progress.
 - **Settings**: theme (system, light, dark), data folder location, backup.
 
@@ -200,14 +204,16 @@ migrations are never edited.
 | 1 | `01-sync-self-login`, `02-ledger-core`, `03-ui-shell` | Done. Self-login download for Discount and Cal; schema, dedup, card bills, flows, queries; every screen in Spent's look with demo data, including Home charts |
 | 2 | `04-pending-lifecycle`, `05-review-and-real-data`, `06-sync-hardening` | Done. Pending rows settle or go gone, review actions, first-run welcome, card mode, real data end to end (Discount verified live) |
 | 3 | `07-rules-core`, `08-all-providers`, `09-rules-screen` | Core and first slices done. Rules engine on every sync, Rules page and editor, all 18 providers researched with generic self-login. Left: provider picker in Accounts and Sync, rules from Transactions |
-| 4 | `10-packaging` | Windows and Linux installers, fuses |
-| 5 | later | Hebrew UI, budgets, pockets, AI helper (opt-in) |
+| 4 | `10-money-accounts`, `11-transactions-workbench`, `12-home-charts` | Add any bank from the app, Money accounts, last sync on hover; Trash, right-click menu, rules from rows, card bills hidden by default; category curves, Today button, chart research |
+| 5 | to plan (see `docs/FEATURES.md`) | Rules with AND / OR, category editing, date ranges, manual transactions, transfers to savings |
+| 6 | packaging | Windows and Linux installers, fuses |
+| later | | Hebrew UI, budgets, pockets, AI helper (opt-in) |
 
 ## 9. Open questions
 
-- Does self-login work for Cal? In tests yes: the SSO token is captured
-  during login the same way the library does, with its sessionStorage
-  fallback. Awaiting the owner's real login (see `docs/banks/visaCal.md`).
+- Several people on one computer: decided 2026-11-08, each person uses
+  their own computer login (the app keeps data per login). No in-app
+  accounts for now.
 - Which Chromium? **Decided (spec 01): the system's Chrome, Chromium or
   Edge**, kept updated by the OS; `COINLEAK_CHROME` overrides. Windows
   always has Edge. Linux users install Chromium from their package manager.

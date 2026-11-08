@@ -34,7 +34,7 @@ const REGISTRY = {
     status: "verified",
     site: "start.telebank.co.il",
   },
-  visaCal: { name: "Cal", short: "Cal", kind: "card", status: "experimental", site: "www.cal-online.co.il" },
+  visaCal: { name: "Cal", short: "Cal", kind: "card", status: "verified", site: "www.cal-online.co.il" },
   hapoalim: {
     name: "Bank Hapoalim",
     short: "Hapoalim",

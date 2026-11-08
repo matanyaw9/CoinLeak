@@ -9,6 +9,9 @@ Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
 
 ## Done
 
+- (Owner, 2026-11-08) **Cal verified live end to end** in `npm run dev`:
+  6 accounts; a second sync added 0 rows (dedup works). Cal is `verified`.
+
 - (Owner, 2026-11-08) **Discount verified live end to end** after the fix:
   1 account, 274 rows, 2025-11-10 to 2026-11-05, 1 pending, 26 s. Cal
   login verified; Cal download still to confirm.
@@ -54,7 +57,7 @@ Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
 - Owner check on real Cal data: what `trnCurrencySymbol` holds for shekels
   (anything other than ₪, NIS, ILS or ש"ח would zero a pending shekel row).
 
-## Spec 09 leftovers (rules in Transactions)
+## Spec 09 leftovers (rules in Transactions), now in spec 11
 
 - "Make a rule" in `components/transactions/bulk-bar.tsx`: call
   `rules:suggest`, then `useRuleEditor().openEditor({ draft, optIn: true })`.

@@ -44,8 +44,8 @@ describe("provider registry", () => {
     const ranks = PROVIDERS.map((p) => order[p.status]);
     expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
     expect(providerInfo("discount").status).toBe("verified");
-    // Cal stays experimental until its download is confirmed live.
-    expect(providerInfo("visaCal").status).toBe("experimental");
+    // Cal download confirmed live by the owner on 2026-11-08 (6 accounts).
+    expect(providerInfo("visaCal").status).toBe("verified");
     expect(providerInfo("oneZero").status).toBe("unsupported");
   });
 
