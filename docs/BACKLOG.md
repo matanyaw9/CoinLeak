@@ -5,7 +5,12 @@ into specs when planning a wave. Must-fix items block the first real use.
 
 ## Must fix before real use
 
-Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
+- (Lead, spec 11 review) **"Empty trash" lets rows come back.** It really
+  deletes the rows, and dedup counts copies in the database, so the next
+  sync re-adds any emptied row still inside the bank's download window
+  (about a year). Fix: keep a tombstone (the dedup key) for emptied rows,
+  or keep the row with a `purged` mark hidden everywhere. Until fixed, do
+  not use "Empty trash" on real data; Trash itself is safe.
 
 ## Done
 
@@ -104,3 +109,12 @@ Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
 - The Sync tooltip floats a bit far from its row.
 - `app-shell.tsx` screenshot shortcut `?sync=` accepts only discount and
   visaCal; could accept any enabled provider.
+
+## From spec 11
+
+- Undo of "Ignore" goes through `transactions:update`, so the row's
+  exclusion becomes the user's; a row never excluded before can no longer
+  be excluded by a rule. Undo should restore the previous `excluded` and
+  `excluded_source` exactly.
+- Files touched outside Owns, approved at merge: `core/db/migrations.ts`,
+  `core/ledger/validate.ts`, `core/ledger/index.ts`, new `lib/review-rows.ts`.

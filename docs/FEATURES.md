@@ -12,9 +12,9 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| F2 | Bigger, nicer checkboxes for selecting transactions | spec 11 | UI only. |
-| F6 | Right click on a transaction: make a rule from the business name, trash it, or ignore it | spec 11 | "Ignore" already exists as *exclude* (not counted); it gets the greyed look. "Make a rule" reuses `rules:suggest`. |
-| F7 | Trash: see trashed transactions and restore them | spec 11 | New: a `trashed` flag (not a real delete, so a sync never brings the row back as new). Trashed rows count nowhere. Fits "never silently drop": everything is visible in Trash and reversible. |
+| F2 | Bigger, nicer checkboxes for selecting transactions | done (spec 11) | UI only. |
+| F6 | Right click on a transaction: make a rule from the business name, trash it, or ignore it | done (spec 11) | "Ignore" already exists as *exclude* (not counted); it gets the greyed look. "Make a rule" reuses `rules:suggest`. |
+| F7 | Trash: see trashed transactions and restore them | done (spec 11) | New: a `trashed` flag (not a real delete, so a sync never brings the row back as new). Trashed rows count nowhere. Fits "never silently drop": everything is visible in Trash and reversible. |
 | F17 | Rename "Accounts" to "Money accounts" | done (spec 10) | Text only. |
 | F19 | Hover over Sync: last sync time per money account | done (spec 10) | Data exists (`sync_runs`). |
 | F13 | "Today" button next to the month arrows | done (spec 12) | Small. |
@@ -45,4 +45,4 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | F18 | App accounts with password, "remember me", several people on one computer | decided: (a) for now | See the lead's notes in chat (2026-11-08). A password screen without encrypting the data file only *looks* safe: anyone on the computer can open the file directly. Options: (a) each person uses their own computer login; the app already keeps data per login, at no cost; (b) profiles inside the app without passwords, for convenience; (c) real locking: encrypt the database with a password, which means a new native dependency and "forgot password = data lost". |
-| F20 | Card-bill bank lines go to Trash automatically | spec 11, as "hidden by default" | They are already counted zero (*internal*, the card's own purchases are the spending). Trashing them automatically would hide an automatic decision, which breaks the "nothing hidden, everything reversible" rule, and the match can be wrong. Proposal instead: hide internal rows from the list by default, with a "Show card bills" filter. |
+| F20 | Card-bill bank lines go to Trash automatically | done (spec 11), as "hidden by default" | They are already counted zero (*internal*, the card's own purchases are the spending). Trashing them automatically would hide an automatic decision, which breaks the "nothing hidden, everything reversible" rule, and the match can be wrong. Proposal instead: hide internal rows from the list by default, with a "Show card bills" filter. |

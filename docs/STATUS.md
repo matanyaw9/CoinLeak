@@ -5,7 +5,7 @@ at the end of every session.
 
 ## 2026-11-08
 
-### In `main` (all checks green, 563 tests)
+### In `main` (all checks green, 607 tests)
 
 - Foundation: Electron app with no server, sandboxed window, own SQLite
   database (works offline), typed IPC, fixed error codes.
@@ -25,14 +25,16 @@ at the end of every session.
 - Screens in Spent's look: Home charts, Transactions with review actions,
   Categories, Rules, Accounts with card mode, Settings, first-run welcome.
 - Amounts shown as ₪9,353.
+- Wave 4: Money accounts with an Add picker for every provider and last
+  sync on hover; Trash, right-click menu, rules from rows, card bills
+  hidden by default, bigger checkboxes; category curves on Home, Today
+  button, chart research in `docs/research/money-charts.md`.
 
 ### Next
 
-Wave 4 is running: specs 10 (money accounts and Sync panel), 11
-(transactions workbench: trash, right click, rules from rows), 12 (category
-curves, Today button, chart research). Then wave 5 from `docs/FEATURES.md`,
-then installers. Owner: try any other bank the family uses with
-`npm run sync:try -- <id>`, and push `main` to GitHub.
+Wave 4 merged (specs 10, 11, 12; 607 tests). Owner to test it (see the
+lead's message of 2026-11-08). Then plan wave 5 from `docs/FEATURES.md`
+plus the must-fix "Empty trash" item in `docs/BACKLOG.md`, then installers.
 
 ### How to resume
 
