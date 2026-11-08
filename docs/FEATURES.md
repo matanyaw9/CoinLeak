@@ -24,6 +24,8 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 | F8 | Add a transaction by hand: title, cash or how paid, category, etc. | planned | Needs a "manual" money account (Cash) and a source flag, so a sync never touches or duplicates manual rows. |
 | F3 | Money moved to investments or savings is not spending (an option) | done (spec 14) | A third category kind, *transfer*: counts neither as spending nor income; Home can show "moved to savings". |
 | F25 | Budget flow chart | done (spec 14) | A Sankey diagram of the month: income on the left, flowing into spending categories, transfers to savings and what was left. Ranked 2nd in `docs/research/money-charts.md`. Best after F3, so savings show as their own stream. |
+| F30 | Money flow: when a month's spending is more than its income, say so loudly | planned | Owner, 2026-11-08: drop the "From savings / earlier months" source node. Instead make "this month you spent more than you earned" stand out (color, wording) so it draws attention. |
+| F31 | Money flow: click a group (meta category) to open its own flow chart | planned | Owner, 2026-11-08: clicking for example Food expands into a Sankey of Food's categories (Groceries, Restaurants, Cafes), with a way back to the whole month. |
 | F26 | CoinLeak logo in the Linux dock instead of the generic one | spec 15 | The app has no icon file at all yet. Needs icon files from the logo, the window icon, and on Wayland a `.desktop` file whose name matches the app, which an installer normally adds. Dev runs get a small helper; the installer spec finishes it. |
 
 ## Later

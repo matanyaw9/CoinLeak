@@ -129,6 +129,6 @@ Nothing open.
   category with that name already existed (impossible before the
   categories editor, so fine today).
 - After spec 15 merges: add `transfer` to the categories editor's kind
-  picker.
+  picker. (Done on the spec 15 branch at merge time.)
 - Home queries money flow under the `summary:month` key, so it refreshes;
   a `useMoneyFlow` hook would be tidier.
