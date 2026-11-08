@@ -19,7 +19,8 @@ export type CardMode = "credit" | "debit";
 export type ScrapedStatus = "pending" | "completed";
 /** `gone`: a pending row that a later download no longer contains. */
 export type TxnStatus = ScrapedStatus | "gone";
-export type CategoryKind = "expense" | "income";
+/** `transfer`: money moved to savings or investments (spec 14). */
+export type CategoryKind = "expense" | "income" | "transfer";
 export type CategorySource = "user" | "rule";
 
 /**
@@ -33,8 +34,10 @@ export type CategorySource = "user" | "rule";
  * - excluded: the user said not to count it
  * - gone: a pending row the bank no longer reports; counts nowhere
  * - trashed: the user moved the row to Trash; counts nowhere, restorable
+ * - transfer: a row in a transfer category (savings, investments), either
+ *   direction; neither spending nor income
  */
-export type Flow = "spending" | "income" | "refund" | "internal" | "excluded" | "gone" | "trashed";
+export type Flow = "spending" | "income" | "refund" | "internal" | "excluded" | "gone" | "trashed" | "transfer";
 
 /** Why a row needs a human look. */
 export type ReviewFlag = "uncategorized" | "possible_card_bill" | "gone";
@@ -139,6 +142,8 @@ export interface MonthSummary {
   income: Agorot;
   /** Positive number: total money spent after refunds. */
   spending: Agorot;
+  /** Net money moved to savings or investments (positive: moved out). Not spending. */
+  transfers: Agorot;
   byCategory: { categoryId: number | null; amount: Agorot; count: number }[];
   /** Same money rolled up to top-level categories (null: uncategorized). */
   byParent: { categoryId: number | null; amount: Agorot; count: number }[];
@@ -321,4 +326,43 @@ export interface ExclusionState {
   id: number;
   excluded: boolean;
   excludedSource: ExcludedSource | null;
+}
+
+// ---- Money flow (spec 14) ----
+
+/**
+ * - income: an income category (top level; null is uncategorized income)
+ * - refund: a spending category refunded more than spent this month
+ * - from_savings: money taken from savings, or spent beyond this month's income
+ * - hub: everything that came in, in the middle
+ * - spending: a top-level spending category (null is uncategorized)
+ * - transfer: a top-level transfer category, net moved out
+ * - left: what stayed after spending and transfers
+ */
+export type MoneyFlowNodeKind = "income" | "refund" | "from_savings" | "hub" | "spending" | "transfer" | "left";
+
+export interface MoneyFlowNode {
+  kind: MoneyFlowNodeKind;
+  categoryId: number | null;
+  /** Positive. The hub holds the sum of the left side, which equals the right. */
+  amount: Agorot;
+}
+
+/** `source` and `target` index into `nodes`. Every link touches the hub. */
+export interface MoneyFlowLink {
+  source: number;
+  target: number;
+  amount: Agorot;
+}
+
+/** Where a month's money came from and where it went. Empty when nothing moved. */
+export interface MoneyFlow {
+  month: IsoMonth;
+  income: Agorot;
+  /** Same as `MonthSummary.spending`. */
+  spending: Agorot;
+  /** Same as `MonthSummary.transfers`. */
+  transfers: Agorot;
+  nodes: MoneyFlowNode[];
+  links: MoneyFlowLink[];
 }

@@ -22,8 +22,8 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 | F23 | Sorting and filtering in Transactions | planned | Sort by date or amount; filter by category, money account, flow (spending, income, ignored, card bills), pending. Pairs with F14 and F22. |
 | F24 | Remove a money account from syncing, keeping its transactions | spec 15 | The account is marked "not synced" (hidden from the Sync panel, its rows stay and count). Can be added back. Deleting its rows too would be a separate, explicit action. |
 | F8 | Add a transaction by hand: title, cash or how paid, category, etc. | planned | Needs a "manual" money account (Cash) and a source flag, so a sync never touches or duplicates manual rows. |
-| F3 | Money moved to investments or savings is not spending (an option) | spec 14 | A third category kind, *transfer*: counts neither as spending nor income; Home can show "moved to savings". |
-| F25 | Budget flow chart | spec 14 | A Sankey diagram of the month: income on the left, flowing into spending categories, transfers to savings and what was left. Ranked 2nd in `docs/research/money-charts.md`. Best after F3, so savings show as their own stream. |
+| F3 | Money moved to investments or savings is not spending (an option) | done (spec 14) | A third category kind, *transfer*: counts neither as spending nor income; Home can show "moved to savings". |
+| F25 | Budget flow chart | done (spec 14) | A Sankey diagram of the month: income on the left, flowing into spending categories, transfers to savings and what was left. Ranked 2nd in `docs/research/money-charts.md`. Best after F3, so savings show as their own stream. |
 | F26 | CoinLeak logo in the Linux dock instead of the generic one | spec 15 | The app has no icon file at all yet. Needs icon files from the logo, the window icon, and on Wayland a `.desktop` file whose name matches the app, which an installer normally adds. Dev runs get a small helper; the installer spec finishes it. |
 
 ## Later
@@ -43,7 +43,7 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 | F4 | Research on charts for the flow of money (`docs/research/money-charts.md`) | spec 12 |
 | F5 | Spending through the month per category, one or top 5 | spec 12 |
 | F6 | Right click: make a rule, ignore, move to trash | spec 11 |
-| F7 | Trash with restore (fix pending: "Empty trash" lets rows come back, see `docs/BACKLOG.md`) | spec 11 |
+| F7 | Trash with restore; emptied rows never come back | specs 11, 14 |
 | F13 | Today button | spec 12 |
 | F17 | "Money accounts" | spec 10 |
 | F19 | Last sync per money account on hover | spec 10 |

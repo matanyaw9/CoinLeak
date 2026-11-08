@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "../db";
-import { NOW, accountId, bank, card, categoryId, charge, countRows, idOf, newDb, snapshot, stored, txn } from "../testing/ledger";
+import { NOW, accountId, bank, card, categoryId, charge, countRows, idOf, idsOf, newDb, snapshot, stored, txn } from "../testing/ledger";
 import { ingest } from "./ingest";
 import {
   emptyTrash,
@@ -386,7 +386,7 @@ describe("listCategories", () => {
   it("returns the seeded two-level tree, each parent followed by its children", () => {
     const db = newDb();
     const cats = listCategories(db);
-    expect(cats).toHaveLength(31);
+    expect(cats).toHaveLength(34); // 31 from 0002, 3 transfer categories from 0006
     const byId = new Map(cats.map((c) => [c.id, c]));
     for (const c of cats) {
       expect(c.emoji, c.name).toBeTruthy();
@@ -467,6 +467,28 @@ describe("trash (spec 11)", () => {
     expect(countRows(db)).toBe(total - 2);
     expect(snapshot(db)).toEqual(kept);
     expect(emptyTrash(db)).toEqual({ deleted: 0 });
+  });
+
+  it("ingesting the same download after emptying the Trash adds nothing (spec 14)", () => {
+    const download = () =>
+      bank([
+        txn({ date: "2026-03-01", amount: -4000, description: "מכולת" }),
+        txn({ date: "2026-03-01", amount: -4000, description: "מכולת" }),
+        txn({ date: "2026-03-02", amount: -9000, description: "דלק", status: "pending" }),
+      ]);
+    const db = newDb();
+    ingest(db, [download()], { now: NOW });
+    const [first, second] = idsOf(db, "מכולת") as [number, number];
+    trashTransactions(db, [second, idOf(db, "דלק")], LATER);
+    expect(emptyTrash(db, LATER)).toEqual({ deleted: 2 });
+    const kept = snapshot(db);
+
+    expect(ingest(db, [download()], { now: LATER })).toMatchObject({ newRows: 0, updatedRows: 0 });
+    expect(snapshot(db)).toEqual(kept);
+    expect(idsOf(db, "מכולת")).toEqual([first]);
+    // A third identical row is a new purchase, not the emptied one.
+    const more = bank([...download().transactions, txn({ date: "2026-03-01", amount: -4000, description: "מכולת" })]);
+    expect(ingest(db, [more], { now: LATER })).toMatchObject({ newRows: 1 });
   });
 
   it("a card row the user decided a bank line pays can still be trashed and emptied", () => {
