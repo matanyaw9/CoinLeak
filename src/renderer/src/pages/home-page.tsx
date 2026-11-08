@@ -1,4 +1,5 @@
-// Home: the month at a glance. Hero, spending curve, categories, 12 months.
+// Home: the month at a glance. Hero, spending curve, categories, category
+// curves, 12 months.
 // Before the first sync it greets instead, with no empty charts.
 
 import { useMemo } from "react";
@@ -17,6 +18,7 @@ import { HeroCard } from "@/components/home/hero-card";
 import { SpendingCurveCard } from "@/components/home/spending-curve-card";
 import { CategoryDonutCard } from "@/components/home/category-donut-card";
 import { TrendCard } from "@/components/home/trend-card";
+import { CategoryCurvesCard } from "@/components/home/category-curves-card";
 
 /** The Transactions link for a chart slice: a category, uncategorized, or all. */
 export function sliceLink(slice: Slice): string {
@@ -74,6 +76,13 @@ export function HomePage() {
               <CategoryDonutCard summary={summary.data} index={index} onOpen={(x) => open(x)} />
             ) : (
               <CardSkeleton label={s.home.donutTitle} height={300} />
+            )}
+          </div>
+          <div className="col-span-12">
+            {summary.data && categories.data ? (
+              <CategoryCurvesCard month={month} summary={summary.data} index={index} onOpen={(x) => open(x)} />
+            ) : (
+              <CardSkeleton label={s.curves.title} height={300} />
             )}
           </div>
           <div className="col-span-12">

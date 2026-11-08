@@ -1,7 +1,7 @@
 // Month picker logic: stepping, year boundaries, never past today, keys.
 
 import { describe, expect, it } from "vitest";
-import { canGoNext, daysInMonth, monthKeyDelta, monthRange, shiftMonth, stepMonth } from "./month";
+import { canGoNext, daysInMonth, monthKeyDelta, monthRange, shiftMonth, showToday, stepMonth } from "./month";
 
 describe("month picker", () => {
   it("steps across year boundaries", () => {
@@ -32,5 +32,11 @@ describe("month picker", () => {
     expect(monthKeyDelta({ key: "ArrowLeft", target: { tagName: "INPUT" } as unknown as EventTarget })).toBeNull();
     expect(monthKeyDelta({ key: "ArrowRight", target: { tagName: "DIV", getAttribute: () => "radio" } as unknown as EventTarget })).toBeNull();
     expect(monthKeyDelta({ key: "ArrowRight", target: { tagName: "BUTTON", getAttribute: () => null } as unknown as EventTarget })).toBe(1);
+  });
+
+  it("offers Today only away from the current month, and jumps straight there", () => {
+    expect(showToday("2026-11", "2026-11")).toBe(false);
+    expect(showToday("2026-10", "2026-11")).toBe(true);
+    expect(showToday("2024-02", "2026-11")).toBe(true);
   });
 });

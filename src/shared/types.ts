@@ -145,6 +145,14 @@ export interface TrendPoint {
   byCategory: { categoryId: number | null; amount: Agorot }[];
 }
 
+/** Cumulative spending per day for one category (its subcategories included;
+ *  null is uncategorized), this month and the month before for comparison. */
+export interface CategoryCurve {
+  categoryId: number | null;
+  byDay: { date: IsoDate; amount: Agorot }[];
+  previousByDay: { date: IsoDate; amount: Agorot }[];
+}
+
 export interface SyncResult {
   provider: ProviderId;
   accounts: number;

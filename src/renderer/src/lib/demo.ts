@@ -6,6 +6,7 @@ import type {
   Account,
   Agorot,
   Category,
+  CategoryCurve,
   Flow,
   IsoDate,
   IsoMonth,
@@ -465,6 +466,23 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
     });
   }
 
+  // spec 12: the same curves core draws, from the demo rows.
+  function curves(month: IsoMonth, ids: (number | null)[]): CategoryCurve[] {
+    const parentOf = (id: number | null) => (id === null ? null : CATEGORIES.find((c) => c.id === id)?.parentId);
+    const curve = (id: number | null, m: IsoMonth) => {
+      const mine = rows.filter(
+        (r) => r.date.startsWith(m) && COUNTED.includes(r.flow) && (r.categoryId === id || (id !== null && parentOf(r.categoryId) === id)),
+      );
+      let running = 0;
+      return Array.from({ length: daysInMonth(m) }, (_, i) => {
+        const date = `${m}-${String(i + 1).padStart(2, "0")}`;
+        for (const r of mine) if (r.date === date) running -= r.amount;
+        return { date, amount: running };
+      });
+    };
+    return ids.map((categoryId) => ({ categoryId, byDay: curve(categoryId, month), previousByDay: curve(categoryId, shiftMonth(month, -1)) }));
+  }
+
   function list(f: TransactionFilter): TransactionRow[] {
     const q = f.search?.trim().toLowerCase();
     return rows
@@ -648,6 +666,11 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       }
       case "summary:trend":
         return ok(trend((args as Args<"summary:trend">)?.months ?? 12));
+      case "summary:curves": {
+        const a = args as Args<"summary:curves">;
+        const valid = /^\d{4}-\d{2}$/.test(a?.month ?? "") && Array.isArray(a?.categoryIds);
+        return valid ? ok(curves(a.month, a.categoryIds)) : fail("BAD_REQUEST");
+      }
       case "sync:start":
         return startSync((args as Args<"sync:start">).provider);
       case "sync:cancel":

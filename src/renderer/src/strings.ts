@@ -397,6 +397,25 @@ export const s = {
     offerEnd: "?",
     offerBody: "A rule can sort it for you from now on.",
   },
+
+  // spec 12
+  today: {
+    label: "Today",
+    hint: "Back to this month",
+  },
+
+  curves: {
+    title: "Spending by category through the month",
+    modeLabel: "Show",
+    modeOne: "One category",
+    modeTop: "Top categories",
+    pick: "Category",
+    empty: "No spending in this category to draw yet.",
+    emptyTop: "No spending to draw yet.",
+    hint: "Click a point to see these transactions",
+    legendHint: "Click a name to hide or show its line",
+    byDay: (day: number, month: string) => `by day ${day} in ${month}`,
+  },
 };
 
 export type Strings = typeof s;

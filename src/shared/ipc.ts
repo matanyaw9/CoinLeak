@@ -6,6 +6,7 @@ import type {
   AppInfo,
   CardMode,
   Category,
+  CategoryCurve,
   IsoMonth,
   MonthSummary,
   ProviderId,
@@ -34,6 +35,8 @@ export interface IpcContract {
   "accounts:setCardMode": { args: { accountId: number; mode: CardMode }; result: null };
   "summary:month": { args: { month: IsoMonth }; result: MonthSummary };
   "summary:trend": { args: { months: number }; result: TrendPoint[] };
+  /** One curve per requested category, in the order asked. `null` is uncategorized. */
+  "summary:curves": { args: { month: IsoMonth; categoryIds: (number | null)[] }; result: CategoryCurve[] };
   "sync:start": { args: { provider: ProviderId }; result: SyncResult };
   "sync:cancel": { args: undefined; result: null };
   /** Rules in evaluation order. Every change below reapplies all rules to all rows. */
@@ -69,6 +72,7 @@ export const CHANNELS = [
   "accounts:setCardMode",
   "summary:month",
   "summary:trend",
+  "summary:curves",
   "sync:start",
   "sync:cancel",
   "rules:list",
