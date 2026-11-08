@@ -12,21 +12,21 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| F9 | Rules: "If" instead of "When"; several conditions joined by AND / OR (for example a list of cafe names) | spec 13 | Needs a rule schema change (a migration): today a rule has one condition. Includes "description contains any of: a list of names", which is how "known cafes" works (see F28). |
-| F10, F16 | "Apply to existing transactions" on new rules; "Apply now" button | spec 13 | Today every saved rule already re-runs on all existing transactions, silently. Show "Applied to 23 transactions" after saving, plus "Apply now". |
-| F21 | A new rule can also change rows whose category was set by hand | spec 13 | "User edits win" stays the default, so a sync or an old rule never undoes your choice. When saving a rule, the editor says "Also change 4 transactions you categorized by hand?" with the list; you tick it to apply. That counts as "the user explicitly asks". |
-| F11 | Categories: rename, change color and emoji, add new, add meta categories (Food, Transport) | spec 15 | The two-level tree already exists in the database; only the editing is missing. |
-| F12 | Drag a category from one meta category to another | spec 15 | Same spec as F11. |
+| F9 | Rules: "If" instead of "When"; several conditions joined by AND / OR (for example a list of cafe names) | done (spec 13) | Needs a rule schema change (a migration): today a rule has one condition. Includes "description contains any of: a list of names", which is how "known cafes" works (see F28). |
+| F10, F16 | "Apply to existing transactions" on new rules; "Apply now" button | done (spec 13) | Today every saved rule already re-runs on all existing transactions, silently. Show "Applied to 23 transactions" after saving, plus "Apply now". |
+| F21 | A new rule can also change rows whose category was set by hand | done (spec 13) | "User edits win" stays the default, so a sync or an old rule never undoes your choice. When saving a rule, the editor says "Also change 4 transactions you categorized by hand?" with the list; you tick it to apply. That counts as "the user explicitly asks". |
+| F11 | Categories: rename, change color and emoji, add new, add meta categories (Food, Transport) | done (spec 15) | The two-level tree already exists in the database; only the editing is missing. |
+| F12 | Drag a category from one meta category to another | done (spec 15) | Same spec as F11. |
 | F14 | Home and Transactions: custom from/to date range besides calendar months | planned | Core queries need a date range input, not just a month. |
 | F22 | The Income, Spent and Left so far bar also at the top of Transactions | planned | Reuses the Home numbers from core; follows the month or date range shown. |
 | F23 | Sorting and filtering in Transactions | planned | Sort by date or amount; filter by category, money account, flow (spending, income, ignored, card bills), pending. Pairs with F14 and F22. |
-| F24 | Remove a money account from syncing, keeping its transactions | spec 15 | The account is marked "not synced" (hidden from the Sync panel, its rows stay and count). Can be added back. Deleting its rows too would be a separate, explicit action. |
+| F24 | Remove a money account from syncing, keeping its transactions | done (spec 15) | The account is marked "not synced" (hidden from the Sync panel, its rows stay and count). Can be added back. Deleting its rows too would be a separate, explicit action. |
 | F8 | Add a transaction by hand: title, cash or how paid, category, etc. | planned | Needs a "manual" money account (Cash) and a source flag, so a sync never touches or duplicates manual rows. |
 | F3 | Money moved to investments or savings is not spending (an option) | done (spec 14) | A third category kind, *transfer*: counts neither as spending nor income; Home can show "moved to savings". |
 | F25 | Budget flow chart | done (spec 14) | A Sankey diagram of the month: income on the left, flowing into spending categories, transfers to savings and what was left. Ranked 2nd in `docs/research/money-charts.md`. Best after F3, so savings show as their own stream. |
 | F30 | Money flow: when a month's spending is more than its income, say so loudly | planned | Owner, 2026-11-08: drop the "From savings / earlier months" source node. Instead make "this month you spent more than you earned" stand out (color, wording) so it draws attention. |
 | F31 | Money flow: click a group (meta category) to open its own flow chart | planned | Owner, 2026-11-08: clicking for example Food expands into a Sankey of Food's categories (Groceries, Restaurants, Cafes), with a way back to the whole month. |
-| F26 | CoinLeak logo in the Linux dock instead of the generic one | spec 15 | The app has no icon file at all yet. Needs icon files from the logo, the window icon, and on Wayland a `.desktop` file whose name matches the app, which an installer normally adds. Dev runs get a small helper; the installer spec finishes it. |
+| F26 | CoinLeak logo in the Linux dock instead of the generic one | done (spec 15) | The app has no icon file at all yet. Needs icon files from the logo, the window icon, and on Wayland a `.desktop` file whose name matches the app, which an installer normally adds. Dev runs get a small helper; the installer spec finishes it. |
 
 ## Later
 

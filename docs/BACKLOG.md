@@ -132,3 +132,25 @@ Nothing open.
   picker. (Done on the spec 15 branch at merge time.)
 - Home queries money flow under the `summary:month` key, so it refreshes;
   a `useMoneyFlow` hook would be tidier.
+
+## From spec 13
+
+- "Also change N transactions you categorized by hand": a ticked row goes
+  to the first rule that matches it, so if an earlier rule also matches,
+  it lands there, not in the category the editor showed. Rare; consider
+  applying the saved rule to those rows directly.
+- Starter lists match by "contains", so short names ("Paz", "דלק") could
+  catch unrelated shops. The preview shows counts first; consider "starts
+  with" or whole-word matching for short names.
+- The starter dialog's total is core's combined count only when every list
+  is ticked; otherwise it sums the ticked lists (may count a row twice).
+- Rules page screenshot's starter banner count predates the last demo change.
+
+## From spec 15
+
+- Sync now skips accounts removed from syncing (lead fix at merge, test in
+  `accounts.test.ts`). Their pending rows stay pending until added back.
+- Dock icon after `npm run desktop:install` not verified in the sandbox;
+  owner to confirm on GNOME.
+- The window icon path assumes `build/` sits next to `out/`; the installer
+  spec must ship `build/icon.png` or switch to a packaged path.
