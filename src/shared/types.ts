@@ -32,8 +32,9 @@ export type CategorySource = "user" | "rule";
  *   because the card rows are the spending.
  * - excluded: the user said not to count it
  * - gone: a pending row the bank no longer reports; counts nowhere
+ * - trashed: the user moved the row to Trash; counts nowhere, restorable
  */
-export type Flow = "spending" | "income" | "refund" | "internal" | "excluded" | "gone";
+export type Flow = "spending" | "income" | "refund" | "internal" | "excluded" | "gone" | "trashed";
 
 /** Why a row needs a human look. */
 export type ReviewFlag = "uncategorized" | "possible_card_bill" | "gone";
@@ -117,6 +118,8 @@ export interface TransactionFilter {
   flows?: Flow[];
   search?: string;
   needsReview?: boolean;
+  /** Leaves out card bills and other internal rows (spec 11). */
+  hideInternal?: boolean;
 }
 
 export interface TransactionPatch {

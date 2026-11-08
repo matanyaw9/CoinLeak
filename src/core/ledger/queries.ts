@@ -20,6 +20,7 @@ import type {
   TrendPoint,
 } from "@shared/types";
 import { transaction, type Db } from "../db";
+import { applyRulesInTransaction } from "../rules/engine";
 import { applyCardBills } from "./card-bills";
 import { addMonths, assertMonth, daysOfMonth, israelMonth, monthBounds } from "./dates";
 import { LEDGER_SQL, SPENDING_FLOWS_SQL } from "./flow";
@@ -114,6 +115,7 @@ interface LedgerRow {
 /**
  * Newest first. Empty arrays in the filter mean "no constraint". A parent
  * category id also matches its children; `null` matches uncategorized rows.
+ * Trashed rows show only when `flows` asks for them.
  */
 export function listTransactions(db: Db, filter: TransactionFilter = {}): TransactionRow[] {
   const where: string[] = [];
@@ -159,6 +161,10 @@ export function listTransactions(db: Db, filter: TransactionFilter = {}): Transa
     where.push(`ledger.flow IN (${marks(filter.flows.length)})`);
     params.push(...filter.flows);
   }
+  if (!filter.flows?.includes("trashed")) where.push("ledger.flow <> 'trashed'");
+
+  check(filter.hideInternal === undefined || typeof filter.hideInternal === "boolean");
+  if (filter.hideInternal) where.push("ledger.flow <> 'internal'");
 
   check(filter.search === undefined || typeof filter.search === "string");
   const search = filter.search?.trim();
@@ -255,6 +261,61 @@ export function updateTransactions(
     for (const id of new Set(ids)) updated += Number(stmt.run(...params, now.toISOString(), id).changes);
     if (patch.excluded !== undefined) applyCardBills(db);
     return { updated };
+  });
+}
+
+// ---- Trash ----
+
+/**
+ * Moves rows to Trash: they count nowhere until restored. Card bills
+ * rematch, since trashed rows take no part on either side.
+ */
+export function trashTransactions(db: Db, ids: number[], now = new Date()): { updated: number } {
+  assertIds(ids);
+  if (ids.length === 0) return { updated: 0 };
+  const at = now.toISOString();
+  return transaction(db, () => {
+    const stmt = db.prepare("UPDATE transactions SET trashed_at = ?, updated_at = ? WHERE id = ? AND trashed_at IS NULL");
+    let updated = 0;
+    for (const id of new Set(ids)) updated += Number(stmt.run(at, at, id).changes);
+    if (updated > 0) applyCardBills(db);
+    return { updated };
+  });
+}
+
+/**
+ * Brings trashed rows back as they were. Rules catch up on them (they skip
+ * trashed rows) and card bills rematch.
+ */
+export function restoreTransactions(db: Db, ids: number[], now = new Date()): { updated: number } {
+  assertIds(ids);
+  if (ids.length === 0) return { updated: 0 };
+  const at = now.toISOString();
+  return transaction(db, () => {
+    const stmt = db.prepare("UPDATE transactions SET trashed_at = NULL, updated_at = ? WHERE id = ? AND trashed_at IS NOT NULL");
+    const restored: number[] = [];
+    for (const id of new Set(ids)) if (Number(stmt.run(at, id).changes) > 0) restored.push(id);
+    if (restored.length > 0) {
+      applyRulesInTransaction(db, { ids: restored }, now);
+      applyCardBills(db);
+    }
+    return { updated: restored.length };
+  });
+}
+
+/**
+ * Deletes every trashed row for good. A bank line that still points at one
+ * (a card bill decided by hand) lets go of it first.
+ */
+export function emptyTrash(db: Db): { deleted: number } {
+  return transaction(db, () => {
+    db.prepare(
+      `UPDATE transactions SET card_bill_txn_id = NULL
+       WHERE card_bill_txn_id IN (SELECT id FROM transactions WHERE trashed_at IS NOT NULL)`,
+    ).run();
+    const deleted = Number(db.prepare("DELETE FROM transactions WHERE trashed_at IS NOT NULL").run().changes);
+    if (deleted > 0) applyCardBills(db);
+    return { deleted };
   });
 }
 

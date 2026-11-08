@@ -5,7 +5,7 @@ import { CodedError } from "@shared/errors";
 import type { Flow } from "@shared/types";
 import { isIsoDate } from "./dates";
 
-export const FLOWS: readonly Flow[] = ["spending", "income", "refund", "internal", "excluded", "gone"];
+export const FLOWS: readonly Flow[] = ["spending", "income", "refund", "internal", "excluded", "gone", "trashed"];
 
 export function check(condition: boolean): asserts condition {
   if (!condition) throw new CodedError("BAD_REQUEST");

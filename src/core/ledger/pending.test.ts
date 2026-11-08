@@ -19,7 +19,7 @@ import { setCardMode, setInternalByUser } from "./card-bills";
 import { dedupHash } from "./dedup";
 import { ingest } from "./ingest";
 import { DRIFT_DAYS, DRIFT_FLOOR, deleteGoneRows, planPending, type DriftFacts, type OpenRow } from "./pending";
-import { listTransactions, monthSummary, trend, updateTransactions } from "./queries";
+import { listTransactions, monthSummary, restoreTransactions, trashTransactions, trend, updateTransactions } from "./queries";
 
 const LATER = new Date("2026-04-02T08:00:00Z");
 const LATEST = new Date("2026-04-05T08:00:00Z");
@@ -654,5 +654,52 @@ describe("planPending", () => {
     );
     expect(plan).toEqual({ settle: new Map([[1, 0]]), gone: [4] });
     expect(planPending([open(4, -900)], [], null).gone).toEqual([]);
+  });
+});
+
+describe("trashed rows and sync (spec 11)", () => {
+  it("a sync of the same download never adds a trashed row again", () => {
+    const db = newDb();
+    const rows = [completed("2026-03-05", -2500, "קיוסק"), pending("2026-03-20", -1800, "מכולת")];
+    ingest(db, [card("4321", rows)], { now: NOW });
+    const ids = [idOf(db, "קיוסק"), idOf(db, "מכולת")];
+    trashTransactions(db, ids, NOW);
+    const before = snapshot(db);
+
+    expect(ingest(db, [card("4321", rows)], { now: LATER })).toMatchObject({ newRows: 0, updatedRows: 0 });
+    expect(snapshot(db)).toEqual(before);
+    expect(listTransactions(db)).toEqual([]);
+    expect(listTransactions(db, { flows: ["trashed"] })).toHaveLength(2);
+  });
+
+  it("a trashed pending row stays trashed when it settles with drift or exactly", () => {
+    const db = newDb();
+    ingest(db, [card("4321", [pending("2026-03-20", -40000, "HOTEL LISBOA"), pending("2026-03-21", -900, "קפה")])], {
+      now: NOW,
+    });
+    const hotel = idOf(db, "HOTEL LISBOA");
+    const coffee = idOf(db, "קפה");
+    trashTransactions(db, [hotel, coffee], NOW);
+
+    ingest(db, [card("4321", [completed("2026-03-20", -40600, "HOTEL LISBOA"), txn({ date: "2026-03-21", amount: -900, description: "קפה" })])], {
+      now: LATER,
+    });
+    expect(idsOf(db, "HOTEL LISBOA")).toEqual([hotel]);
+    expect(stored(db, hotel)).toMatchObject({ status: "completed", amount: -40600, trashed_at: NOW.toISOString() });
+    expect(stored(db, coffee)).toMatchObject({ status: "completed", trashed_at: NOW.toISOString() });
+    expect(monthSummary(db, "2026-03").spending).toBe(0);
+
+    restoreTransactions(db, [hotel], LATEST);
+    expect(row(db, hotel)).toMatchObject({ flow: "spending", status: "completed", amount: -40600 });
+  });
+
+  it("a trashed pending row the bank drops stays trashed, not in review", () => {
+    const db = newDb();
+    ingest(db, [card("4321", [pending("2026-03-20", -1800, "מכולת"), completed("2026-03-19", -100, "x")])], { now: NOW });
+    const id = idOf(db, "מכולת");
+    trashTransactions(db, [id], NOW);
+    ingest(db, [card("4321", [completed("2026-03-19", -100, "x")])], { now: LATER, since: "2026-03-01" });
+    expect(listTransactions(db, { flows: ["trashed"] }).map((t) => [t.id, t.flags])).toEqual([[id, []]]);
+    expect(monthSummary(db, "2026-03").needsReview).toBe(1);
   });
 });

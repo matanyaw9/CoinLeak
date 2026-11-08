@@ -31,6 +31,11 @@ export interface IpcContract {
   "transactions:setInternal": { args: { ids: number[]; internal: boolean | null }; result: { updated: number } };
   /** Only rows with status `gone` can be deleted. */
   "transactions:deleteGone": { args: { ids: number[] }; result: { deleted: number } };
+  /** Trash (spec 11): trashed rows count nowhere and leave every list until restored. */
+  "transactions:trash": { args: { ids: number[] }; result: { updated: number } };
+  "transactions:restore": { args: { ids: number[] }; result: { updated: number } };
+  /** Deletes every trashed row for good. The window asks the user first. */
+  "transactions:emptyTrash": { args: undefined; result: { deleted: number } };
   "accounts:setCardMode": { args: { accountId: number; mode: CardMode }; result: null };
   "summary:month": { args: { month: IsoMonth }; result: MonthSummary };
   "summary:trend": { args: { months: number }; result: TrendPoint[] };
@@ -66,6 +71,9 @@ export const CHANNELS = [
   "transactions:update",
   "transactions:setInternal",
   "transactions:deleteGone",
+  "transactions:trash",
+  "transactions:restore",
+  "transactions:emptyTrash",
   "accounts:setCardMode",
   "summary:month",
   "summary:trend",

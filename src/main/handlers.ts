@@ -4,12 +4,15 @@
 import type { Db } from "@core/db";
 import {
   deleteGoneRows,
+  emptyTrash,
   listAccounts,
   listCategories,
   listTransactions,
   monthSummary,
+  restoreTransactions,
   setCardMode,
   setInternalByUser,
+  trashTransactions,
   trend,
   updateTransactions,
 } from "@core/ledger";
@@ -38,6 +41,9 @@ export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps)
     "transactions:update": ({ ids, patch }) => updateTransactions(db, ids, patch),
     "transactions:setInternal": ({ ids, internal }) => ({ updated: setInternalByUser(db, ids, internal) }),
     "transactions:deleteGone": ({ ids }) => ({ deleted: deleteGoneRows(db, ids) }),
+    "transactions:trash": ({ ids }) => trashTransactions(db, ids),
+    "transactions:restore": ({ ids }) => restoreTransactions(db, ids),
+    "transactions:emptyTrash": () => emptyTrash(db),
     "summary:month": ({ month }) => monthSummary(db, month),
     "summary:trend": ({ months }) => trend(db, months),
     "sync:start": ({ provider }) => sync.start(provider),

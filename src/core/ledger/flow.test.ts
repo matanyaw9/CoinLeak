@@ -4,10 +4,15 @@ import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testin
 import { flagsOf, flowOf, LEDGER_SQL } from "./flow";
 import { ingest } from "./ingest";
 import { listTransactions, monthSummary, trend, updateTransactions } from "./queries";
+import { FLOWS } from "./validate";
 
 describe("flowOf", () => {
   it("follows the money model table", () => {
-    const base = { amount: -100, gone: false, excluded: false, internal: false, categoryKind: null };
+    const base = { amount: -100, trashed: false, gone: false, excluded: false, internal: false, categoryKind: null };
+    expect(flowOf({ ...base, trashed: true, gone: true, excluded: true, internal: true })).toBe("trashed");
+    expect(flowOf({ ...base, trashed: true, amount: 100, categoryKind: "expense" })).toBe("trashed");
+    expect(flowOf({ ...base, trashed: true, amount: 100 })).toBe("trashed");
+    expect(flowOf({ ...base, trashed: true })).toBe("trashed");
     expect(flowOf({ ...base, gone: true, excluded: true, internal: true, amount: 100 })).toBe("gone");
     expect(flowOf({ ...base, excluded: true, internal: true })).toBe("excluded");
     expect(flowOf({ ...base, internal: true })).toBe("internal");
@@ -31,59 +36,64 @@ describe("TS and SQL", () => {
     ];
     // Only a pending row can be gone, so a gone combination is stored as pending.
     const insert = db.prepare(
-      `INSERT INTO transactions (account_id, date, amount, description, status, gone_at, category_id, category_source,
-         excluded, internal, possible_card_bill, dedup_hash, dedup_seq, created_at, updated_at)
-       VALUES (?, '2026-03-01', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '', '')`,
+      `INSERT INTO transactions (account_id, date, amount, description, status, gone_at, trashed_at, category_id,
+         category_source, excluded, internal, possible_card_bill, dedup_hash, dedup_seq, created_at, updated_at)
+       VALUES (?, '2026-03-01', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '', '')`,
     );
 
     const expected = new Map<string, { flow: Flow; flags: ReviewFlag[] }>();
     let n = 0;
-    for (const gone of [false, true])
-      for (const excluded of [false, true])
-        for (const internal of [false, true])
-          for (const amount of [-500, 0, 500])
-            for (const category of categories)
-              for (const possibleCardBill of [false, true])
-                for (const categorySource of [null, "rule", "user"] as (CategorySource | null)[]) {
-                  const key = `combo ${n++}`;
-                  insert.run(
-                    account,
-                    amount,
-                    key,
-                    gone ? "pending" : "completed",
-                    gone ? NOW.toISOString() : null,
-                    category.id,
-                    categorySource,
-                    Number(excluded),
-                    Number(internal),
-                    Number(possibleCardBill),
-                    key,
-                  );
-                  const facts = {
-                    amount,
-                    gone,
-                    excluded,
-                    internal,
-                    categoryKind: category.kind,
-                    categoryId: category.id,
-                    categorySource,
-                    possibleCardBill,
-                  };
-                  expected.set(key, { flow: flowOf(facts), flags: flagsOf(facts) });
-                }
+    for (const trashed of [false, true])
+      for (const gone of [false, true])
+        for (const excluded of [false, true])
+          for (const internal of [false, true])
+            for (const amount of [-500, 0, 500])
+              for (const category of categories)
+                for (const possibleCardBill of [false, true])
+                  for (const categorySource of [null, "rule", "user"] as (CategorySource | null)[]) {
+                    const key = `combo ${n++}`;
+                    insert.run(
+                      account,
+                      amount,
+                      key,
+                      gone ? "pending" : "completed",
+                      gone ? NOW.toISOString() : null,
+                      trashed ? NOW.toISOString() : null,
+                      category.id,
+                      categorySource,
+                      Number(excluded),
+                      Number(internal),
+                      Number(possibleCardBill),
+                      key,
+                    );
+                    const facts = {
+                      amount,
+                      trashed,
+                      gone,
+                      excluded,
+                      internal,
+                      categoryKind: category.kind,
+                      categoryId: category.id,
+                      categorySource,
+                      possibleCardBill,
+                    };
+                    expected.set(key, { flow: flowOf(facts), flags: flagsOf(facts) });
+                  }
 
     const viaSql = db
       .prepare(`WITH ledger AS (${LEDGER_SQL}) SELECT description, flow FROM ledger`)
       .all() as { description: string; flow: Flow }[];
-    expect(viaSql).toHaveLength(432);
+    expect(viaSql).toHaveLength(864);
     for (const r of viaSql) expect(r.flow, r.description).toBe(expected.get(r.description)?.flow);
-    for (const t of listTransactions(db)) {
+    const listed = listTransactions(db, { flows: [...FLOWS] });
+    expect(listed).toHaveLength(864);
+    for (const t of listed) {
       expect(t.flags, t.description).toEqual(expected.get(t.description)?.flags);
       expect(t.status === "gone", t.description).toBe(t.flow === "gone");
     }
     // Every flow and every flag shows up at least once, so no branch is untested.
     expect(new Set(viaSql.map((r) => r.flow))).toEqual(
-      new Set(["spending", "income", "refund", "internal", "excluded", "gone"]),
+      new Set(["spending", "income", "refund", "internal", "excluded", "gone", "trashed"]),
     );
     expect(new Set([...expected.values()].flatMap((e) => e.flags))).toEqual(
       new Set(["uncategorized", "possible_card_bill", "gone"]),

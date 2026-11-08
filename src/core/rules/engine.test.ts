@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Db } from "../db";
 import { ingest } from "../ledger/ingest";
-import { listTransactions, monthSummary, updateTransactions } from "../ledger/queries";
+import {
+  listTransactions,
+  monthSummary,
+  restoreTransactions,
+  trashTransactions,
+  updateTransactions,
+} from "../ledger/queries";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, snapshot, stored, txn } from "../testing/ledger";
 import { lastRunId, ruleFields, ruleInput } from "../testing/rules";
 import { applyRules } from "./engine";
@@ -249,5 +255,36 @@ describe("flow, summaries and needs review after rules run", () => {
     ]);
     expect(listTransactions(db, { flows: ["refund"] }).map((t) => t.amount)).toEqual([2000]);
     expect(listTransactions(db, { flows: ["excluded"] }).map((t) => t.description)).toEqual(["העברה לחיסכון"]);
+  });
+});
+
+describe("trashed rows (spec 11)", () => {
+  it("rules never touch a trashed row, and catch up when it is restored", () => {
+    const db = newDb();
+    ingest(db, [bank([out("2026-03-01", -5000, "שופרסל דיל"), out("2026-03-02", -6000, "שופרסל שלי")])], { now: NOW });
+    const trashed = idOf(db, "שופרסל דיל");
+    trashTransactions(db, [trashed], NOW);
+    const before = stored(db, trashed);
+
+    createRule(db, ruleInput({ matchText: "שופרסל", setCategoryId: categoryId(db, "Groceries"), setExcluded: true }));
+    applyRules(db, "all");
+    applyRules(db, { ids: [trashed] });
+    expect(stored(db, trashed)).toEqual(before);
+    expect(ruleFields(db, idOf(db, "שופרסל שלי"))).toMatchObject({ category_source: "rule", excluded: 1 });
+
+    restoreTransactions(db, [trashed], NOW);
+    expect(ruleFields(db, trashed)).toMatchObject({ category_source: "rule", excluded: 1, excluded_source: "rule" });
+    expect(stored(db, trashed).trashed_at).toBeNull();
+  });
+
+  it("a rule set before trashing stays on the row while it is in Trash", () => {
+    const db = newDb();
+    ingest(db, [bank([out("2026-03-01", -5000, "שופרסל דיל")])], { now: NOW });
+    const id = idOf(db, "שופרסל דיל");
+    const rule = createRule(db, ruleInput({ matchText: "שופרסל", setCategoryId: categoryId(db, "Groceries") }));
+    trashTransactions(db, [id], NOW);
+    const before = stored(db, id);
+    deleteRule(db, rule.id);
+    expect(stored(db, id)).toEqual({ ...before, rule_id: null });
   });
 });

@@ -16,7 +16,7 @@ import {
 } from "../testing/ledger";
 import { recomputeCardBills, setCardMode, setInternalByUser } from "./card-bills";
 import { ingest } from "./ingest";
-import { listTransactions, monthSummary, updateTransactions } from "./queries";
+import { listTransactions, monthSummary, restoreTransactions, trashTransactions, updateTransactions } from "./queries";
 
 const line = (date: string, amount: number, description: string) => txn({ date, amount, description });
 const BILL_4321 = "חיוב לכרטיס ויזה 4321";
@@ -314,5 +314,45 @@ describe("rerun and user decisions", () => {
     const bankId = (db.prepare("SELECT id FROM accounts WHERE kind = 'bank'").get() as { id: number }).id;
     expect(() => setCardMode(db, bankId, "debit")).toThrow("BAD_REQUEST");
     expect(() => setCardMode(db, accountId(db, "visaCal", "4321"), "weekly" as never)).toThrow("BAD_REQUEST");
+  });
+});
+
+describe("trashed rows (spec 11)", () => {
+  it("a trashed card row is not part of a cycle, and the bill goes back to flagged spending", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321)])], { now: NOW });
+    const bill = idOf(db, BILL_4321);
+    expect(row(db, bill).flow).toBe("internal");
+
+    trashTransactions(db, [idOf(db, "קפה הפינה")], NOW);
+    expect(row(db, bill)).toMatchObject({ flow: "spending", flags: ["uncategorized", "possible_card_bill"] });
+
+    restoreTransactions(db, [idOf(db, "קפה הפינה")], NOW);
+    expect(row(db, bill).flow).toBe("internal");
+  });
+
+  it("a trashed bank line pays nothing: its card rows are free for another line", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321)])], { now: NOW });
+    const first = idOf(db, BILL_4321);
+    trashTransactions(db, [first], NOW);
+    ingest(db, [bank([line("2026-03-11", -20000, "כ.א.ל חיוב")])], { now: NOW });
+    const second = idOf(db, "כ.א.ל חיוב");
+    expect(row(db, second).flow).toBe("internal");
+    expect(stored(db, first).trashed_at).toBe(NOW.toISOString());
+    expect(listTransactions(db, { flows: ["trashed"] }).map((t) => t.id)).toEqual([first]);
+  });
+
+  it("matching never sets or clears trashed_at", () => {
+    const db = newDb();
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321)])], { now: NOW });
+    const bill = idOf(db, BILL_4321);
+    trashTransactions(db, [bill], NOW);
+    const before = stored(db, bill);
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    recomputeCardBills(db);
+    expect(stored(db, bill)).toEqual(before);
   });
 });
