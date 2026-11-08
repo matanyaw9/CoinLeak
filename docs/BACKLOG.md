@@ -5,14 +5,11 @@ into specs when planning a wave. Must-fix items block the first real use.
 
 ## Must fix before real use
 
-- (Lead, spec 11 review) **"Empty trash" lets rows come back.** It really
-  deletes the rows, and dedup counts copies in the database, so the next
-  sync re-adds any emptied row still inside the bank's download window
-  (about a year). Fix: keep a tombstone (the dedup key) for emptied rows,
-  or keep the row with a `purged` mark hidden everywhere. Until fixed, do
-  not use "Empty trash" on real data; Trash itself is safe.
+Nothing open.
 
 ## Done
+
+- (Spec 14) "Empty trash" keeps tombstones; a sync never re-adds emptied rows.
 
 - (Owner, 2026-11-08) **Cal verified live end to end** in `npm run dev`:
   6 accounts; a second sync added 0 rows (dedup works). Cal is `verified`.
@@ -118,3 +115,20 @@ into specs when planning a wave. Must-fix items block the first real use.
   `excluded_source` exactly.
 - Files touched outside Owns, approved at merge: `core/db/migrations.ts`,
   `core/ledger/validate.ts`, `core/ledger/index.ts`, new `lib/review-rows.ts`.
+
+## From spec 14
+
+- Sankey: small categories bunch together at the bottom and the hover box
+  can cover their labels; group tiny ones as "Other" or give the card more
+  height.
+- Transfer rows look like normal rows in Transactions; a "Savings" chip
+  would help (`transaction-row.tsx`).
+- A pending row that is emptied from Trash and later settles at a different
+  amount gets a new dedup key and can come back (rare).
+- Migration 0006 seeds "Savings & Investments"; it would fail if a
+  category with that name already existed (impossible before the
+  categories editor, so fine today).
+- After spec 15 merges: add `transfer` to the categories editor's kind
+  picker.
+- Home queries money flow under the `summary:month` key, so it refreshes;
+  a `useMoneyFlow` hook would be tidier.
