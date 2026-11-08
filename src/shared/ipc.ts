@@ -5,14 +5,21 @@ import type {
   Account,
   AppInfo,
   CardMode,
+  AppSettings,
   Category,
+  CategoryChange,
   CategoryCurve,
+  CategoryDeleteResult,
+  CategoryInput,
+  CategoryPatch,
   IsoMonth,
   MonthSummary,
   ProviderId,
   Rule,
   RuleInput,
   RulePreview,
+  SettingEntry,
+  SettingKey,
   SyncProgress,
   SyncResult,
   TransactionFilter,
@@ -55,6 +62,15 @@ export interface IpcContract {
   "rules:preview": { args: RuleInput; result: RulePreview };
   /** A draft rule from the rows the user selected. */
   "rules:suggest": { args: { ids: number[] }; result: RuleInput };
+  /** Categories editor (spec 15). Refusals come back as a fixed problem code. */
+  "categories:create": { args: CategoryInput; result: CategoryChange };
+  "categories:update": { args: { id: number; patch: CategoryPatch }; result: CategoryChange };
+  /** Refused while rows or rules use it, unless `moveTo` names where they go first. */
+  "categories:delete": { args: { id: number; moveTo: number | null }; result: CategoryDeleteResult };
+  /** Remove money accounts from syncing, or add them back. Rows always stay and count. */
+  "accounts:setSyncing": { args: { ids: number[]; enabled: boolean }; result: { updated: number } };
+  "settings:get": { args: { key: SettingKey }; result: AppSettings[SettingKey] };
+  "settings:set": { args: SettingEntry; result: null };
 }
 
 export interface IpcEvents {
@@ -90,6 +106,12 @@ export const CHANNELS = [
   "rules:reorder",
   "rules:preview",
   "rules:suggest",
+  "categories:create",
+  "categories:update",
+  "categories:delete",
+  "accounts:setSyncing",
+  "settings:get",
+  "settings:set",
 ] as const satisfies readonly Channel[];
 
 export const EVENTS = ["sync:progress"] as const satisfies readonly EventName[];

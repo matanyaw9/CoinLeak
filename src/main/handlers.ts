@@ -4,6 +4,8 @@
 import type { Db } from "@core/db";
 import {
   categoryCurves,
+  createCategory,
+  deleteCategory,
   deleteGoneRows,
   emptyTrash,
   listAccounts,
@@ -11,13 +13,16 @@ import {
   listTransactions,
   monthSummary,
   restoreTransactions,
+  setAccountsSyncing,
   setCardMode,
   setInternalByUser,
   trashTransactions,
   trend,
+  updateCategory,
   updateTransactions,
 } from "@core/ledger";
 import { createRule, deleteRule, listRules, previewRule, reorderRules, suggestRule, updateRule } from "@core/rules";
+import { getSetting, setSetting } from "@core/settings";
 import type { Handlers } from "./ipc";
 import type { SyncService } from "./sync-service";
 
@@ -66,5 +71,14 @@ export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps)
     },
     "rules:preview": (rule) => previewRule(db, rule),
     "rules:suggest": ({ ids }) => suggestRule(db, ids),
+    "categories:create": (input) => createCategory(db, input),
+    "categories:update": ({ id, patch }) => updateCategory(db, id, patch),
+    "categories:delete": ({ id, moveTo }) => deleteCategory(db, id, moveTo),
+    "accounts:setSyncing": ({ ids, enabled }) => setAccountsSyncing(db, ids, enabled),
+    "settings:get": ({ key }) => getSetting(db, key),
+    "settings:set": (entry) => {
+      setSetting(db, entry);
+      return null;
+    },
   };
 }
