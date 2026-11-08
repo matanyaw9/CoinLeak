@@ -1,6 +1,6 @@
-// Sync building blocks shared by the top bar and the Accounts page: the
+// Sync building blocks shared by the top bar and the Money accounts page: the
 // stage stepper, the "log in now" note, and one row per provider with its
-// Sync and Cancel buttons.
+// Sync and Cancel buttons and a tooltip of its money accounts' last syncs.
 
 import { AppWindow, Check, LoaderCircle, RefreshCw } from "lucide-react";
 import type { Account, ProviderId, SyncStage } from "@shared/types";
@@ -9,9 +9,11 @@ import { cn } from "@/lib/utils";
 import { useSync } from "@/lib/sync";
 import { formatRelative } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { ProviderBadge } from "@/components/common/chips";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ProviderBadge, lastDigits } from "@/components/common/chips";
+import { ProviderTag } from "@/components/accounts/provider-tag";
+import { syncedText } from "@/components/accounts/sync-time";
 
-export const PROVIDERS: ProviderId[] = ["discount", "visaCal"];
 const STEPS: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading", "saving"];
 /** Stages where Cancel still stops something; saving is quick and final. */
 const CANCELLABLE: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading"];
@@ -68,44 +70,79 @@ export function LoginNote({ className }: { className?: string }) {
   );
 }
 
+/** "Cal ••4821: synced today 09:14", one line per money account. */
+export function SyncTimes({ provider, accounts }: { provider: ProviderId; accounts: Account[] | undefined }) {
+  const mine = (accounts ?? []).filter((a) => a.provider === provider);
+  const short = s.providers[provider].short;
+  if (mine.length === 0) return <p>{s.money.accountLine(short, s.money.neverSynced)}</p>;
+  return (
+    <ul className="space-y-0.5">
+      {mine.map((a) => (
+        <li key={a.id}>{s.money.accountLine(`${short} ••${lastDigits(a)}`, syncedText(a.lastSyncedAt))}</li>
+      ))}
+    </ul>
+  );
+}
+
 export function ProviderSyncRow({
   provider,
   accounts,
   className,
+  withTooltip,
+  tooltipOpen,
 }: {
   provider: ProviderId;
   accounts: Account[] | undefined;
   className?: string;
+  /** Hovering the row or its Sync button lists each money account's last sync. */
+  withTooltip?: boolean;
+  /** Demo screenshots only: hold the tooltip open. */
+  tooltipOpen?: boolean;
 }) {
   const sync = useSync();
   const mine = sync.provider === provider;
   const busy = sync.provider != null;
   const when = lastSync(accounts, provider);
   const stage = mine ? sync.stage : null;
+  const head = (
+    <div className="flex items-center gap-3">
+      <ProviderBadge provider={provider} size={36} className="text-base" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-medium">{s.providers[provider].name}</span>
+          <ProviderTag provider={provider} />
+        </div>
+        <div className="truncate text-xs text-muted-foreground">
+          {stage ? s.sync.stageShort[stage] : when ? s.sync.lastSynced(formatRelative(when)) : s.sync.never}
+        </div>
+      </div>
+      {mine ? (
+        stage &&
+        CANCELLABLE.includes(stage) && (
+          <Button variant="outline" size="sm" onClick={sync.cancel}>
+            {s.sync.cancel}
+          </Button>
+        )
+      ) : (
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => sync.start(provider)}>
+          <RefreshCw className="size-3.5" />
+          {s.sync.syncOne}
+        </Button>
+      )}
+    </div>
+  );
   return (
     <div className={className}>
-      <div className="flex items-center gap-3">
-        <ProviderBadge provider={provider} size={36} className="text-base" />
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium">{s.providers[provider].name}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {stage ? s.sync.stageShort[stage] : when ? s.sync.lastSynced(formatRelative(when)) : s.sync.never}
-          </div>
-        </div>
-        {mine ? (
-          stage &&
-          CANCELLABLE.includes(stage) && (
-            <Button variant="outline" size="sm" onClick={sync.cancel}>
-              {s.sync.cancel}
-            </Button>
-          )
-        ) : (
-          <Button variant="outline" size="sm" disabled={busy} onClick={() => sync.start(provider)}>
-            <RefreshCw className="size-3.5" />
-            {s.sync.syncOne}
-          </Button>
-        )}
-      </div>
+      {withTooltip ? (
+        <Tooltip open={tooltipOpen}>
+          <TooltipTrigger render={head} />
+          <TooltipContent side="left" align="center" sideOffset={28}>
+            <SyncTimes provider={provider} accounts={accounts} />
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        head
+      )}
       {stage && stage !== "failed" && <SyncSteps stage={stage} className="mt-4 ms-12" />}
       {stage === "waiting_for_login" && <LoginNote className="mt-4 ms-12" />}
     </div>

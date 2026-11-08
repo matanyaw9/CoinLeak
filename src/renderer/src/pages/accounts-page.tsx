@@ -1,28 +1,35 @@
-// Accounts: one card per provider with its accounts, a card mode switch per
-// card, last sync and a Sync button that shows each stage as it happens.
+// Money accounts: one card per provider the user has (synced or added), with
+// its name and tag, each money account's last sync, a card mode switch per
+// card, and a Sync button that shows each stage as it happens.
 // Look adapted from Spent (github.com/Shaya16/Spent), settings bank accounts screen.
 
-import { CreditCard, Landmark, ShieldCheck } from "lucide-react";
+import { CreditCard, Landmark, Plus, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import type { Account, CardMode, ProviderId } from "@shared/types";
 import { s } from "@/strings";
 import { isNotBuilt } from "@/lib/api";
 import { useAccounts } from "@/lib/hooks";
+import { useSync } from "@/lib/sync";
 import { useReviewActions } from "@/lib/review-actions";
-import { formatRelative } from "@/lib/format";
 import { Page } from "@/components/layout/page";
 import { Card } from "@/components/common/card";
-import { QueryError } from "@/components/common/empty-state";
+import { EmptyState, QueryError } from "@/components/common/empty-state";
 import { Segmented } from "@/components/common/segmented";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { accountLabel, lastDigits } from "@/components/common/chips";
-import { PROVIDERS, ProviderSyncRow } from "@/components/sync/sync-parts";
+import { ProviderSyncRow } from "@/components/sync/sync-parts";
+import { visibleProviders } from "@/components/accounts/provider-groups";
+import { syncedText } from "@/components/accounts/sync-time";
 
 const MODES: CardMode[] = ["credit", "debit"];
 
 export function AccountsPage() {
   const accounts = useAccounts();
+  const sync = useSync();
   const list = accounts.data ?? [];
   const hardError = accounts.isError && !isNotBuilt(accounts.error);
+  const shown = visibleProviders(list, sync.added);
 
   return (
     <Page title={s.accounts.title}>
@@ -34,15 +41,37 @@ export function AccountsPage() {
           </div>
         </div>
 
-        <div className="mt-8 space-y-5">
+        <div className="mt-8 flex justify-end">
+          <Button variant="outline" onClick={() => sync.setPickerOpen(true)}>
+            <Plus />
+            {s.money.add}
+          </Button>
+        </div>
+
+        <div className="mt-4 space-y-5">
           {hardError ? (
             <Card>
               <QueryError error={accounts.error} />
             </Card>
           ) : accounts.isPending ? (
             <Skeleton className="h-56 w-full rounded-3xl" />
+          ) : shown.length === 0 ? (
+            <Card>
+              <EmptyState
+                title={s.money.nothingTitle}
+                body={s.money.nothingBody}
+                action={
+                  <Button onClick={() => sync.setPickerOpen(true)}>
+                    <Plus />
+                    {s.money.add}
+                  </Button>
+                }
+              />
+            </Card>
           ) : (
-            PROVIDERS.map((p) => <ProviderCard key={p} provider={p} accounts={list.filter((a) => a.provider === p)} all={list} />)
+            shown.map((p) => (
+              <ProviderCard key={p} provider={p} accounts={list.filter((a) => a.provider === p)} all={list} />
+            ))
           )}
         </div>
 
@@ -63,6 +92,12 @@ export function AccountsPage() {
 }
 
 function ProviderCard({ provider, accounts, all }: { provider: ProviderId; accounts: Account[]; all: Account[] }) {
+  const sync = useSync();
+  const removable = accounts.length === 0 && sync.provider !== provider;
+  const remove = () => {
+    sync.removeProvider(provider);
+    toast(s.money.removed(s.providers[provider].name));
+  };
   return (
     <Card className="p-0">
       <ProviderSyncRow provider={provider} accounts={all} className="p-6" />
@@ -73,7 +108,14 @@ function ProviderCard({ provider, accounts, all }: { provider: ProviderId; accou
           ))}
         </ul>
       ) : (
-        <p className="border-t border-border px-6 py-4 text-sm text-muted-foreground">{s.accounts.noAccounts}</p>
+        <div className="flex items-center justify-between gap-4 border-t border-border px-6 py-3">
+          <p className="text-sm text-muted-foreground">{s.accounts.noAccounts}</p>
+          {removable && (
+            <Button variant="ghost" size="sm" onClick={remove}>
+              {s.money.remove}
+            </Button>
+          )}
+        </div>
       )}
     </Card>
   );
@@ -96,7 +138,7 @@ function AccountLine({ account }: { account: Account }) {
           </div>
           <div className="text-xs text-muted-foreground">
             {account.kind === "bank" ? s.accounts.bankAccount : s.accounts.card}
-            {account.lastSyncedAt && ` · ${s.sync.lastSynced(formatRelative(account.lastSyncedAt))}`}
+            {` · ${syncedText(account.lastSyncedAt)}`}
           </div>
         </div>
         {account.kind === "card" && mode && (
