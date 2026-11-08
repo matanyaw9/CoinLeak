@@ -1,13 +1,12 @@
 // Manual check of the sync module without Electron:
-//   npm run sync:try -- discount     (or visaCal)
+//   npm run sync:try -- discount     (or any enabled provider id, e.g. hapoalim)
 // You log in yourself in the browser window that opens. Prints counts only.
 
 import { CodedError, ERROR_MESSAGES } from "@shared/errors";
-import type { ProviderId, SyncStage } from "@shared/types";
+import { ENABLED_PROVIDERS, isEnabledProvider, isProviderId, providerInfo } from "@shared/providers";
+import type { SyncStage } from "@shared/types";
 import { runSync, type SyncReport } from "../src/main/sync/index";
 import { summarize } from "../src/main/sync/summary";
-
-const PROVIDERS: readonly ProviderId[] = ["discount", "visaCal"];
 
 const STAGE_TEXT: Partial<Record<SyncStage, string>> = {
   opening_browser: "Opening the sync browser...",
@@ -16,11 +15,17 @@ const STAGE_TEXT: Partial<Record<SyncStage, string>> = {
 };
 
 async function main(): Promise<number> {
-  const provider = process.argv[2] as ProviderId | undefined;
-  if (!provider || !PROVIDERS.includes(provider)) {
-    console.error(`Usage: npm run sync:try -- <${PROVIDERS.join("|")}>`);
+  const provider = process.argv[2];
+  if (isProviderId(provider) && !isEnabledProvider(provider)) {
+    console.error(`${providerInfo(provider).name} is not supported: ${providerInfo(provider).reason ?? ""}`);
     return 2;
   }
+  if (!isEnabledProvider(provider)) {
+    console.error(`Usage: npm run sync:try -- <provider>\nProviders: ${ENABLED_PROVIDERS.join(", ")}`);
+    return 2;
+  }
+  const info = providerInfo(provider);
+  console.log(`${info.name} (${info.status}). The login page opens on ${info.site}.`);
   // Library and puppeteer debug output would print bank data and requests.
   const noisy = ["DEBUG", "NODE_DEBUG"].filter((name) => process.env[name]);
   if (noisy.length) {

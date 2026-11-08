@@ -1,6 +1,13 @@
 # Discount Bank (`discount`)
 
-How CoinLeak syncs Discount with israeli-bank-scrapers 6.12.2 and self-login.
+Status: **verified**. The owner synced a real account end to end on
+2026-11-08 (1 account, 274 rows, one year). How CoinLeak syncs Discount
+with israeli-bank-scrapers 6.12.2 and self-login.
+
+Classification: `self-login`. `DiscountScraper` is browser-based
+(`lib/scrapers/discount.js` L108), `getLoginOptions()` (L109-118) gives the
+login page and success URLs (L89-95), and the download runs in the page
+(`fetchAccountData`, L40-81).
 
 ## Login
 

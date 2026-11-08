@@ -2,6 +2,7 @@
 // with made-up card numbers.
 
 import { describe, expect, it } from "vitest";
+import { PROVIDERS } from "@shared/providers";
 import { companyOf, last4, readCardLine } from "./card-patterns";
 
 describe("readCardLine", () => {
@@ -19,7 +20,7 @@ describe("readCardLine", () => {
     expect(readCardLine("העברה לכאל")?.companies).toEqual(["cal"]);
     expect(readCardLine("ישראכרט")?.companies).toEqual(["isracard"]);
     expect(readCardLine("מקס איט פיננסים")?.companies).toEqual(["max"]);
-    expect(readCardLine("AMERICAN EXPRESS")?.companies).toEqual(["isracard"]);
+    expect(readCardLine("AMERICAN EXPRESS")?.companies).toEqual(["amex"]);
     expect(readCardLine("CAL PAYMENT")?.companies).toEqual(["cal"]);
   });
 
@@ -39,6 +40,24 @@ describe("readCardLine", () => {
     }
   });
 
+  it("tells the four card companies apart (spec 08)", () => {
+    expect(readCardLine("אמריקן אקספרס")?.companies).toEqual(["amex"]);
+    expect(readCardLine("חיוב אמקס")?.companies).toEqual(["amex"]);
+    expect(readCardLine("לאמקס")?.companies).toEqual(["amex"]);
+    expect(readCardLine("AMEX 1234")).toEqual({ numbers: ["1234"], companies: ["amex"] });
+    expect(readCardLine("ISRACARD")?.companies).toEqual(["isracard"]);
+    expect(readCardLine("ישרא-כארד")?.companies).toEqual(["isracard"]);
+    expect(readCardLine("לאומי קארד")?.companies).toEqual(["max"]);
+    expect(readCardLine("LEUMI CARD")?.companies).toEqual(["max"]);
+    expect(readCardLine("דיינרס")?.companies).toEqual(["cal"]);
+  });
+
+  it("does not see Amex or Leumi Card inside other words or bank names", () => {
+    expect(readCardLine("שמקסים")).toBeNull();
+    expect(readCardLine("העברה מלאומי")).toBeNull();
+    expect(readCardLine("בנק לאומי")).toBeNull();
+  });
+
   it("does not see Cal inside another word, such as a person's name", () => {
     expect(readCardLine("העברה למיכאל")).toBeNull();
     expect(readCardLine("מיכאלי בעמ")).toBeNull();
@@ -53,8 +72,24 @@ describe("last4 and companyOf", () => {
     expect(last4("12")).toBeNull();
   });
 
-  it("knows Cal is the visaCal provider's company", () => {
+  it("knows the company of each card provider", () => {
     expect(companyOf("visaCal")).toBe("cal");
+    expect(companyOf("max")).toBe("max");
+    expect(companyOf("isracard")).toBe("isracard");
+    expect(companyOf("amex")).toBe("amex");
     expect(companyOf("discount")).toBeNull();
+    expect(companyOf("hapoalim")).toBeNull();
+  });
+
+  it("gives no bank a card company, and a company line finds its own provider", () => {
+    for (const p of PROVIDERS.filter((x) => x.kind === "bank")) expect(companyOf(p.id), p.id).toBeNull();
+    for (const [line, provider] of [
+      ["כאל", "visaCal"],
+      ["מקס איט פיננסים", "max"],
+      ["ישראכרט", "isracard"],
+      ["אמריקן אקספרס", "amex"],
+    ] as const) {
+      expect(readCardLine(line)?.companies, line).toEqual([companyOf(provider)]);
+    }
   });
 });

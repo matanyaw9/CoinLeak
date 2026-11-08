@@ -5,9 +5,8 @@
 import type { Transaction, TransactionsAccount } from "israeli-bank-scrapers/lib/transactions.js";
 import { CodedError } from "@shared/errors";
 import { toAgorot } from "@shared/money";
+import { providerKind } from "@shared/providers";
 import type { Agorot, IsoDate, ProviderId, ScrapedAccount, ScrapedStatus, ScrapedTransaction } from "@shared/types";
-
-const CARD_PROVIDERS: ReadonlySet<ProviderId> = new Set(["visaCal"]);
 
 const ISRAEL_DAY = new Intl.DateTimeFormat("en-US", {
   timeZone: "Asia/Jerusalem",
@@ -114,7 +113,7 @@ function transaction(txn: Transaction): ScrapedTransaction {
 function accountNumber(provider: ProviderId, raw: unknown): string {
   const value = typeof raw === "number" ? String(raw) : typeof raw === "string" ? raw.trim() : "";
   if (value === "") return changed();
-  if (!CARD_PROVIDERS.has(provider)) return value;
+  if (providerKind(provider) !== "card") return value;
   const digits = value.replace(/\D/g, "");
   return digits.length >= 4 ? digits.slice(-4) : changed();
 }

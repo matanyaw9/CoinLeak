@@ -1,7 +1,8 @@
 // The allowlist: bank hosts pass, look-alikes and everything else are blocked.
 
 import { describe, expect, it } from "vitest";
-import { BlockedCounter, blockedLabel, hostResolverRules, isAllowedUrl } from "./allowlist";
+import { ENABLED_PROVIDERS, providerInfo, type EnabledProviderId } from "@shared/providers";
+import { ALLOWED_HOSTS, BlockedCounter, blockedLabel, hostResolverRules, isAllowedUrl, THIRD_PARTY } from "./allowlist";
 
 describe("allowlist: discount", () => {
   it.each([
@@ -60,6 +61,108 @@ describe("allowlist: visaCal", () => {
     "https://googleads.g.doubleclick.net/pagead/",
   ])("blocks %s", (url) => {
     expect(isAllowedUrl("visaCal", url)).toBe(false);
+  });
+});
+
+describe("allowlist: every enabled provider", () => {
+  const cases = ENABLED_PROVIDERS.flatMap((p) => ALLOWED_HOSTS[p].map((suffix) => [p, suffix] as const));
+
+  it("has at least one host for every enabled provider, and its login site is on it", () => {
+    for (const provider of ENABLED_PROVIDERS) {
+      expect(ALLOWED_HOSTS[provider].length, provider).toBeGreaterThan(0);
+      expect(isAllowedUrl(provider, `https://${providerInfo(provider).site}/`), provider).toBe(true);
+    }
+  });
+
+  it.each(cases)("%s allows its own host %s and its subdomains", (provider, suffix) => {
+    expect(isAllowedUrl(provider, `https://${suffix}/`)).toBe(true);
+    expect(isAllowedUrl(provider, `https://www.${suffix}/login?x=1`)).toBe(true);
+    expect(isAllowedUrl(provider, `https://a.b.${suffix.toUpperCase()}/`)).toBe(true);
+  });
+
+  it.each(cases)("%s blocks look-alikes of %s", (provider, suffix) => {
+    const [label] = suffix.split(".");
+    for (const url of [
+      `https://${suffix}.evil.com/`,
+      `https://evil-${suffix}/`,
+      `https://evil${suffix}/`,
+      `https://${label}.co.il.evil.com/`,
+      `https://${suffix}@evil.com/`,
+      `https://evil.com/?u=https://${suffix}/`,
+      `https://evil.com/${suffix}`,
+      `http://${suffix}/`,
+      `https://${suffix}:8443/`,
+      `wss://${suffix}/`,
+    ]) {
+      expect(isAllowedUrl(provider, url), url).toBe(false);
+    }
+  });
+
+  it.each(ENABLED_PROVIDERS)("%s blocks every other provider's hosts and the usual trackers", (provider) => {
+    const mine = new Set(ALLOWED_HOSTS[provider]);
+    const others = ENABLED_PROVIDERS.flatMap((p) => ALLOWED_HOSTS[p]).filter((s) => !mine.has(s));
+    for (const host of [...others, "www.googletagmanager.com", "www.google-analytics.com", "connect.facebook.net"]) {
+      expect(isAllowedUrl(provider, `https://${host}/`), host).toBe(false);
+    }
+    expect(isAllowedUrl(provider, "https://www.google.com/pagead/1p-user-list/1/")).toBe(false);
+  });
+});
+
+describe("third-party captcha, path by path", () => {
+  const withCaptcha = Object.keys(THIRD_PARTY) as EnabledProviderId[];
+
+  it("is given only to providers whose login page runs reCAPTCHA", () => {
+    expect(withCaptcha.sort()).toEqual(["amex", "behatsdaa", "isracard"]);
+  });
+
+  it.each(withCaptcha)("%s may load reCAPTCHA and nothing else from Google", (provider) => {
+    for (const url of [
+      "https://www.google.com/recaptcha/api.js",
+      "https://www.google.com/recaptcha/api2/anchor?k=x",
+      "https://www.gstatic.com/recaptcha/releases/abc/recaptcha__en.js",
+    ]) {
+      expect(isAllowedUrl(provider, url), url).toBe(true);
+    }
+    for (const url of [
+      "https://www.google.com/",
+      "https://www.google.com/pagead/1p-user-list/1/",
+      "https://www.google.com/rmkt/collect/1/",
+      "https://www.google.com/recaptcha/../pagead/x",
+      "https://www.google.com/recaptcha/%2e%2e/ccm/collect",
+      "https://www.google.com/RECAPTCHA/api.js",
+      "https://google.com/recaptcha/api.js",
+      "https://evil.google.com/recaptcha/api.js",
+      "https://www.google.com.evil.com/recaptcha/api.js",
+      "https://www.recaptcha.net/recaptcha/api.js",
+      "https://fonts.gstatic.com/s/roboto.woff2",
+      "http://www.google.com/recaptcha/api.js",
+    ]) {
+      expect(isAllowedUrl(provider, url), url).toBe(false);
+    }
+  });
+
+  it("is not given to banks that do not need it", () => {
+    for (const provider of ENABLED_PROVIDERS.filter((p) => !withCaptcha.includes(p))) {
+      expect(isAllowedUrl(provider, "https://www.google.com/recaptcha/api.js"), provider).toBe(false);
+    }
+  });
+
+  it("lets the captcha hosts resolve exactly, without their other subdomains", () => {
+    const rules = hostResolverRules("isracard");
+    expect(rules).toContain("EXCLUDE www.google.com");
+    expect(rules).toContain("EXCLUDE www.gstatic.com");
+    expect(rules).not.toContain("*.google.com");
+    expect(rules).not.toContain("*.gstatic.com");
+    expect(hostResolverRules("hapoalim")).not.toContain("google");
+  });
+
+  it("blocks Isracard's automation detector even on its own host, as the library does", () => {
+    for (const provider of ["isracard", "amex"] as const) {
+      expect(isAllowedUrl(provider, "https://digital.isracard.co.il/gb-isracard/js-glassbox/prod/detector-dom.min.js")).toBe(
+        false,
+      );
+    }
+    expect(isAllowedUrl("isracard", "https://digital.isracard.co.il/personalarea/Login")).toBe(true);
   });
 });
 

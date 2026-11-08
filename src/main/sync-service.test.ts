@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CodedError } from "@shared/errors";
+import { ENABLED_PROVIDERS } from "@shared/providers";
 import type { ProviderId, ScrapedAccount, ScrapedTransaction, SyncProgress } from "@shared/types";
 import { openDatabase } from "@core/db";
 import { ingest, listTransactions, type IngestOptions } from "@core/ledger";
@@ -129,8 +130,23 @@ describe("sync service", () => {
     expect(listTransactions(db).find((t) => t.description === "מסעדה")?.status).toBe("gone");
   });
 
-  it("rejects an unknown provider", async () => {
-    const { service } = setup(async () => download);
-    await expect(service.start("leumi" as ProviderId)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  it.each(["notABank", "__proto__", "constructor", "oneZero", "union"])(
+    "rejects %s: unknown, or unsupported in the registry",
+    async (provider) => {
+      let ran = false;
+      const { service } = setup(async () => {
+        ran = true;
+        return download;
+      });
+      await expect(service.start(provider as ProviderId)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect(ran).toBe(false);
+    },
+  );
+
+  it("accepts every enabled provider from the registry", async () => {
+    const { service } = setup(async () => ({ accounts: [], since: SINCE }));
+    for (const provider of ENABLED_PROVIDERS) {
+      await expect(service.start(provider)).resolves.toMatchObject({ provider, accounts: 0 });
+    }
   });
 });

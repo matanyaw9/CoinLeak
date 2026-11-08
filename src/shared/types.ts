@@ -1,6 +1,11 @@
 // Domain types shared by core, main and the window. This file is a contract
 // between modules: change it only when a spec says so.
 
+import type { ProviderId } from "./providers";
+
+/** Every provider of the registry in `providers.ts` (spec 08). */
+export type { ProviderId };
+
 /** Money in agorot (1 ILS = 100). Always an integer. Negative is money out. */
 export type Agorot = number;
 /** Calendar day in Israel time, `YYYY-MM-DD`. */
@@ -8,7 +13,6 @@ export type IsoDate = string;
 /** Month, `YYYY-MM`. */
 export type IsoMonth = string;
 
-export type ProviderId = "discount" | "visaCal";
 export type AccountKind = "bank" | "card";
 export type CardMode = "credit" | "debit";
 /** What a download can say about a row. */

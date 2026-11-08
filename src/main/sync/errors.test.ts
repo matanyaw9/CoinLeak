@@ -36,9 +36,13 @@ describe("codeForResult", () => {
     expect([...Object.values(ScraperErrorTypes)].sort()).toEqual([...LIBRARY_ERROR_TYPES].sort());
   });
 
-  it("maps an unknown or missing error type to UNKNOWN", () => {
+  it("maps an unknown error type to UNKNOWN", () => {
     expect(codeForResult({ success: false, errorType: "SOMETHING_NEW" as never })).toBe("UNKNOWN");
-    expect(codeForResult({ success: false })).toBe("UNKNOWN");
+  });
+
+  it("maps a failure without an error type (Behatsdaa's empty answer) to BANK_ERROR", () => {
+    expect(codeForResult({ success: false })).toBe("BANK_ERROR");
+    expect(codeForResult({ success: false, errorMessage: `TokenNotFound ${FAKE_PASSWORD}` })).toBe("BANK_ERROR");
   });
 
   it("returns null for data and BANK_CHANGED for a success without accounts", () => {

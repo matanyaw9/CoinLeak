@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Browser, BrowserContext, HTTPRequest, LaunchOptions, Page, Protocol } from "puppeteer";
 import { CodedError, type ErrorCode } from "@shared/errors";
-import type { ProviderId } from "@shared/types";
+import type { EnabledProviderId } from "@shared/providers";
 import { BlockedCounter, hostResolverRules, isAllowedUrl } from "./allowlist";
 import { findBrowser } from "./find-browser";
 
@@ -53,7 +53,7 @@ const PROFILE_PREFERENCES = {
   autofill: { profile_enabled: false, credit_card_enabled: false },
 };
 
-export function chromeArgs(provider: ProviderId, userDataDir: string): string[] {
+export function chromeArgs(provider: EnabledProviderId, userDataDir: string): string[] {
   return [
     ...BASE_ARGS,
     `--user-data-dir=${userDataDir}`,
@@ -62,7 +62,7 @@ export function chromeArgs(provider: ProviderId, userDataDir: string): string[] 
   ];
 }
 
-export function launchOptions(executablePath: string, provider: ProviderId, userDataDir: string): LaunchOptions {
+export function launchOptions(executablePath: string, provider: EnabledProviderId, userDataDir: string): LaunchOptions {
   return {
     executablePath,
     // CDP over stdio pipes: no debugging port another program could connect to.
@@ -194,7 +194,7 @@ async function closeBrowser(browser: Browser): Promise<void> {
  * Browser-level CDP interception sees requests from every page, frame,
  * popup and worker, including ones created after this call.
  */
-async function enforceAllowlist(browser: Browser, provider: ProviderId, blocked: BlockedCounter): Promise<void> {
+async function enforceAllowlist(browser: Browser, provider: EnabledProviderId, blocked: BlockedCounter): Promise<void> {
   const cdp = await browser.target().createCDPSession();
   cdp.on("Fetch.requestPaused", (event: Protocol.Fetch.RequestPausedEvent) => {
     const { requestId, request } = event;
@@ -219,7 +219,7 @@ export function isBlockedMainFrameNavigation(page: Page, request: HTTPRequest): 
 }
 
 export async function withSyncBrowser<T>(
-  provider: ProviderId,
+  provider: EnabledProviderId,
   run: (session: SyncSession) => Promise<T>,
   options: SyncBrowserOptions = {},
 ): Promise<T> {

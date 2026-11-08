@@ -1,10 +1,10 @@
-// Recognizes bank lines that pay a credit card, and reads which card.
-// Card-bill patterns ported from Spent (github.com/Shaya16/Spent),
-// src/server/lib/transfers.ts: Hebrew and English patterns and last-4 runs.
+// Recognizes bank lines that pay a credit card, reads which card, and knows
+// which card company each card provider is. Card-bill patterns ported from
+// Spent (github.com/Shaya16/Spent), src/server/lib/transfers.ts.
 
 import type { ProviderId } from "@shared/types";
 
-export type CardCompany = "cal" | "isracard" | "max";
+export type CardCompany = "cal" | "isracard" | "max" | "amex";
 
 // A Hebrew letter on either side means the match is inside another word.
 // Without this guard, Spent's Cal pattern also matched names like "מיכאל".
@@ -14,19 +14,16 @@ const NOT_IN_WORD_AFTER = "(?![\\u0590-\\u05FF])";
 const CAL_HEBREW = new RegExp(
   `${NOT_IN_WORD_BEFORE}[ולמבהש]?כ[\\s.\\-־]?א[\\s.\\-־]?ל${NOT_IN_WORD_AFTER}`,
 );
+// "Amex" in Hebrew, as a word of its own (with one prefix letter at most).
+const AMEX_HEBREW = new RegExp(`${NOT_IN_WORD_BEFORE}[ולמבהש]?אמקס${NOT_IN_WORD_AFTER}`);
 
 const COMPANY_PATTERNS: Record<CardCompany, readonly RegExp[]> = {
   cal: [CAL_HEBREW, /דיינרס/, /\bCAL\b/i, /\bDINERS\b/i],
-  isracard: [
-    /ישראכרט/,
-    /ישרא[\s־-]?כארד/,
-    /אמריקן\s*אקספרס/,
-    /\bISRACARD\b/i,
-    /\bAMEX\b/i,
-    /\bAMERICAN\s+EXPRESS\b/i,
-  ],
-  // Max charges appear on bank statements as "מקס איט פיננסים".
-  max: [/מקסימום/, /מקס\s*איט/, /\bMAX\b/i],
+  isracard: [/ישראכרט/, /ישרא[\s־-]?כארד/, /\bISRACARD\b/i],
+  // American Express in Israel is its own card provider (`amex`), run by Isracard.
+  amex: [/אמריקן\s*אקספרס/, AMEX_HEBREW, /\bAMEX\b/i, /\bAMERICAN\s+EXPRESS\b/i],
+  // Max charges appear on bank statements as "מקס איט פיננסים"; Max was Leumi Card.
+  max: [/מקסימום/, /מקס\s*איט/, /לאומי\s*קארד/, /\bMAX\b/i, /\bLEUMI\s*CARD\b/i],
 };
 
 // Card networks and generic wording: a card bill, but no company named.
@@ -45,7 +42,13 @@ const GENERIC_PATTERNS: readonly RegExp[] = [
 // Discount's "חיוב זמני למפתח מזומן". They carry no card number.
 const PENDING_AGGREGATE_PATTERNS: readonly RegExp[] = [/חיוב\s*זמני\s*למפתח/];
 
-const PROVIDER_COMPANY: Partial<Record<ProviderId, CardCompany>> = { visaCal: "cal" };
+/** The card company behind each card provider whose bills a bank statement shows. */
+const PROVIDER_COMPANY: Partial<Record<ProviderId, CardCompany>> = {
+  visaCal: "cal",
+  max: "max",
+  isracard: "isracard",
+  amex: "amex",
+};
 
 export interface CardLine {
   /** Last 4 digits of every run of 4 or more digits in the line. */

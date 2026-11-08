@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CodedError } from "@shared/errors";
+import { PROVIDER_IDS, PROVIDERS } from "@shared/providers";
 import {
   BANK_NUMBER,
   NOW,
@@ -16,7 +17,7 @@ import {
   txn,
 } from "../testing/ledger";
 import { setCardMode } from "./card-bills";
-import { ingest } from "./ingest";
+import { ingest, PROVIDER_KIND } from "./ingest";
 import { listAccounts, listTransactions, monthSummary, updateTransactions } from "./queries";
 
 const day = (d: number, amount: number, description = `קנייה ${d}`) =>
@@ -244,6 +245,27 @@ describe("accounts and sync runs", () => {
     const db = newDb();
     ingest(db, [card("4321", [txn({ date: "2026-03-01", amount: -100, description: "  סופר  הדר " })])], { now: NOW });
     expect(idsOf(db, "  סופר  הדר ")).toHaveLength(1);
+  });
+
+  it("takes each provider's kind from the registry: every bank a bank, every card company a credit card", () => {
+    expect(Object.keys(PROVIDER_KIND).sort()).toEqual([...PROVIDER_IDS].sort());
+    const db = newDb();
+    for (const p of PROVIDERS) {
+      ingest(db, [{ provider: p.id, accountNumber: "9876", balance: null, transactions: [] }], { now: NOW });
+    }
+    const kinds = Object.fromEntries(listAccounts(db).map((a) => [a.provider, [a.kind, a.cardMode]]));
+    for (const p of PROVIDERS) {
+      expect(kinds[p.id], p.id).toEqual(p.kind === "card" ? ["card", "credit"] : ["bank", null]);
+    }
+    expect(kinds["max"]).toEqual(["card", "credit"]);
+    expect(kinds["hapoalim"]).toEqual(["bank", null]);
+  });
+
+  it("rejects a provider the registry does not know", () => {
+    const db = newDb();
+    for (const provider of ["leumiCard", "__proto__", "toString"]) {
+      expect(() => ingest(db, [], { now: NOW, provider: provider as never }), provider).toThrow(CodedError);
+    }
   });
 
   it("accepts an empty download when told the provider", () => {

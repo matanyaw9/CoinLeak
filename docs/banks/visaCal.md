@@ -1,7 +1,14 @@
 # Cal cards (`visaCal`)
 
-How CoinLeak syncs Cal (Visa Cal) with israeli-bank-scrapers 6.12.2 and
-self-login.
+Status: **experimental**. Login was verified live by the owner on
+2026-11-08; the download is not confirmed yet. How CoinLeak syncs Cal
+(Visa Cal) with israeli-bank-scrapers 6.12.2 and self-login.
+
+Classification: `self-login-custom`. `VisaCalScraper` is browser-based
+(`lib/scrapers/visa-cal.js` L208) with `getLoginOptions()` (L261-294) and a
+success result (`/dashboard/i`, L137-140). Its own login also captures an
+auth token (L262-283), which self-login keeps as a provider-specific hook
+(below). The download calls Cal's API from Node (L297, L339, L350).
 
 ## Login
 
