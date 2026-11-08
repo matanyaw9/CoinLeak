@@ -55,4 +55,4 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 |---|---------|----------|
 | F18 | App accounts with password, several people on one computer | (a) for now: each person uses their own computer login; the app keeps data per login. In-app passwords without encrypting the file only look safe. |
 | F20 | Card-bill bank lines to Trash automatically | Hidden with a filter instead: an automatic trash would hide a decision that can be wrong. |
-| F29 | Rules vs "known places" lists | One mechanism: a rule per category with a list of names ("Cafes: Aroma, Cofix, Landwer"). The UI can show it as the category's "known places"; adding a place from a row appends to that list instead of making a new rule. Lead's reasoning in chat, 2026-11-08. |
+| F29 | Rules vs "known places" lists | Lead's proposal, owner to confirm. One mechanism: a rule per category with a list of names ("Cafes: Aroma, Cofix, Landwer"). The UI can show it as the category's "known places"; adding a place from a row appends to that list instead of making a new rule. Lead's reasoning in chat, 2026-11-08. |
