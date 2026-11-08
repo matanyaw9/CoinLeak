@@ -340,13 +340,24 @@ export interface ExclusionState {
 /**
  * - income: an income category (top level; null is uncategorized income)
  * - refund: a spending category refunded more than spent this month
- * - from_savings: money taken from savings, or spent beyond this month's income
+ * - from_savings: money taken back out of savings (a net transfer in)
+ * - beyond_income: spending and transfers beyond what came in (spec 16)
  * - hub: everything that came in, in the middle
  * - spending: a top-level spending category (null is uncategorized)
  * - transfer: a top-level transfer category, net moved out
  * - left: what stayed after spending and transfers
+ * - group: a spending group's total, on the left of its drill-down (spec 16)
  */
-export type MoneyFlowNodeKind = "income" | "refund" | "from_savings" | "hub" | "spending" | "transfer" | "left";
+export type MoneyFlowNodeKind =
+  | "income"
+  | "refund"
+  | "from_savings"
+  | "beyond_income"
+  | "hub"
+  | "spending"
+  | "transfer"
+  | "left"
+  | "group";
 
 export interface MoneyFlowNode {
   kind: MoneyFlowNodeKind;
@@ -370,6 +381,8 @@ export interface MoneyFlow {
   spending: Agorot;
   /** Same as `MonthSummary.transfers`. */
   transfers: Agorot;
+  /** Spending plus transfers minus income, when positive; else 0 (spec 16). */
+  shortfall: Agorot;
   nodes: MoneyFlowNode[];
   links: MoneyFlowLink[];
 }
@@ -421,3 +434,74 @@ export interface AppSettings {
 
 export type SettingKey = keyof AppSettings;
 export type SettingEntry = { [K in SettingKey]: { key: K; value: AppSettings[K] } }[SettingKey];
+
+// ---- Time periods (spec 16) ----
+
+/** Any stretch of days, both ends included. */
+export interface DateRange {
+  from: IsoDate;
+  to: IsoDate;
+}
+
+/** How a period's series is cut: by day up to 62 days, by week up to a year, by month beyond. */
+export type SeriesBucket = "day" | "week" | "month";
+
+/** One bucket of a series: its days, and spending from the period's start through its end. */
+export interface SeriesPoint {
+  from: IsoDate;
+  to: IsoDate;
+  amount: Agorot;
+}
+
+/**
+ * The period before, for comparison: the same number of whole months when
+ * the period is whole months, else the same number of days just before.
+ */
+export interface PreviousPeriod extends DateRange {
+  spending: Agorot;
+  /** Spent by the same point of the previous period; all of it when the period is over. */
+  sameTime: Agorot;
+  /** Always full length. */
+  series: SeriesPoint[];
+}
+
+/** Like `MonthSummary` for any range, with the same rules. */
+export interface PeriodSummary extends DateRange {
+  income: Agorot;
+  spending: Agorot;
+  transfers: Agorot;
+  needsReview: number;
+  byCategory: { categoryId: number | null; amount: Agorot; count: number }[];
+  byParent: { categoryId: number | null; amount: Agorot; count: number }[];
+  bucket: SeriesBucket;
+  /** Cumulative spending per bucket, stopping at today's bucket. */
+  series: SeriesPoint[];
+  /** True when today falls inside the range. */
+  inProgress: boolean;
+  previous: PreviousPeriod;
+}
+
+/** `MoneyFlow` for any range. */
+export type PeriodFlow = Omit<MoneyFlow, "month"> & DateRange;
+
+/**
+ * One spending group opened up: the group's total (a `group` node) on the
+ * left, its categories (`spending`, the group's own id for rows set on the
+ * group itself) on the right. A category refunded beyond its spending is a
+ * `refund` node on the left, and then a `hub` sits in the middle.
+ */
+export interface GroupFlow extends DateRange {
+  categoryId: number;
+  /** Same as this group's node in the period's flow. */
+  total: Agorot;
+  nodes: MoneyFlowNode[];
+  links: MoneyFlowLink[];
+}
+
+/** A category's cumulative spending through a period and the one before. */
+export interface PeriodCurve {
+  categoryId: number | null;
+  bucket: SeriesBucket;
+  series: SeriesPoint[];
+  previous: SeriesPoint[];
+}

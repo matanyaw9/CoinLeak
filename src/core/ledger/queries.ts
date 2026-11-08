@@ -24,12 +24,12 @@ import type {
 import { transaction, type Db } from "../db";
 import { applyRulesInTransaction } from "../rules/engine";
 import { applyCardBills } from "./card-bills";
-import { addMonths, assertMonth, daysOfMonth, israelMonth, monthBounds } from "./dates";
-import { LEDGER_SQL, SPENDING_FLOWS_SQL } from "./flow";
+import { addMonths, assertMonth, israelMonth } from "./dates";
+import { LEDGER_SQL } from "./flow";
+import { monthRange, NEEDS_REVIEW_SQL, periodSummary, trendPoint } from "./period";
 import { FLOWS, assertIds, assertOptionalDate, check, isId } from "./validate";
 
 const WITH_LEDGER = `WITH ledger AS (${LEDGER_SQL})`;
-const NEEDS_REVIEW_SQL = "(ledger.flag_uncategorized OR ledger.flag_possible_card_bill OR ledger.flag_gone)";
 
 // ---- Accounts and categories ----
 
@@ -354,89 +354,23 @@ export function emptyTrash(db: Db, now = new Date()): { deleted: number } {
 }
 
 // ---- Summaries ----
+// The sums live in period.ts (spec 16); a month is a range of its days.
 
-export interface Totals {
-  income: Agorot;
-  spending: Agorot;
-  transfers: Agorot;
-  needsReview: number;
-}
+export { spendingByParent, totals, type Totals } from "./period";
 
-export function totals(db: Db, from: IsoDate, until: IsoDate): Totals {
-  return db
-    .prepare(
-      `${WITH_LEDGER} SELECT
-         COALESCE(SUM(CASE WHEN ledger.flow = 'income' THEN ledger.amount END), 0) AS income,
-         COALESCE(-SUM(CASE WHEN ledger.flow IN ${SPENDING_FLOWS_SQL} THEN ledger.amount END), 0) AS spending,
-         COALESCE(-SUM(CASE WHEN ledger.flow = 'transfer' THEN ledger.amount END), 0) AS transfers,
-         COALESCE(SUM(${NEEDS_REVIEW_SQL}), 0) AS needsReview
-       FROM ledger WHERE ledger.date >= ? AND ledger.date < ?`,
-    )
-    .get(from, until) as unknown as Totals;
-}
-
-function spendingByCategory(
-  db: Db,
-  from: IsoDate,
-  until: IsoDate,
-): { categoryId: number | null; amount: Agorot; count: number }[] {
-  return db
-    .prepare(
-      `${WITH_LEDGER} SELECT ledger.category_id AS categoryId, -SUM(ledger.amount) AS spent, COUNT(*) AS count
-       FROM ledger
-       WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}
-       GROUP BY ledger.category_id
-       ORDER BY spent DESC, ledger.category_id IS NULL, ledger.category_id`,
-    )
-    .all(from, until)
-    .map((r) => ({ categoryId: r.categoryId as number | null, amount: r.spent as number, count: r.count as number }));
-}
-
-export function spendingByParent(
-  db: Db,
-  from: IsoDate,
-  until: IsoDate,
-): { categoryId: number | null; amount: Agorot; count: number }[] {
-  return db
-    .prepare(
-      `${WITH_LEDGER} SELECT COALESCE(ledger.category_parent_id, ledger.category_id) AS categoryId,
-         -SUM(ledger.amount) AS spent, COUNT(*) AS count
-       FROM ledger
-       WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}
-       GROUP BY 1
-       ORDER BY spent DESC, categoryId IS NULL, categoryId`,
-    )
-    .all(from, until)
-    .map((r) => ({ categoryId: r.categoryId as number | null, amount: r.spent as number, count: r.count as number }));
-}
-
-/** Income, spending after refunds, spending by category and by day. */
-export function monthSummary(db: Db, month: IsoMonth): MonthSummary {
+/** Income, spending after refunds, spending by category and by day (to today in the current month). */
+export function monthSummary(db: Db, month: IsoMonth, opts: { now?: Date } = {}): MonthSummary {
   assertMonth(month);
-  const { from, until } = monthBounds(month);
-  const t = totals(db, from, until);
-  const daily = db
-    .prepare(
-      `${WITH_LEDGER} SELECT ledger.date AS date, -SUM(ledger.amount) AS spent FROM ledger
-       WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}
-       GROUP BY ledger.date`,
-    )
-    .all(from, until) as { date: IsoDate; spent: Agorot }[];
-  const spentOn = new Map(daily.map((d) => [d.date, d.spent]));
-  let running = 0;
-  const byDay = daysOfMonth(month).map((date) => {
-    running += spentOn.get(date) ?? 0;
-    return { date, amount: running };
-  });
+  const p = periodSummary(db, monthRange(month), opts);
   return {
     month,
-    income: t.income,
-    spending: t.spending,
-    transfers: t.transfers,
-    byCategory: spendingByCategory(db, from, until),
-    byParent: spendingByParent(db, from, until),
-    byDay,
-    needsReview: t.needsReview,
+    income: p.income,
+    spending: p.spending,
+    transfers: p.transfers,
+    byCategory: p.byCategory,
+    byParent: p.byParent,
+    byDay: p.series.map((x) => ({ date: x.from, amount: x.amount })),
+    needsReview: p.needsReview,
   };
 }
 
@@ -445,13 +379,5 @@ export function monthSummary(db: Db, month: IsoMonth): MonthSummary {
 export function trend(db: Db, months: number, opts: { now?: Date } = {}): TrendPoint[] {
   check(Number.isSafeInteger(months) && months >= 1 && months <= 240);
   const last = israelMonth(opts.now ?? new Date());
-  const points: TrendPoint[] = [];
-  for (let i = months - 1; i >= 0; i--) {
-    const month = addMonths(last, -i);
-    const { from, until } = monthBounds(month);
-    const t = totals(db, from, until);
-    const byCategory = spendingByCategory(db, from, until).map(({ categoryId, amount }) => ({ categoryId, amount }));
-    points.push({ month, income: t.income, spending: t.spending, byCategory });
-  }
-  return points;
+  return Array.from({ length: months }, (_, i) => trendPoint(db, addMonths(last, i - months + 1)));
 }

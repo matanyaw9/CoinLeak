@@ -22,6 +22,7 @@ import {
   updateCategory,
   updateTransactions,
 } from "@core/ledger";
+import { groupFlow, periodCurves, periodFlow, periodSummary, periodTrend } from "@core/ledger";
 import {
   addKnownPlace,
   addStarters,
@@ -69,6 +70,11 @@ export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps)
     "summary:trend": ({ months }) => trend(db, months),
     "summary:curves": (args) => categoryCurves(db, args),
     "summary:flow": ({ month }) => monthFlow(db, month),
+    "summary:period": (range) => periodSummary(db, range),
+    "summary:periodFlow": (range) => periodFlow(db, range),
+    "summary:groupFlow": (args) => groupFlow(db, args),
+    "summary:periodTrend": (args) => periodTrend(db, args),
+    "summary:periodCurves": (args) => periodCurves(db, args),
     "sync:start": ({ provider }) => sync.start(provider),
     "sync:cancel": () => {
       sync.cancel();
