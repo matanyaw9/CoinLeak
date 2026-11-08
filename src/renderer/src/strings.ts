@@ -483,7 +483,7 @@ export const s = {
     emptyTrash: "Empty trash",
     confirmTitle: "Empty the trash?",
     confirmBody: (n: number) =>
-      `This deletes ${plural(n, "transaction", "transactions")} for good. While they sit in Trash, a sync knows them and skips them. Once deleted, a sync that still finds one at the bank adds it back as new.`,
+      `This deletes ${plural(n, "transaction", "transactions")} for good. A later sync will not bring them back.`,
     confirm: "Delete for good",
     cancel: "Keep them",
     emptied: (n: number) => (n === 1 ? "Deleted 1 transaction for good" : `Deleted ${n} transactions for good`),
