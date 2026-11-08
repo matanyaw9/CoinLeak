@@ -12,19 +12,19 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| F9 | Rules: "If" instead of "When"; several conditions joined by AND / OR (for example a list of cafe names) | planned | Needs a rule schema change (a migration): today a rule has one condition. Includes "description contains any of: a list of names", which is how "known cafes" works (see F28). |
-| F10, F16 | "Apply to existing transactions" on new rules; "Apply now" button | planned | Today every saved rule already re-runs on all existing transactions, silently. Show "Applied to 23 transactions" after saving, plus "Apply now". |
-| F21 | A new rule can also change rows whose category was set by hand | planned | "User edits win" stays the default, so a sync or an old rule never undoes your choice. When saving a rule, the editor says "Also change 4 transactions you categorized by hand?" with the list; you tick it to apply. That counts as "the user explicitly asks". |
-| F11 | Categories: rename, change color and emoji, add new, add meta categories (Food, Transport) | planned | The two-level tree already exists in the database; only the editing is missing. |
-| F12 | Drag a category from one meta category to another | planned | Same spec as F11. |
+| F9 | Rules: "If" instead of "When"; several conditions joined by AND / OR (for example a list of cafe names) | spec 13 | Needs a rule schema change (a migration): today a rule has one condition. Includes "description contains any of: a list of names", which is how "known cafes" works (see F28). |
+| F10, F16 | "Apply to existing transactions" on new rules; "Apply now" button | spec 13 | Today every saved rule already re-runs on all existing transactions, silently. Show "Applied to 23 transactions" after saving, plus "Apply now". |
+| F21 | A new rule can also change rows whose category was set by hand | spec 13 | "User edits win" stays the default, so a sync or an old rule never undoes your choice. When saving a rule, the editor says "Also change 4 transactions you categorized by hand?" with the list; you tick it to apply. That counts as "the user explicitly asks". |
+| F11 | Categories: rename, change color and emoji, add new, add meta categories (Food, Transport) | spec 15 | The two-level tree already exists in the database; only the editing is missing. |
+| F12 | Drag a category from one meta category to another | spec 15 | Same spec as F11. |
 | F14 | Home and Transactions: custom from/to date range besides calendar months | planned | Core queries need a date range input, not just a month. |
 | F22 | The Income, Spent and Left so far bar also at the top of Transactions | planned | Reuses the Home numbers from core; follows the month or date range shown. |
 | F23 | Sorting and filtering in Transactions | planned | Sort by date or amount; filter by category, money account, flow (spending, income, ignored, card bills), pending. Pairs with F14 and F22. |
-| F24 | Remove a money account from syncing, keeping its transactions | planned | The account is marked "not synced" (hidden from the Sync panel, its rows stay and count). Can be added back. Deleting its rows too would be a separate, explicit action. |
+| F24 | Remove a money account from syncing, keeping its transactions | spec 15 | The account is marked "not synced" (hidden from the Sync panel, its rows stay and count). Can be added back. Deleting its rows too would be a separate, explicit action. |
 | F8 | Add a transaction by hand: title, cash or how paid, category, etc. | planned | Needs a "manual" money account (Cash) and a source flag, so a sync never touches or duplicates manual rows. |
-| F3 | Money moved to investments or savings is not spending (an option) | planned | A third category kind, *transfer*: counts neither as spending nor income; Home can show "moved to savings". |
-| F25 | Budget flow chart | planned | A Sankey diagram of the month: income on the left, flowing into spending categories, transfers to savings and what was left. Ranked 2nd in `docs/research/money-charts.md`. Best after F3, so savings show as their own stream. |
-| F26 | CoinLeak logo in the Linux dock instead of the generic one | planned | The app has no icon file at all yet. Needs icon files from the logo, the window icon, and on Wayland a `.desktop` file whose name matches the app, which an installer normally adds. Dev runs get a small helper; the installer spec finishes it. |
+| F3 | Money moved to investments or savings is not spending (an option) | spec 14 | A third category kind, *transfer*: counts neither as spending nor income; Home can show "moved to savings". |
+| F25 | Budget flow chart | spec 14 | A Sankey diagram of the month: income on the left, flowing into spending categories, transfers to savings and what was left. Ranked 2nd in `docs/research/money-charts.md`. Best after F3, so savings show as their own stream. |
+| F26 | CoinLeak logo in the Linux dock instead of the generic one | spec 15 | The app has no icon file at all yet. Needs icon files from the logo, the window icon, and on Wayland a `.desktop` file whose name matches the app, which an installer normally adds. Dev runs get a small helper; the installer spec finishes it. |
 
 ## Later
 
@@ -55,4 +55,4 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 |---|---------|----------|
 | F18 | App accounts with password, several people on one computer | (a) for now: each person uses their own computer login; the app keeps data per login. In-app passwords without encrypting the file only look safe. |
 | F20 | Card-bill bank lines to Trash automatically | Hidden with a filter instead: an automatic trash would hide a decision that can be wrong. |
-| F29 | Rules vs "known places" lists | Lead's proposal, owner to confirm. One mechanism: a rule per category with a list of names ("Cafes: Aroma, Cofix, Landwer"). The UI can show it as the category's "known places"; adding a place from a row appends to that list instead of making a new rule. Lead's reasoning in chat, 2026-11-08. |
+| F29 | Rules vs "known places" lists | Agreed with starter lists (spec 13, view in spec 15). One mechanism: a rule per category with a list of names ("Cafes: Aroma, Cofix, Landwer"). The UI can show it as the category's "known places"; adding a place from a row appends to that list instead of making a new rule. Lead's reasoning in chat, 2026-11-08. |

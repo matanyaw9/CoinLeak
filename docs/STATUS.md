@@ -32,9 +32,11 @@ at the end of every session.
 
 ### Next
 
-Wave 4 merged (specs 10, 11, 12; 607 tests). Owner to test it (see the
-lead's message of 2026-11-08). Then plan wave 5 from `docs/FEATURES.md`
-plus the must-fix "Empty trash" item in `docs/BACKLOG.md`, then installers.
+Wave 5 running: specs 13 (rules v2, known places, starter lists), 14
+(transfers, Sankey, Empty trash fix), 15 (categories editor, remove money
+account, app icon). **Merge order: 14, 13, 15** (migrations 0006, 0007,
+0008 must land in number order). Then wave 6: date ranges, Transactions
+summary bar, sort and filter, manual transactions, installers.
 
 ### How to resume
 

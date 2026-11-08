@@ -92,8 +92,8 @@ Glossary. Use these words in code, UI and docs.
   `gone` (a pending row a later download no longer contains). A row the
   user trashed keeps its status, gets `trashed_at`, and counts nowhere until
   restored.
-- **Category**: two-level tree with a kind (`expense` or `income`), emoji
-  and color.
+- **Category**: two-level tree with a kind (`expense`, `income`, or
+  `transfer` for money moved to savings or investments), emoji and color.
 - **Rule**: ordered condition (text, account, amount, direction) to action
   (set category, exclude). First match wins per action.
 - **Card bill**: the bank line that pays a card. When that card is tracked,
@@ -113,6 +113,7 @@ Glossary. Use these words in code, UI and docs.
 | gone      | the bank stopped reporting this pending row (counts nowhere) |
 | excluded  | the user excluded the row |
 | internal  | a bank line matched to a tracked card's bill (or debit charge) |
+| transfer  | a row in a transfer category (savings, investments): counts as neither spending nor income (spec 14) |
 | refund    | money in with an expense category |
 | income    | money in, otherwise |
 | spending  | money out, otherwise (including untracked card bills, flagged) |
@@ -205,8 +206,8 @@ migrations are never edited.
 | 2 | `04-pending-lifecycle`, `05-review-and-real-data`, `06-sync-hardening` | Done. Pending rows settle or go gone, review actions, first-run welcome, card mode, real data end to end (Discount verified live) |
 | 3 | `07-rules-core`, `08-all-providers`, `09-rules-screen` | Core and first slices done. Rules engine on every sync, Rules page and editor, all 18 providers researched with generic self-login. Left: provider picker in Accounts and Sync, rules from Transactions |
 | 4 | `10-money-accounts`, `11-transactions-workbench`, `12-home-charts` | Add any bank from the app, Money accounts, last sync on hover; Trash, right-click menu, rules from rows, card bills hidden by default; category curves, Today button, chart research |
-| 5 | to plan (see `docs/FEATURES.md`) | Rules with AND / OR, category editing, date ranges, manual transactions, transfers to savings |
-| 6 | packaging | Windows and Linux installers, fuses |
+| 5 | `13-rules-v2`, `14-money-flow`, `15-categories-accounts` | Rules with several conditions, known places and starter lists; transfers to savings and the Sankey chart; Empty trash fix; category editor; remove a money account; app icon |
+| 6 | to plan | Date ranges, Transactions summary bar, sorting and filtering, manual transactions, then installers |
 | later | | Hebrew UI, budgets, pockets, AI helper (opt-in) |
 
 ## 9. Open questions
