@@ -104,6 +104,7 @@ interface LedgerRow {
   category_source: CategorySource | null;
   note: string | null;
   excluded: number;
+  rule_id: number | null;
   flow: Flow;
   flag_uncategorized: number;
   flag_possible_card_bill: number;
@@ -207,6 +208,7 @@ function toTransactionRow(r: LedgerRow): TransactionRow {
     excluded: r.excluded === 1,
     flow: r.flow,
     flags,
+    ruleId: r.rule_id,
   };
 }
 

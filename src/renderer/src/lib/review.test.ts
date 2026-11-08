@@ -23,6 +23,7 @@ const row = (patch: Partial<TransactionRow>): TransactionRow => ({
   excluded: false,
   flow: "spending",
   flags: [],
+  ruleId: null,
   ...patch,
 });
 

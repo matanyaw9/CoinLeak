@@ -2,7 +2,7 @@
 // these, so caching and refreshing after a change live in one place.
 
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { IsoMonth, TransactionFilter, TransactionPatch } from "@shared/types";
+import type { IsoMonth, RuleInput, TransactionFilter, TransactionPatch } from "@shared/types";
 import type { Args, Channel } from "@shared/ipc";
 import { call } from "./api";
 
@@ -51,4 +51,25 @@ export function useUpdateTransactions() {
     mutationFn: (args: { ids: number[]; patch: TransactionPatch }) => call("transactions:update", args),
     onSettled: () => refreshLedger(client),
   });
+}
+
+export const useRules = () => useQuery({ queryKey: key("rules:list"), queryFn: () => call("rules:list", undefined) });
+
+/** What a rule being edited would match today. Waits while `rule` is null. */
+export const useRulePreview = (rule: RuleInput | null) =>
+  useQuery({
+    queryKey: ["rules:preview", rule],
+    queryFn: () => call("rules:preview", rule as RuleInput),
+    enabled: rule !== null,
+    placeholderData: (prev) => prev,
+    staleTime: 0,
+  });
+
+/** Every rule change reapplies the rules to all rows, so money views refresh too. */
+export function refreshRules(client: QueryClient): Promise<void> {
+  return Promise.all([
+    client.invalidateQueries({ queryKey: ["rules:list"] }),
+    client.invalidateQueries({ queryKey: ["rules:preview"] }),
+    refreshLedger(client),
+  ]).then(() => undefined);
 }

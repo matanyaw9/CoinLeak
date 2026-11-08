@@ -1,6 +1,6 @@
 // Synthetic demo ledger for VITE_DEMO builds and screenshots. Answers every
 // channel the way the real app would, from made-up rows, so every total adds
-// up. Stands in for core until real data is wired; never used otherwise.
+// up, and keeps a few rules that really sort them. Never used otherwise.
 
 import type {
   Account,
@@ -12,6 +12,8 @@ import type {
   MonthSummary,
   ProviderId,
   ReviewFlag,
+  Rule,
+  RuleInput,
   SyncStage,
   TransactionFilter,
   TransactionPatch,
@@ -21,6 +23,7 @@ import type {
 import type { Args, Channel, EventName, IpcEvents, Res } from "@shared/ipc";
 import { ERROR_MESSAGES, type ErrorCode, type Result } from "@shared/errors";
 import { daysInMonth, parseMonth, shiftMonth, toIsoDate, toIsoMonth } from "./month";
+import { applyRules, cleanConditions, cleanRule, matcher, suggest } from "./demo-rules";
 
 export interface Demo {
   invoke<C extends Channel>(channel: C, args: Args<C>): Promise<Result<Res<C>>>;
@@ -86,6 +89,38 @@ interface DemoRow extends TransactionRow {
   cardBill: CardBill;
   /** The user's word on card bills (setInternal); null leaves it to the matcher. */
   userInternal: boolean | null;
+  /** Who excluded the row, as in core: rules never undo the user's choice. */
+  excludedSource: "user" | "rule" | null;
+}
+
+// The rules a person might have after a few months: every match mode, each
+// condition, an exclude rule, and one switched off.
+const SEED_RULES: RuleInput[] = [
+  seedRule("Salary", "equals", "משכורת", { accountId: BANK, direction: "in", setCategoryId: 7 }),
+  seedRule("Savings transfers", "starts_with", "העברה לחשבון חיסכון", { setExcluded: true }),
+  seedRule("Shufersal", "starts_with", "שופרסל", { setCategoryId: 11 }),
+  seedRule("Coffee on the go", "contains", "קפה", { amountMax: 6000, setCategoryId: 13 }),
+  seedRule("Wolt", "contains", "wolt", { setCategoryId: 12 }),
+  seedRule("Fuel at Paz", "starts_with", "פז", { accountId: CARD_MAIN, setCategoryId: 21 }),
+  seedRule("Streaming", "regex", "netflix|spotify", { setCategoryId: 33 }),
+  seedRule("Bit transfers", "starts_with", "העברה ב-BIT", { direction: "out", setCategoryId: 63, enabled: false }),
+];
+
+function seedRule(name: string, matchMode: RuleInput["matchMode"], matchText: string, rest: Partial<RuleInput>): RuleInput {
+  return {
+    name,
+    enabled: true,
+    matchField: "description",
+    matchMode,
+    matchText,
+    accountId: null,
+    amountMin: null,
+    amountMax: null,
+    direction: null,
+    setCategoryId: null,
+    setExcluded: null,
+    ...rest,
+  };
 }
 
 // ---- Deterministic randomness ----
@@ -228,6 +263,11 @@ function generate(today: Date): DemoRow[] {
     },
   );
 
+  // Real statements name the branch, so one chain reads a few ways.
+  const branches = ["שופרסל דיל רמת אביב", "שופרסל דיל דיזנגוף", "שופרסל אקספרס פלורנטין"];
+  let branch = 0;
+  for (const d of drafts) if (d.description === "שופרסל דיל") d.description = branches[branch++ % branches.length] as string;
+
   // Card rows are billed on the 10th of the next month; the last two days are still pending.
   const pendingFrom = toIsoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1));
   const rows: DemoRow[] = drafts.map((d) => {
@@ -246,13 +286,16 @@ function generate(today: Date): DemoRow[] {
       status,
       installment: d.installment ?? null,
       categoryId: d.categoryId,
-      categorySource: d.categoryId == null ? null : "rule",
+      // Sorted by hand, until a demo rule claims the row (see createDemo).
+      categorySource: d.categoryId == null ? null : "user",
       note: null,
       excluded: d.excluded ?? false,
       flow: "spending",
       flags: [],
+      ruleId: null,
       cardBill: d.cardBill ?? null,
       userInternal: null,
+      excludedSource: d.excluded ? "user" : null,
     };
   });
 
@@ -282,8 +325,10 @@ function generate(today: Date): DemoRow[] {
         excluded: false,
         flow: "internal",
         flags: [],
+        ruleId: null,
         cardBill: "matched",
         userInternal: null,
+        excludedSource: null,
       });
     }
   }
@@ -327,7 +372,22 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
   const step = opts.syncStepMs ?? 900;
   const current = toIsoMonth(today);
   const rows = generate(today);
-  rows.forEach(derive);
+
+  // Rules: rows a seeded rule fits are the rule's, every other sorted row the user's.
+  let rules: Rule[] = SEED_RULES.map((r, i) => ({ ...r, id: i + 1, position: i + 1 }));
+  let nextRuleId = rules.length + 1;
+  for (const rule of rules.filter((r) => r.enabled)) {
+    const fits = matcher(rule);
+    for (const r of rows.filter(fits)) {
+      if (rule.setCategoryId !== null) [r.categoryId, r.categorySource] = [null, null];
+      if (rule.setExcluded !== null) [r.excluded, r.excludedSource] = [false, null];
+    }
+  }
+  const reapply = () => {
+    applyRules(rows, rules);
+    rows.forEach(derive);
+  };
+  reapply();
 
   const synced = new Date(today.getTime() - 2 * 3600 * 1000).toISOString();
   const accounts: Account[] = [
@@ -345,9 +405,10 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
   const fail = (code: ErrorCode): Result<never> => ({ ok: false, error: { code, message: ERROR_MESSAGES[code] } });
   const ok = <T,>(value: T): Result<T> => ({ ok: true, value: structuredClone(value) });
   const publicRow = (r: DemoRow): TransactionRow => {
-    const { cardBill, userInternal, ...row } = r;
+    const { cardBill, userInternal, excludedSource, ...row } = r;
     void cardBill;
     void userInternal;
+    void excludedSource;
     return row;
   };
   const validIds = (ids: unknown): ids is number[] =>
@@ -427,12 +488,16 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
     let updated = 0;
     for (const r of rows) {
       if (!ids.includes(r.id)) continue;
+      // Like core: even clearing a category is the user's word, so rules leave it.
       if ("categoryId" in patch) {
         r.categoryId = patch.categoryId ?? null;
-        r.categorySource = r.categoryId == null ? null : "user";
+        r.categorySource = "user";
       }
       if ("note" in patch) r.note = patch.note ?? null;
-      if (patch.excluded !== undefined) r.excluded = patch.excluded;
+      if (patch.excluded !== undefined) {
+        r.excluded = patch.excluded;
+        r.excludedSource = "user";
+      }
       derive(r);
       updated++;
     }
@@ -462,6 +527,65 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       }
     }
     return ok({ deleted });
+  }
+
+  // ---- Rules, answered like core: every change reapplies all rules ----
+
+  const accountIds = () => new Set(accounts.map((a) => a.id));
+  const categoryIds = new Set(CATEGORIES.map((c) => c.id));
+  const ordered = () => [...rules].sort((a, b) => a.position - b.position);
+  const renumber = (list: Rule[]) => {
+    rules = list.map((r, i) => ({ ...r, position: i + 1 }));
+  };
+
+  function createRule(input: unknown): Result<Rule> {
+    const rule = cleanRule(input, accountIds(), categoryIds);
+    if (!rule) return fail("BAD_REQUEST");
+    const saved: Rule = { ...rule, id: nextRuleId++, position: rules.length + 1 };
+    rules.push(saved);
+    reapply();
+    return ok(saved);
+  }
+
+  function updateRule(id: unknown, input: unknown): Result<Rule> {
+    const rule = cleanRule(input, accountIds(), categoryIds);
+    const old = rules.find((r) => r.id === id);
+    if (!rule || !old) return fail("BAD_REQUEST");
+    const saved: Rule = { ...rule, id: old.id, position: old.position };
+    rules = rules.map((r) => (r.id === old.id ? saved : r));
+    reapply();
+    return ok(saved);
+  }
+
+  function deleteRule(id: unknown): Result<null> {
+    if (!rules.some((r) => r.id === id)) return fail("BAD_REQUEST");
+    renumber(ordered().filter((r) => r.id !== id));
+    reapply();
+    return ok(null);
+  }
+
+  function reorderRules(ids: unknown): Result<null> {
+    const byRule = new Map(rules.map((r) => [r.id, r]));
+    if (!Array.isArray(ids) || ids.length !== rules.length || new Set(ids).size !== ids.length) return fail("BAD_REQUEST");
+    if (!ids.every((id) => byRule.has(id))) return fail("BAD_REQUEST");
+    renumber(ids.map((id) => byRule.get(id) as Rule));
+    reapply();
+    return ok(null);
+  }
+
+  /** Every row the conditions fit, whoever sorted it, newest first. */
+  function previewRule(input: unknown): Result<Res<"rules:preview">> {
+    const conditions = cleanConditions(input, accountIds());
+    if (!conditions) return fail("BAD_REQUEST");
+    const fits = matcher(conditions);
+    const all = list({}).filter(fits);
+    return ok({ matches: all.length, sample: all.slice(0, 20) });
+  }
+
+  function suggestRule(ids: unknown): Result<RuleInput> {
+    if (!validIds(ids)) return fail("BAD_REQUEST");
+    const draft = suggest(rows.filter((r) => ids.includes(r.id)).sort((a, b) => a.id - b.id));
+    return draft ? ok(draft) : fail("BAD_REQUEST");
   }
 
   // Demo card bills are fixed in advance, so switching mode only records it.
@@ -538,15 +662,22 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
         const a = args as Args<"accounts:setCardMode">;
         return setCardMode(a?.accountId, a?.mode);
       }
-      // Rules have no screen yet (a later spec); the demo answers like an unbuilt part.
       case "rules:list":
+        return ok(ordered());
       case "rules:create":
-      case "rules:update":
+        return createRule(args);
+      case "rules:update": {
+        const a = args as Args<"rules:update">;
+        return updateRule(a?.id, a?.rule);
+      }
       case "rules:delete":
+        return deleteRule((args as Args<"rules:delete">)?.id);
       case "rules:reorder":
+        return reorderRules((args as Args<"rules:reorder">)?.ids);
       case "rules:preview":
+        return previewRule(args);
       case "rules:suggest":
-        return fail("NOT_IMPLEMENTED");
+        return suggestRule((args as Args<"rules:suggest">)?.ids);
     }
   }
 
