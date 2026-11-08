@@ -8,7 +8,7 @@ friendly charts of where the money goes. It works fully offline except for
 the moment of syncing.
 
 This file says *what* and *why*. Specs in `docs/specs/` say *how* for one
-piece of work each. `AGENTS.md` holds the rules every agent and human
+piece of work each. `docs/FEATURES.md` is the owner's feature list. `AGENTS.md` holds the rules every agent and human
 follows. `docs/HOW-WE-WORK.md` explains the workflow.
 
 Credits: the visual design, money model ideas, and card-bill detection come
