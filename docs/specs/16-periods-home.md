@@ -4,7 +4,7 @@
 
 Look at any stretch of time, not only a calendar month, and make Home's
 charts calmer and more useful. Owner features F14, F30, F31, F40
-(`docs/FEATURES.md`).
+(`docs/FEATURES.md`), plus F43 and F44.
 
 ## Owns
 
@@ -63,7 +63,14 @@ Read first: `AGENTS.md`, `REQUIREMENTS.md` sections 3, 5 and 7,
    (Food) opens a Sankey of that group: the group's total on the left, its
    categories on the right, with a clear Back. Core provides the group
    flow (`summary:groupFlow` or similar); the window never sums rows.
-7. **Demo** answers the new channels with numbers that add up.
+7. **One category over time (F43).** The bar chart (trend card) gets a
+   category filter: pick a category or group (or click its bar segment or
+   legend item) to see only that category's spending month by month, with
+   a clear way back to all spending. Core returns the per-category series.
+8. **This month stops at today (F44).** In the "this month vs last month"
+   line chart, the current month's line ends at today's date, not at the
+   end of the month. Last month's line stays full length.
+9. **Demo** answers the new channels with numbers that add up.
 
 ## Tests (definition of done)
 
@@ -73,6 +80,8 @@ Read first: `AGENTS.md`, `REQUIREMENTS.md` sections 3, 5 and 7,
 - Overspent month: no from-savings node, shortfall equals spending plus
   transfers minus income; balanced month: no shortfall.
 - Group flow: categories sum to the group's total in the main flow.
+- Per-category trend: each month equals that category's month total.
+- The current month's daily series ends at today; past months are full.
 - `npm run check` green. Screenshots light and dark: Home on This month,
   on Last 12 months, the picker open with Custom, the pie hover, an
   overspent month, a group drill-down.

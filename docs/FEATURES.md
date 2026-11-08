@@ -29,6 +29,8 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 | F38 | More default categories: Transportation gets Fuel and Parking; Vacation; Impulsive buying; Bars | spec 18 | Items 12, 13, 19. Added for existing users too, skipped when a category of that name already exists. |
 | F39 | While the bank window is open, CoinLeak shows that the sync is alive and the window must stay open | spec 18 | Item 10. |
 | F40 | Pie chart hover on Home is messy | spec 16 | Item 21: labels and tooltip overlap. |
+| F43 | Bar chart: filter to one category to see how it behaves across the year | spec 16 | Owner, 2026-11-08. |
+| F44 | This month vs last month line chart: this month's line stops at today | spec 16 | Owner, 2026-11-08. |
 | F41 | Profiles: separate data per profile, plus a built-in Demo profile with made-up data | wave 7 | Owner chose in-app profiles, 2026-11-08 (item 11), replacing F18's "one computer login per person". Each profile is its own database file; no passwords; Demo never syncs and is safe for screenshots. |
 | F42 | Code health review: simple, modular, readable, easy for a new developer | wave 6 (review) | Item 14. A read-only reviewer writes `docs/reviews/`; the lead turns findings into a cleanup spec. |
 | F24 | Remove a money account from syncing, keeping its transactions | done (spec 15) | The account is marked "not synced" (hidden from the Sync panel, its rows stay and count). Can be added back. Deleting its rows too would be a separate, explicit action. |
