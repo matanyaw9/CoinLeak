@@ -41,7 +41,7 @@ export const useTrend = (months: number) =>
 
 /** Everything that shows money, refreshed after an edit or a sync. */
 export function refreshLedger(client: QueryClient): Promise<void> {
-  const channels: Channel[] = ["transactions:list", "summary:month", "summary:trend", "accounts:list"];
+  const channels: Channel[] = ["transactions:list", "summary:month", "summary:trend", "summary:curves", "accounts:list"];
   return Promise.all(channels.map((c) => client.invalidateQueries({ queryKey: [c] }))).then(() => undefined);
 }
 
