@@ -31,18 +31,20 @@ function databaseAt5(): DatabaseSync {
 }
 
 const all = (db: DatabaseSync, sql: string): unknown[] => db.prepare(sql).all();
+// 0009 (spec 18) adds a column later; the columns 0006 knew must hold.
+const CATEGORY_COLUMNS = "SELECT id, parent_id, name, kind, emoji, color, archived, sort_order FROM categories ORDER BY id";
 
 describe("migration 0006 (transfers)", () => {
   it("keeps every category id, child link and transaction category", () => {
     const db = databaseAt5();
-    const categories = all(db, "SELECT * FROM categories ORDER BY id");
+    const categories = all(db, CATEGORY_COLUMNS);
     const transactions = all(db, "SELECT * FROM transactions ORDER BY id");
     // 0007 (spec 13) reshapes rules after this; their category links must hold.
     const rules = all(db, "SELECT id, name, set_category_id FROM rules ORDER BY id");
 
     migrate(db);
 
-    const after = all(db, "SELECT * FROM categories ORDER BY id");
+    const after = all(db, CATEGORY_COLUMNS);
     expect(after.slice(0, categories.length)).toEqual(categories);
     expect(all(db, "SELECT * FROM transactions ORDER BY id")).toEqual(transactions);
     expect(all(db, "SELECT id, name, set_category_id FROM rules ORDER BY id")).toEqual(rules);

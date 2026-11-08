@@ -1,7 +1,8 @@
-// The categories editor's writes: create, rename, recolor, move between top-level
-// categories, and delete (refused while in use unless its rows and rules move
-// first). The two-level and same-kind rules are database triggers (0002); core
-// checks them first so the window gets a fixed problem code, never SQL text.
+// The categories editor's writes: create, rename, recolor, mark essential or
+// extra, move between top-level categories, and delete (refused while in use
+// unless its rows and rules move first). The two-level and same-kind rules are
+// database triggers (0002); core checks them first so the window gets a fixed
+// problem code, never SQL text.
 
 import type {
   Category,
@@ -26,6 +27,7 @@ interface CategoryRecord {
   parent_id: number | null;
   name: string;
   kind: CategoryKind;
+  essential: number | null;
 }
 
 const refuse = (problem: CategoryProblem) => ({ ok: false as const, problem });
@@ -37,6 +39,10 @@ export function createCategory(db: Db, input: CategoryInput): CategoryChange {
   check(input.parentId === null || isId(input.parentId));
   const emoji = cleanEmoji(input.emoji);
   const color = cleanColor(input.color);
+  check(input.essential === undefined || typeof input.essential === "boolean");
+  const flagged = input.kind === "expense" && input.parentId !== null;
+  check(flagged || input.essential === undefined);
+  const essential = flagged ? (input.essential === false ? 0 : 1) : null;
 
   return transaction(db, () => {
     if (input.parentId !== null) {
@@ -46,8 +52,11 @@ export function createCategory(db: Db, input: CategoryInput): CategoryChange {
     if (nameTaken(db, input.parentId, name, null)) return refuse("name_taken");
     const id = Number(
       db
-        .prepare("INSERT INTO categories (parent_id, name, kind, emoji, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)")
-        .run(input.parentId, name, input.kind, emoji, color, nextSortOrder(db, input.parentId)).lastInsertRowid,
+        .prepare(
+          "INSERT INTO categories (parent_id, name, kind, emoji, color, essential, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .run(input.parentId, name, input.kind, emoji, color, essential, nextSortOrder(db, input.parentId))
+        .lastInsertRowid,
     );
     return { ok: true as const, category: byId(db, id) };
   });
@@ -59,12 +68,17 @@ export function updateCategory(db: Db, id: number, patch: CategoryPatch): Catego
   const emoji = patch.emoji === undefined ? undefined : cleanEmoji(patch.emoji);
   const color = patch.color === undefined ? undefined : cleanColor(patch.color);
   check(patch.parentId === undefined || patch.parentId === null || isId(patch.parentId));
+  check(patch.essential === undefined || typeof patch.essential === "boolean");
 
   return transaction(db, () => {
     const current = record(db, id);
     check(current !== undefined);
     const parentId = patch.parentId === undefined ? current.parent_id : patch.parentId;
     const moving = parentId !== current.parent_id;
+    // Only spending subcategories carry the flag; a move in or out sets or clears it.
+    const flagged = current.kind === "expense" && parentId !== null;
+    check(flagged || patch.essential === undefined);
+    const essential = flagged ? (patch.essential ?? (current.essential ?? 1) === 1) : null;
     if (moving && parentId !== null) {
       check(parentId !== id);
       const problem = parentProblem(db, parentId, current.kind);
@@ -82,6 +96,8 @@ export function updateCategory(db: Db, id: number, patch: CategoryPatch): Catego
     if (name !== undefined) set("name", name);
     if (emoji !== undefined) set("emoji", emoji);
     if (color !== undefined) set("color", color);
+    const flag = essential === null ? null : essential ? 1 : 0;
+    if (flag !== current.essential) set("essential", flag);
     if (moving) {
       set("parent_id", parentId);
       set("sort_order", nextSortOrder(db, parentId));
@@ -176,7 +192,7 @@ function hasChildren(db: Db, id: number): boolean {
 // ---- Reads ----
 
 function record(db: Db, id: number): CategoryRecord | undefined {
-  return db.prepare("SELECT id, parent_id, name, kind FROM categories WHERE id = ?").get(id) as
+  return db.prepare("SELECT id, parent_id, name, kind, essential FROM categories WHERE id = ?").get(id) as
     | CategoryRecord
     | undefined;
 }

@@ -386,7 +386,7 @@ describe("listCategories", () => {
   it("returns the seeded two-level tree, each parent followed by its children", () => {
     const db = newDb();
     const cats = listCategories(db);
-    expect(cats).toHaveLength(34); // 31 from 0002, 3 transfer categories from 0006
+    expect(cats).toHaveLength(39); // 31 from 0002, 3 transfer from 0006, 5 from 0009
     const byId = new Map(cats.map((c) => [c.id, c]));
     for (const c of cats) {
       expect(c.emoji, c.name).toBeTruthy();
