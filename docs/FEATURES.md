@@ -8,7 +8,7 @@ findings and bugs live in `docs/BACKLOG.md`; the plan of record is
 Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 (being built), **done**, **needs decision** (owner to answer).
 
-## Wave 5 candidates
+## Waves 5 to 7
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
@@ -17,15 +17,26 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 | F21 | A new rule can also change rows whose category was set by hand | done (spec 13) | "User edits win" stays the default, so a sync or an old rule never undoes your choice. When saving a rule, the editor says "Also change 4 transactions you categorized by hand?" with the list; you tick it to apply. That counts as "the user explicitly asks". |
 | F11 | Categories: rename, change color and emoji, add new, add meta categories (Food, Transport) | done (spec 15) | The two-level tree already exists in the database; only the editing is missing. |
 | F12 | Drag a category from one meta category to another | done (spec 15) | Same spec as F11. |
-| F14 | Home and Transactions: custom from/to date range besides calendar months | planned | Core queries need a date range input, not just a month. |
-| F22 | The Income, Spent and Left so far bar also at the top of Transactions | planned | Reuses the Home numbers from core; follows the month or date range shown. |
-| F23 | Sorting and filtering in Transactions | planned | Sort by date or amount; filter by category, money account, flow (spending, income, ignored, card bills), pending. Pairs with F14 and F22. |
+| F14 | Home and Transactions: custom from/to date range besides calendar months | spec 16 | Default stays the calendar month; presets for last 7 days, last 30 days, this year, and a custom from/to. Owner, 2026-11-08: wants graphs and rows for the past week or year. |
+| F22 | The Income, Spent and Left so far bar also at the top of Transactions | spec 17 | Reuses the Home numbers from core; follows the period shown. |
+| F23 | Sorting and filtering in Transactions | spec 17 | Sort by date, amount or name; filter by category, money account, flow (spending, income, ignored, card bills), pending. |
+| F32 | Hover a rule-set category to see which rule set it | spec 17 | Owner, 2026-11-08 (item 4). |
+| F33 | Ctrl+F searches | spec 17 | Transactions already has a search box; Ctrl+F jumps to it (item 5). |
+| F34 | Click a transaction's category to show only that category | spec 17 | Item 9. The edit button next to it still edits. |
+| F35 | The "Always put X in Y?" popup gets an X to close it | spec 17 | It still goes away by itself (item 7). |
+| F36 | Dragging a rule scrolls the page near the top or bottom edge | spec 18 | Item 1. |
+| F37 | Essential or extra: every spending category is tagged, so you see where you can cut | spec 18 | Owner chose a tag over a "Going out" group, 2026-11-08 (item 2). Groceries, rent, fuel are essential; cafes, restaurants, bars, vacation, impulsive buying are extra. Home shows "Essentials vs extras" in a later spec. |
+| F38 | More default categories: Transportation gets Fuel and Parking; Vacation; Impulsive buying; Bars | spec 18 | Items 12, 13, 19. Added for existing users too, skipped when a category of that name already exists. |
+| F39 | While the bank window is open, CoinLeak shows that the sync is alive and the window must stay open | spec 18 | Item 10. |
+| F40 | Pie chart hover on Home is messy | spec 16 | Item 21: labels and tooltip overlap. |
+| F41 | Profiles: separate data per profile, plus a built-in Demo profile with made-up data | wave 7 | Owner chose in-app profiles, 2026-11-08 (item 11), replacing F18's "one computer login per person". Each profile is its own database file; no passwords; Demo never syncs and is safe for screenshots. |
+| F42 | Code health review: simple, modular, readable, easy for a new developer | wave 6 (review) | Item 14. A read-only reviewer writes `docs/reviews/`; the lead turns findings into a cleanup spec. |
 | F24 | Remove a money account from syncing, keeping its transactions | done (spec 15) | The account is marked "not synced" (hidden from the Sync panel, its rows stay and count). Can be added back. Deleting its rows too would be a separate, explicit action. |
 | F8 | Add a transaction by hand: title, cash or how paid, category, etc. | planned | Needs a "manual" money account (Cash) and a source flag, so a sync never touches or duplicates manual rows. |
 | F3 | Money moved to investments or savings is not spending (an option) | done (spec 14) | A third category kind, *transfer*: counts neither as spending nor income; Home can show "moved to savings". |
 | F25 | Budget flow chart | done (spec 14) | A Sankey diagram of the month: income on the left, flowing into spending categories, transfers to savings and what was left. Ranked 2nd in `docs/research/money-charts.md`. Best after F3, so savings show as their own stream. |
-| F30 | Money flow: when a month's spending is more than its income, say so loudly | planned | Owner, 2026-11-08: drop the "From savings / earlier months" source node. Instead make "this month you spent more than you earned" stand out (color, wording) so it draws attention. |
-| F31 | Money flow: click a group (meta category) to open its own flow chart | planned | Owner, 2026-11-08: clicking for example Food expands into a Sankey of Food's categories (Groceries, Restaurants, Cafes), with a way back to the whole month. |
+| F30 | Money flow: when a month's spending is more than its income, say so loudly | spec 16 | Owner, 2026-11-08: drop the "From savings / earlier months" source node. Instead make "this month you spent more than you earned" stand out (color, wording) so it draws attention. |
+| F31 | Money flow: click a group (meta category) to open its own flow chart | spec 16 | Owner, 2026-11-08: clicking for example Food expands into a Sankey of Food's categories (Groceries, Restaurants, Cafes), with a way back to the whole month. |
 | F26 | CoinLeak logo in the Linux dock instead of the generic one | done (spec 15) | The app has no icon file at all yet. Needs icon files from the logo, the window icon, and on Wayland a `.desktop` file whose name matches the app, which an installer normally adds. Dev runs get a small helper; the installer spec finishes it. |
 
 ## Later
@@ -55,6 +66,6 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 
 | # | Feature | Decision |
 |---|---------|----------|
-| F18 | App accounts with password, several people on one computer | (a) for now: each person uses their own computer login; the app keeps data per login. In-app passwords without encrypting the file only look safe. |
+| F18 | App accounts with password, several people on one computer | Replaced by F41 (owner, 2026-11-08): in-app profiles without passwords, each its own database file, plus a Demo profile. In-app passwords without encrypting the file only look safe, so there are still none. |
 | F20 | Card-bill bank lines to Trash automatically | Hidden with a filter instead: an automatic trash would hide a decision that can be wrong. |
 | F29 | Rules vs "known places" lists | Agreed with starter lists (spec 13, view in spec 15). One mechanism: a rule per category with a list of names ("Cafes: Aroma, Cofix, Landwer"). The UI can show it as the category's "known places"; adding a place from a row appends to that list instead of making a new rule. Lead's reasoning in chat, 2026-11-08. |
