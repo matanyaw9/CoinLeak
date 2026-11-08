@@ -196,12 +196,12 @@ migrations are never edited.
 
 | Wave | Specs | Delivers |
 |------|-------|----------|
-| 0 | skeleton (done by lead) | Repo, security baseline, IPC contract, database, CI |
-| 1 | `01-sync-self-login`, `02-ledger-core`, `03-ui-shell` (parallel) | Self-login download for Discount and Cal; schema, dedup, card bills, flows, queries; app shell in Spent's look with demo data |
-| 2 | `04-wire-up`, `05-transactions`, `06-categories-rules` | Real data end to end, transaction workbench, categories and rules |
-| 3 | `07-insights` | Home dashboard charts |
-| 4 | `08-packaging` | Windows and Linux installers, fuses, first-run wizard |
-| 5 | later | Hebrew UI, more banks, budgets, pockets, AI helper (opt-in) |
+| 0 | skeleton (done by lead) | Done. Repo, security baseline, IPC contract, database, CI |
+| 1 | `01-sync-self-login`, `02-ledger-core`, `03-ui-shell` | Done. Self-login download for Discount and Cal; schema, dedup, card bills, flows, queries; every screen in Spent's look with demo data, including Home charts |
+| 2 | `04-pending-lifecycle`, `05-review-and-real-data`, `06-sync-hardening` | Done. Pending rows settle or go gone, review actions, first-run welcome, card mode, real data end to end (Discount verified live) |
+| 3 | `07-rules-core`, `08-all-providers`, `09-rules-screen` | Core and first slices done. Rules engine on every sync, Rules page and editor, all 18 providers researched with generic self-login. Left: provider picker in Accounts and Sync, rules from Transactions |
+| 4 | `10-packaging` | Windows and Linux installers, fuses |
+| 5 | later | Hebrew UI, budgets, pockets, AI helper (opt-in) |
 
 ## 9. Open questions
 

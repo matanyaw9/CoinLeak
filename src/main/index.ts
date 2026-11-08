@@ -51,6 +51,7 @@ function start(): void {
     runSync,
     ingest,
     emit: (progress) => {
+      console.log(`[sync] ${progress.provider}: ${progress.stage}`);
       if (mainWindow) emit(mainWindow.webContents, "sync:progress", progress);
     },
   });

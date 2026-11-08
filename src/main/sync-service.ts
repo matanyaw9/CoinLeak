@@ -39,6 +39,10 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
         const judgePending = trustsPending(provider, accounts);
         const result = deps.ingest(deps.db, accounts, { now: now(), provider, since, judgePending });
         stage("done");
+        // Counts only: never row text or amounts in the log.
+        console.log(
+          `[sync] ${provider}: ${result.accounts} accounts, ${result.newRows} new rows, ${result.updatedRows} updated`,
+        );
         return result;
       } catch (e) {
         stage("failed");
