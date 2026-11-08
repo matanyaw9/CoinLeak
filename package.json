@@ -6,6 +6,7 @@
   "license": "MIT",
   "type": "module",
   "main": "./out/main/index.js",
+  "desktopName": "coinleak.desktop",
   "engines": {
     "node": ">=22.13"
   },
@@ -19,6 +20,7 @@
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint && npm test && npm run build",
     "sync:try": "tsx --tsconfig tsconfig.node.json scripts/sync-try.ts",
+    "desktop:install": "tsx --tsconfig tsconfig.node.json scripts/desktop-install.ts",
     "shot": "electron . --no-sandbox --ozone-platform=headless --ozone-override-screen-size=1440,900"
   },
   "dependencies": {
