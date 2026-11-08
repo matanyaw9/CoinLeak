@@ -15,8 +15,8 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 | F2 | Bigger, nicer checkboxes for selecting transactions | spec 11 | UI only. |
 | F6 | Right click on a transaction: make a rule from the business name, trash it, or ignore it | spec 11 | "Ignore" already exists as *exclude* (not counted); it gets the greyed look. "Make a rule" reuses `rules:suggest`. |
 | F7 | Trash: see trashed transactions and restore them | spec 11 | New: a `trashed` flag (not a real delete, so a sync never brings the row back as new). Trashed rows count nowhere. Fits "never silently drop": everything is visible in Trash and reversible. |
-| F17 | Rename "Accounts" to "Money accounts" | spec 10 | Text only. |
-| F19 | Hover over Sync: last sync time per money account | spec 10 | Data exists (`sync_runs`). |
+| F17 | Rename "Accounts" to "Money accounts" | done (spec 10) | Text only. |
+| F19 | Hover over Sync: last sync time per money account | done (spec 10) | Data exists (`sync_runs`). |
 | F13 | "Today" button next to the month arrows | done (spec 12) | Small. |
 
 ## Wave 5 candidates

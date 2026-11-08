@@ -95,3 +95,12 @@ Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
   that parent's `byParent` amount).
 - Top categories mode includes Uncategorized when it is big; confirm the
   owner wants that.
+
+## From spec 10
+
+- The list of banks the user added lives in the window's localStorage. Move
+  it to the `settings` table (a `settings:get/set` channel) so it sits with
+  the rest of the data and survives a data-folder move or backup.
+- The Sync tooltip floats a bit far from its row.
+- `app-shell.tsx` screenshot shortcut `?sync=` accepts only discount and
+  visaCal; could accept any enabled provider.
