@@ -1,12 +1,14 @@
-// Home: the month at a glance. Hero, spending curve, categories, category
-// curves, 12 months.
+// Home: the month at a glance. Hero, spending curve, categories, money flow,
+// category curves, 12 months.
 // Before the first sync it greets instead, with no empty charts.
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import type { IsoMonth } from "@shared/types";
 import { s } from "@/strings";
 import { useCategories, useFirstRun, useMonthSummary, useTrend } from "@/lib/hooks";
+import { call } from "@/lib/api";
 import { useMonth } from "@/lib/month-context";
 import { shiftMonth } from "@/lib/month";
 import { indexCategories, type Slice } from "@/lib/categories";
@@ -19,6 +21,7 @@ import { SpendingCurveCard } from "@/components/home/spending-curve-card";
 import { CategoryDonutCard } from "@/components/home/category-donut-card";
 import { TrendCard } from "@/components/home/trend-card";
 import { CategoryCurvesCard } from "@/components/home/category-curves-card";
+import { MoneyFlowCard } from "@/components/home/money-flow-card";
 
 /** The Transactions link for a chart slice: a category, uncategorized, or all. */
 export function sliceLink(slice: Slice): string {
@@ -35,6 +38,12 @@ export function HomePage() {
   const categories = useCategories();
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
   const firstRun = useFirstRun();
+  // Keyed under "summary:month" so every refresh of the month's money
+  // (refreshLedger in lib/hooks) refreshes the flow too.
+  const flow = useQuery({
+    queryKey: ["summary:month", { month }, "flow"],
+    queryFn: () => call("summary:flow", { month }),
+  });
 
   const open = (slice: Slice, m?: IsoMonth) => {
     if (m) setMonth(m);
@@ -76,6 +85,17 @@ export function HomePage() {
               <CategoryDonutCard summary={summary.data} index={index} onOpen={(x) => open(x)} />
             ) : (
               <CardSkeleton label={s.home.donutTitle} height={300} />
+            )}
+          </div>
+          <div className="col-span-12">
+            {flow.data && categories.data ? (
+              <MoneyFlowCard flow={flow.data} index={index} onOpen={(x) => open(x)} />
+            ) : flow.isError ? (
+              <Card>
+                <QueryError compact error={flow.error} />
+              </Card>
+            ) : (
+              <CardSkeleton label={s.flow.title} height={360} />
             )}
           </div>
           <div className="col-span-12">

@@ -10,6 +10,7 @@ import type {
   Flow,
   IsoDate,
   IsoMonth,
+  MoneyFlow,
   MonthSummary,
   ProviderId,
   ReviewFlag,
@@ -67,6 +68,10 @@ const CATEGORIES: Category[] = [
   cat(7, null, "Salary", "💼", "#8FBC8A", "income"),
   cat(8, null, "Side Income", "🧑‍💻", "#7FB8A6", "income"),
   cat(9, null, "Other Income", "💵", "#B5C98E", "income"),
+  // spec 14: money moved to savings, neither spending nor income.
+  cat(10, null, "Savings & Investments", "🏦", "#8FB8C9", "transfer"),
+  cat(101, 10, "Savings", "🐷", "#86BFA8", "transfer"),
+  cat(102, 10, "Investments", "📊", "#8E9BD0", "transfer"),
 ];
 
 function cat(
@@ -214,6 +219,11 @@ function generate(today: Date): DemoRow[] {
       add(randomDay(), { accountId: BANK, amount: -40000, description: "משיכת מזומן", memo: "כספומט דיסקונט", categoryId: 61 });
     }
     if (i % 3 === 1) add(day(int(8, 18)), { accountId: BANK, amount: 320000, description: "העברה מלקוח", memo: "סטודיו נגה", categoryId: 8 });
+    // spec 14: a standing order to savings, investing most months, and once a
+    // year some money comes back out of savings.
+    add(day(2), { accountId: BANK, amount: -150000, description: "הפקדה לפיקדון", memo: "הוראת קבע", categoryId: 101 });
+    if (i % 3 !== 2) add(day(11), { accountId: BANK, amount: -100000, description: "מיטב טרייד", memo: "קניית ני״ע", categoryId: 102 });
+    if (i === 4) add(day(20), { accountId: BANK, amount: 400000, description: "משיכה מפיקדון", memo: null, categoryId: 101 });
 
     // Everyday card purchases.
     for (const spend of CARD_SPENDS) {
@@ -361,6 +371,7 @@ function derive(r: DemoRow): void {
   else if (r.status === "gone") flow = "gone";
   else if (r.excluded) flow = "excluded";
   else if (internal) flow = "internal";
+  else if (r.categoryId != null && byId.get(r.categoryId)?.kind === "transfer") flow = "transfer";
   else if (r.amount > 0) flow = r.categoryId != null && byId.get(r.categoryId)?.kind === "expense" ? "refund" : "income";
   else flow = "spending";
   // Like core: only counted rows need a look, and the user's answer settles a card bill.
@@ -459,6 +470,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       month,
       income: inMonth.filter((r) => r.flow === "income").reduce((a, r) => a + r.amount, 0),
       spending: -counted.reduce((a, r) => a + r.amount, 0),
+      transfers: -inMonth.filter((r) => r.flow === "transfer").reduce((a, r) => a + r.amount, 0),
       byCategory: [...cats]
         .map(([categoryId, c]) => ({ categoryId, ...c }))
         .sort((a, b) => b.amount - a.amount),
@@ -491,6 +503,55 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       });
     };
     return ids.map((categoryId) => ({ categoryId, byDay: curve(categoryId, month), previousByDay: curve(categoryId, shiftMonth(month, -1)) }));
+  }
+
+  // spec 14: the same flow core draws (ledger/money-flow.ts), from the demo rows.
+  function moneyFlow(month: IsoMonth): MoneyFlow {
+    const sm = summary(month);
+    const rootOf = (id: number | null) => (id === null ? null : (byId.get(id)?.parentId ?? id));
+    const net = (flow: Flow, sign: 1 | -1) => {
+      const by = new Map<number | null, Agorot>();
+      for (const r of rows) {
+        if (!r.date.startsWith(month) || r.flow !== flow) continue;
+        by.set(rootOf(r.categoryId), (by.get(rootOf(r.categoryId)) ?? 0) + sign * r.amount);
+      }
+      return [...by].map(([categoryId, amount]) => ({ categoryId, amount })).sort((a, b) => b.amount - a.amount);
+    };
+    const sum = (xs: { amount: Agorot }[]) => xs.reduce((a, x) => a + x.amount, 0);
+    const income = net("income", 1);
+    const transfers = net("transfer", -1);
+    const refunds = sm.byParent.filter((p) => p.amount < 0).map((p) => ({ categoryId: p.categoryId, amount: -p.amount }));
+    const outSpending = sm.byParent.filter((p) => p.amount > 0);
+    const outTransfers = transfers.filter((p) => p.amount > 0);
+    const back = -sum(transfers.filter((p) => p.amount < 0));
+    const have = sum(income) + sum(refunds) + back;
+    const need = sum(outSpending) + sum(outTransfers);
+    const fromSavings = back + Math.max(0, need - have);
+    const left = Math.max(0, have - need);
+    type Kind = MoneyFlow["nodes"][number]["kind"];
+    const node = (kind: Kind) => (p: { categoryId: number | null; amount: Agorot }) => ({ kind, categoryId: p.categoryId, amount: p.amount });
+    const sources = [
+      ...income.map(node("income")),
+      ...refunds.map(node("refund")),
+      ...(fromSavings > 0 ? [node("from_savings")({ categoryId: null, amount: fromSavings })] : []),
+    ];
+    const targets = [
+      ...outSpending.map(node("spending")),
+      ...outTransfers.map(node("transfer")),
+      ...(left > 0 ? [node("left")({ categoryId: null, amount: left })] : []),
+    ];
+    const base = { month, income: sm.income, spending: sm.spending, transfers: sm.transfers };
+    const total = sum(sources);
+    if (total === 0) return { ...base, nodes: [], links: [] };
+    const hub = sources.length;
+    return {
+      ...base,
+      nodes: [...sources, node("hub")({ categoryId: null, amount: total }), ...targets],
+      links: [
+        ...sources.map((n, i) => ({ source: i, target: hub, amount: n.amount })),
+        ...targets.map((n, i) => ({ source: hub, target: hub + 1 + i, amount: n.amount })),
+      ],
+    };
   }
 
   function list(f: TransactionFilter): TransactionRow[] {
@@ -707,6 +768,10 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
         const a = args as Args<"summary:curves">;
         const valid = /^\d{4}-\d{2}$/.test(a?.month ?? "") && Array.isArray(a?.categoryIds);
         return valid ? ok(curves(a.month, a.categoryIds)) : fail("BAD_REQUEST");
+      }
+      case "summary:flow": {
+        const month = (args as Args<"summary:flow">)?.month;
+        return /^\d{4}-\d{2}$/.test(month ?? "") ? ok(moneyFlow(month)) : fail("BAD_REQUEST");
       }
       case "sync:start":
         return startSync((args as Args<"sync:start">).provider);

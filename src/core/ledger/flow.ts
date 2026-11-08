@@ -20,6 +20,7 @@ export function flowOf(f: FlowFacts): Flow {
   if (f.gone) return "gone";
   if (f.excluded) return "excluded";
   if (f.internal) return "internal";
+  if (f.categoryKind === "transfer") return "transfer";
   if (f.amount > 0) return f.categoryKind === "expense" ? "refund" : "income";
   return "spending";
 }
@@ -52,6 +53,7 @@ export const FLOW_SQL = `(CASE
   WHEN t.gone_at IS NOT NULL THEN 'gone'
   WHEN t.excluded = 1 THEN 'excluded'
   WHEN t.internal = 1 THEN 'internal'
+  WHEN c.kind = 'transfer' THEN 'transfer'
   WHEN t.amount > 0 AND c.kind = 'expense' THEN 'refund'
   WHEN t.amount > 0 THEN 'income'
   ELSE 'spending'

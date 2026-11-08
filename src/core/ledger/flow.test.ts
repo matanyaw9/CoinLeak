@@ -22,6 +22,18 @@ describe("flowOf", () => {
     expect(flowOf({ ...base, categoryKind: "income" })).toBe("spending");
     expect(flowOf(base)).toBe("spending");
   });
+
+  it("puts a transfer row after trashed, gone, excluded and internal, either direction", () => {
+    const out = { amount: -100, trashed: false, gone: false, excluded: false, internal: false, categoryKind: "transfer" as const };
+    expect(flowOf(out)).toBe("transfer");
+    expect(flowOf({ ...out, amount: 100 })).toBe("transfer");
+    expect(flowOf({ ...out, amount: 0 })).toBe("transfer");
+    expect(flowOf({ ...out, trashed: true })).toBe("trashed");
+    expect(flowOf({ ...out, gone: true })).toBe("gone");
+    expect(flowOf({ ...out, excluded: true })).toBe("excluded");
+    expect(flowOf({ ...out, internal: true })).toBe("internal");
+    expect(flagsOf({ ...out, categoryId: 1, categorySource: "rule", possibleCardBill: true })).toEqual([]);
+  });
 });
 
 describe("TS and SQL", () => {
@@ -33,6 +45,7 @@ describe("TS and SQL", () => {
       { id: null, kind: null },
       { id: categoryId(db, "Groceries"), kind: "expense" as const },
       { id: categoryId(db, "Salary"), kind: "income" as const },
+      { id: categoryId(db, "Savings"), kind: "transfer" as const },
     ];
     // Only a pending row can be gone, so a gone combination is stored as pending.
     const insert = db.prepare(
@@ -83,17 +96,17 @@ describe("TS and SQL", () => {
     const viaSql = db
       .prepare(`WITH ledger AS (${LEDGER_SQL}) SELECT description, flow FROM ledger`)
       .all() as { description: string; flow: Flow }[];
-    expect(viaSql).toHaveLength(864);
+    expect(viaSql).toHaveLength(1152);
     for (const r of viaSql) expect(r.flow, r.description).toBe(expected.get(r.description)?.flow);
     const listed = listTransactions(db, { flows: [...FLOWS] });
-    expect(listed).toHaveLength(864);
+    expect(listed).toHaveLength(1152);
     for (const t of listed) {
       expect(t.flags, t.description).toEqual(expected.get(t.description)?.flags);
       expect(t.status === "gone", t.description).toBe(t.flow === "gone");
     }
     // Every flow and every flag shows up at least once, so no branch is untested.
     expect(new Set(viaSql.map((r) => r.flow))).toEqual(
-      new Set(["spending", "income", "refund", "internal", "excluded", "gone", "trashed"]),
+      new Set(["spending", "income", "refund", "internal", "excluded", "gone", "trashed", "transfer"]),
     );
     expect(new Set([...expected.values()].flatMap((e) => e.flags))).toEqual(
       new Set(["uncategorized", "possible_card_bill", "gone"]),
@@ -102,6 +115,34 @@ describe("TS and SQL", () => {
 });
 
 describe("flows in the totals", () => {
+  it("a transfer is neither spending nor income, and nets into transfers", () => {
+    const db = newDb();
+    ingest(
+      db,
+      [
+        bank([
+          txn({ date: "2026-03-01", amount: 1000000, description: "משכורת" }),
+          txn({ date: "2026-03-05", amount: -300000, description: "הפקדה לחיסכון" }),
+          txn({ date: "2026-03-06", amount: -100000, description: "קניית קרן" }),
+          txn({ date: "2026-03-20", amount: 50000, description: "משיכה מחיסכון" }),
+          txn({ date: "2026-03-21", amount: -4000, description: "מכולת" }),
+        ]),
+      ],
+      { now: NOW },
+    );
+    updateTransactions(db, [idOf(db, "הפקדה לחיסכון"), idOf(db, "משיכה מחיסכון")], { categoryId: categoryId(db, "Savings") });
+    updateTransactions(db, [idOf(db, "קניית קרן")], { categoryId: categoryId(db, "Investments") });
+    updateTransactions(db, [idOf(db, "משכורת")], { categoryId: categoryId(db, "Salary") });
+    updateTransactions(db, [idOf(db, "מכולת")], { categoryId: categoryId(db, "Groceries") });
+
+    const summary = monthSummary(db, "2026-03");
+    expect(summary).toMatchObject({ income: 1000000, spending: 4000, transfers: 350000, needsReview: 0 });
+    expect(summary.byCategory).toEqual([{ categoryId: categoryId(db, "Groceries"), amount: 4000, count: 1 }]);
+    expect(summary.byDay.at(-1)?.amount).toBe(4000);
+    expect(trend(db, 1, { now: NOW })[0]).toMatchObject({ income: 1000000, spending: 4000 });
+    expect(listTransactions(db, { flows: ["transfer"] })).toHaveLength(3);
+  });
+
   it("a refund reduces its category and the month's spending", () => {
     const db = newDb();
     ingest(

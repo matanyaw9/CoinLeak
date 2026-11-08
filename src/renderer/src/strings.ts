@@ -489,6 +489,26 @@ export const s = {
     emptied: (n: number) => (n === 1 ? "Deleted 1 transaction for good" : `Deleted ${n} transactions for good`),
     count: (n: number) => `${plural(n, "transaction", "transactions")} in trash`,
   },
+
+  // spec 14
+  flow: {
+    title: "Where the money went",
+    hint: "Click a category to see its transactions",
+    empty: "The flow shows once the month has both income and spending.",
+    income: "Income",
+    moneyIn: "Money in",
+    otherIncome: "Other income",
+    refunds: (name: string) => `${name} refunds`,
+    fromSavings: "From savings / earlier months",
+    left: "Left",
+    shareOfIncome: "of income",
+    noIncome: "No income this month",
+    movedToSavings: "Moved to savings",
+    takenFromSavings: "Taken from savings",
+    movedHint: "Not spending: still your money",
+    takenHint: "Not income: your own money back",
+    pickerTransfer: "Savings & investments",
+  },
 };
 
 export type Strings = typeof s;
