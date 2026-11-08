@@ -86,9 +86,30 @@ describe("calls with Undo", () => {
     expect(invoke).toHaveBeenLastCalledWith("transactions:update", { ids: [1], patch: { excluded: false } });
   });
 
+  it("Undo of Ignore puts back each row's exclusion and who set it (spec 13)", async () => {
+    invoke.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        updated: 3,
+        before: [
+          { id: 1, excluded: false, excludedSource: null },
+          { id: 3, excluded: false, excludedSource: "user" },
+          { id: 4, excluded: false, excludedSource: null },
+        ],
+      },
+    });
+    const { undo } = await setIgnored([row({ id: 1 }), row({ id: 3 }), row({ id: 4 })], true);
+    invoke.mockClear();
+    await undo();
+    expect(invoke.mock.calls).toEqual([
+      ["transactions:update", { ids: [1, 4], patch: { excluded: false, excludedSource: null } }],
+      ["transactions:update", { ids: [3], patch: { excluded: false, excludedSource: "user" } }],
+    ]);
+  });
+
   it("suggests a rule that sets the chosen category", async () => {
-    invoke.mockResolvedValueOnce({ ok: true, value: { matchText: "שופרסל", setCategoryId: null } });
-    expect(await suggestFor([7], groceries)).toMatchObject({ matchText: "שופרסל", setCategoryId: 11 });
+    invoke.mockResolvedValueOnce({ ok: true, value: { name: "שופרסל", setCategoryId: null } });
+    expect(await suggestFor([7], groceries)).toMatchObject({ name: "שופרסל", setCategoryId: 11 });
     expect(invoke).toHaveBeenLastCalledWith("rules:suggest", { ids: [7] });
   });
 });

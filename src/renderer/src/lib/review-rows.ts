@@ -2,7 +2,7 @@
 // each returning its Undo. Plus when to offer a rule after a hand
 // categorization, and when a row shows its rule chip. No React here.
 
-import type { Category, RuleInput, TransactionRow } from "@shared/types";
+import type { Category, ExcludedSource, RuleInput, TransactionRow } from "@shared/types";
 import { call } from "./api";
 
 /** The clicked row, or the whole selection when the clicked row is in it. */
@@ -25,8 +25,9 @@ export async function restoreRows(ids: number[]): Promise<{ updated: number; und
 }
 
 /**
- * Sets `excluded` on the rows that differ. Undo flips back only those, so a
- * mixed selection returns to exactly what it was.
+ * Sets `excluded` on the rows that differ. Undo puts back each row's
+ * exclusion and who set it, exactly as it was (spec 13), so a row a rule
+ * excluded or left alone goes back to the rules.
  */
 export async function setIgnored(
   rows: TransactionRow[],
@@ -34,8 +35,20 @@ export async function setIgnored(
 ): Promise<{ updated: number; undo: () => Promise<unknown> }> {
   const ids = rows.filter((r) => r.excluded !== excluded).map((r) => r.id);
   if (ids.length === 0) return { updated: 0, undo: () => Promise.resolve() };
-  const { updated } = await call("transactions:update", { ids, patch: { excluded } });
-  return { updated, undo: () => call("transactions:update", { ids, patch: { excluded: !excluded } }) };
+  const { updated, before } = await call("transactions:update", { ids, patch: { excluded } });
+  const undo = async () => {
+    if (!before) return call("transactions:update", { ids, patch: { excluded: !excluded } });
+    const groups = new Map<string, number[]>();
+    for (const b of before) {
+      const key = JSON.stringify([b.excluded, b.excludedSource]);
+      groups.set(key, [...(groups.get(key) ?? []), b.id]);
+    }
+    for (const [key, group] of groups) {
+      const [was, source] = JSON.parse(key) as [boolean, ExcludedSource | null];
+      await call("transactions:update", { ids: group, patch: { excluded: was, excludedSource: source } });
+    }
+  };
+  return { updated, undo };
 }
 
 /** A draft rule from these rows; with `category`, one that sets it. */
