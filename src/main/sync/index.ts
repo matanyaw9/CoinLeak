@@ -4,12 +4,15 @@
 // done and failed. Throws only CodedError.
 
 import { CodedError, type ErrorCode } from "@shared/errors";
+import { isEnabledProvider, type EnabledProviderId } from "@shared/providers";
 import type { IsoDate, ProviderId, ScrapedAccount, SyncStage } from "@shared/types";
 import { withSyncBrowser, type SyncBrowserOptions, type SyncSession } from "./browser";
 import { codeForResult, toCodedError } from "./errors";
-import { israelDay, normalizeAccounts } from "./normalize";
+import { effectiveStartDate, requestStart } from "./history";
+import { normalizeAccounts } from "./normalize";
 import { createSelfLoginScraper, LOGIN_TIMEOUT_MS, type SelfLoginHooks, type SelfLoginScraper } from "./self-login";
 
+export { effectiveStartDate } from "./history";
 export { LOGIN_TIMEOUT_MS } from "./self-login";
 /** Login wait plus the download itself. A hung bank ends the sync instead of the app waiting forever. */
 export const SYNC_TIMEOUT_MS = LOGIN_TIMEOUT_MS + 10 * 60 * 1000;
@@ -37,7 +40,7 @@ export interface SyncOptions {
 export interface SyncDeps {
   withSyncBrowser: typeof withSyncBrowser;
   createScraper: (
-    provider: ProviderId,
+    provider: EnabledProviderId,
     input: Parameters<typeof createSelfLoginScraper>[1],
     hooks: SelfLoginHooks,
   ) => SelfLoginScraper;
@@ -53,51 +56,6 @@ const defaultDeps: SyncDeps = {
   now: () => new Date(),
 };
 
-// The library clamps this to its own maximum (1 year for Discount, 18 months for Cal).
-const EARLIEST = new Date("2000-01-01T00:00:00Z");
-
-// The library's own earliest day, counted back from `today` the way moment
-// does it: discount.js L51 (1 year back plus 2 days) and visa-cal.js L388
-// (1 year, then 6 months back, plus 1 day). israeli-bank-scrapers 6.12.2.
-const LIBRARY_EARLIEST: Record<ProviderId, (today: IsoDate) => IsoDate> = {
-  discount: (today) => addDays(addMonths(today, -12), 2),
-  visaCal: (today) => addDays(addMonths(addMonths(today, -12), -6), 1),
-};
-
-/**
- * The first Israel day a download surely covers: the later of the day asked
- * for and the library's clamp, plus one day for safety. The library counts
- * from this computer's clock and zone, whose day can be one ahead of
- * Israel's, so the clamp from the next Israel day counts too. `now` must be
- * no earlier than the moment the library started.
- */
-export function effectiveStartDate(provider: ProviderId, requested: Date, now: Date): IsoDate {
-  const clamp = LIBRARY_EARLIEST[provider];
-  const today = israelDay(now.toISOString());
-  const candidates = [
-    addDays(clamp(today), 1),
-    clamp(addDays(today, 1)),
-    addDays(israelDay(requested.toISOString()), 1),
-  ];
-  return candidates.reduce((a, b) => (a > b ? a : b));
-}
-
-/** Moves a day by whole months like moment: the day clamps to the end of a shorter month. */
-function addMonths(day: IsoDate, months: number): IsoDate {
-  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
-  const lastDay = new Date(Date.UTC(y, m - 1 + months + 1, 0)).getUTCDate();
-  return isoDay(Date.UTC(y, m - 1 + months, Math.min(d, lastDay)));
-}
-
-function addDays(day: IsoDate, days: number): IsoDate {
-  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
-  return isoDay(Date.UTC(y, m - 1, d + days));
-}
-
-function isoDay(utcMs: number): IsoDate {
-  return new Date(utcMs).toISOString().slice(0, 10);
-}
-
 let running = false;
 
 export async function runSync(
@@ -105,6 +63,8 @@ export async function runSync(
   options: SyncOptions = {},
   deps: Partial<SyncDeps> = {},
 ): Promise<SyncDownload> {
+  // Unsupported providers would need the password in our process: refused here.
+  if (!isEnabledProvider(provider)) throw new CodedError("BAD_REQUEST");
   if (running) throw new CodedError("SYNC_IN_PROGRESS");
   running = true;
   try {
@@ -116,7 +76,7 @@ export async function runSync(
   }
 }
 
-async function syncOnce(provider: ProviderId, options: SyncOptions, deps: SyncDeps): Promise<SyncDownload> {
+async function syncOnce(provider: EnabledProviderId, options: SyncOptions, deps: SyncDeps): Promise<SyncDownload> {
   const progress = (stage: SyncStage): void => options.onProgress?.(stage);
   progress("opening_browser");
   return deps.withSyncBrowser(provider, (session) => download(provider, session, options, deps, progress), {
@@ -127,14 +87,15 @@ async function syncOnce(provider: ProviderId, options: SyncOptions, deps: SyncDe
 }
 
 async function download(
-  provider: ProviderId,
+  provider: EnabledProviderId,
   session: SyncSession,
   options: SyncOptions,
   deps: SyncDeps,
   progress: (stage: SyncStage) => void,
 ): Promise<SyncDownload> {
   let loginFailure: ErrorCode | undefined;
-  const startDate = options.startDate ?? EARLIEST;
+  // Reads the clock only for a library without its own clamp; see requestStart.
+  const startDate = requestStart(provider, options.startDate, deps.now);
   const scraper = deps.createScraper(
     provider,
     { context: session.context, preparePage: (page) => session.adoptPage(page), startDate },

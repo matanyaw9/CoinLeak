@@ -4,6 +4,7 @@
 // Rules: REQUIREMENTS section 5 and spec 04. User fields are never written.
 
 import { CodedError } from "@shared/errors";
+import { PROVIDER_IDS, providerKind } from "@shared/providers";
 import type {
   AccountKind,
   IsoDate,
@@ -19,10 +20,10 @@ import { isIsoDate } from "./dates";
 import { SequenceCounter, dedupHash } from "./dedup";
 import { planPending, type OpenRow } from "./pending";
 
-export const PROVIDER_KIND: Record<ProviderId, AccountKind> = {
-  discount: "bank",
-  visaCal: "card",
-};
+/** Bank or card, per provider: from the registry (spec 08). */
+export const PROVIDER_KIND: Readonly<Record<ProviderId, AccountKind>> = Object.fromEntries(
+  PROVIDER_IDS.map((id) => [id, providerKind(id)]),
+) as Record<ProviderId, AccountKind>;
 
 export interface IngestOptions {
   now: Date;

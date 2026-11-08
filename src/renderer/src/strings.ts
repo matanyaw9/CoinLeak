@@ -1,6 +1,7 @@
 // Every piece of English text in the window, in one place, so a Hebrew
 // version can be added later without hunting through components.
 
+import { PROVIDERS } from "@shared/providers";
 import type { ProviderId, SyncStage } from "@shared/types";
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-IL")} ${n === 1 ? one : many}`;
@@ -68,10 +69,10 @@ export const s = {
     updated: (n: number) => plural(n, "row updated", "rows updated"),
   },
 
-  providers: {
-    discount: { name: "Discount Bank", short: "Discount", kind: "Bank" },
-    visaCal: { name: "Cal", short: "Cal", kind: "Credit cards" },
-  } satisfies Record<ProviderId, { name: string; short: string; kind: string }>,
+  // Names come from the provider registry (src/shared/providers.ts, spec 08).
+  providers: Object.fromEntries(
+    PROVIDERS.map((p) => [p.id, { name: p.name, short: p.short, kind: p.kind === "bank" ? "Bank" : "Credit cards" }]),
+  ) as Record<ProviderId, { name: string; short: string; kind: string }>,
 
   common: {
     uncategorized: "Uncategorized",

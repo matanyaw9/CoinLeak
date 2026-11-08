@@ -2,12 +2,11 @@
 // report each stage to the window. Holds the cancel switch for the running sync.
 
 import { CodedError } from "@shared/errors";
+import { isEnabledProvider } from "@shared/providers";
 import type { ProviderId, ScrapedAccount, SyncProgress, SyncResult, SyncStage } from "@shared/types";
 import type { Db } from "@core/db";
 import type { IngestOptions } from "@core/ledger";
 import type { SyncDownload, SyncOptions } from "./sync";
-
-const PROVIDERS: readonly ProviderId[] = ["discount", "visaCal"];
 
 export interface SyncServiceDeps {
   db: Db;
@@ -28,7 +27,8 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
 
   return {
     async start(provider) {
-      if (!PROVIDERS.includes(provider)) throw new CodedError("BAD_REQUEST");
+      // Only providers self-login can sync (spec 08); anything else from the window is refused.
+      if (!isEnabledProvider(provider)) throw new CodedError("BAD_REQUEST");
       if (current) throw new CodedError("SYNC_IN_PROGRESS");
       const controller = new AbortController();
       current = controller;

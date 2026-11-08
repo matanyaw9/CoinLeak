@@ -60,6 +60,23 @@ export function ColorDot({ color, className }: { color: string; className?: stri
 const PROVIDER_COLORS: Record<ProviderId, string> = {
   discount: "#4E9A6A",
   visaCal: "#5A8BC4",
+  // Spec 08: every provider in the registry.
+  hapoalim: "#C2554A",
+  leumi: "#3F8FA8",
+  mizrahi: "#D2843A",
+  beinleumi: "#3E6E9E",
+  mercantile: "#4F8F86",
+  yahav: "#B0894A",
+  massad: "#A7764B",
+  otsarHahayal: "#7A6BA8",
+  pagi: "#8C6BA0",
+  union: "#6E7FA8",
+  max: "#C65B86",
+  isracard: "#3D6FB6",
+  amex: "#2E86AB",
+  beyahadBishvilha: "#9A7B4F",
+  behatsdaa: "#6F8F4E",
+  oneZero: "#5F6672",
 };
 
 export function ProviderBadge({ provider, size = 20, className }: { provider: ProviderId; size?: number; className?: string }) {

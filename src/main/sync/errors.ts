@@ -28,8 +28,10 @@ function isKnownErrorType(t: string): t is keyof typeof BY_ERROR_TYPE {
 /** The code for a finished library run, or null when it returned data. */
 export function codeForResult(result: ScraperScrapingResult): ErrorCode | null {
   if (result.success) return Array.isArray(result.accounts) ? null : "BANK_CHANGED";
-  const type = result.errorType ?? "";
-  return isKnownErrorType(type) ? BY_ERROR_TYPE[type] : "UNKNOWN";
+  // Behatsdaa's download fails without an error type when the site sends no
+  // data (behatsdaa.js L74-79, L93-105, 6.12.2): the site's answer, not ours.
+  if (result.errorType === undefined) return "BANK_ERROR";
+  return isKnownErrorType(result.errorType) ? BY_ERROR_TYPE[result.errorType] : "UNKNOWN";
 }
 
 /** The code for something thrown during our own steps (navigation, waiting). */
