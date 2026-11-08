@@ -1,5 +1,5 @@
 // The window's root: query cache, hash router, shared month and sync state,
-// tooltips and toasts.
+// the rule editor, tooltips and toasts.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createHashRouter } from "react-router";
@@ -9,9 +9,11 @@ import { SyncProvider } from "@/lib/sync";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { AppShell } from "@/components/layout/app-shell";
+import { RuleEditorProvider } from "@/components/rules/rule-editor-provider";
 import { HomePage } from "@/pages/home-page";
 import { TransactionsPage } from "@/pages/transactions-page";
 import { CategoriesPage } from "@/pages/categories-page";
+import { RulesPage } from "@/pages/rules-page";
 import { AccountsPage } from "@/pages/accounts-page";
 import { SettingsPage } from "@/pages/settings-page";
 import { ErrorPage } from "@/pages/error-page";
@@ -31,6 +33,7 @@ const router = createHashRouter([
       { path: "/", element: <HomePage /> },
       { path: "/transactions", element: <TransactionsPage /> },
       { path: "/categories", element: <CategoriesPage /> },
+      { path: "/rules", element: <RulesPage /> },
       { path: "/accounts", element: <AccountsPage /> },
       { path: "/settings", element: <SettingsPage /> },
       { path: "*", element: <ErrorPage notFound /> },
@@ -44,7 +47,9 @@ export function App() {
       <MonthProvider>
         <SyncProvider>
           <TooltipProvider>
-            <RouterProvider router={router} />
+            <RuleEditorProvider>
+              <RouterProvider router={router} />
+            </RuleEditorProvider>
             <Toaster />
           </TooltipProvider>
         </SyncProvider>

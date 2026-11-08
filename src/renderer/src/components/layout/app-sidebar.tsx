@@ -1,8 +1,18 @@
-// Left sidebar: brand, the five screens, and a reminder that data is local.
+// Left sidebar: brand, the six screens, and a reminder that data is local.
 // Look adapted from Spent (github.com/Shaya16/Spent), src/components/layout/app-sidebar.tsx.
 
 import { NavLink } from "react-router";
-import { ArrowLeftRight, House, Landmark, Lock, Settings, Shapes, FlaskConical, type LucideIcon } from "lucide-react";
+import {
+  ArrowLeftRight,
+  House,
+  Landmark,
+  Lock,
+  Settings,
+  Shapes,
+  FlaskConical,
+  WandSparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { DEMO } from "@/lib/api";
@@ -12,6 +22,7 @@ const MAIN: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/", label: s.nav.home, icon: House },
   { to: "/transactions", label: s.nav.transactions, icon: ArrowLeftRight },
   { to: "/categories", label: s.nav.categories, icon: Shapes },
+  { to: "/rules", label: s.rules.nav, icon: WandSparkles },
   { to: "/accounts", label: s.nav.accounts, icon: Landmark },
 ];
 
