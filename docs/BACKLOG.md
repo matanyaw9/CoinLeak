@@ -54,6 +54,28 @@ Nothing open. Next gate: the owner's first real login (`docs/OWNER-TESTS.md`).
 - Owner check on real Cal data: what `trnCurrencySymbol` holds for shekels
   (anything other than ₪, NIS, ILS or ש"ח would zero a pending shekel row).
 
+## Spec 09 leftovers (rules in Transactions)
+
+- "Make a rule" in `components/transactions/bulk-bar.tsx`: call
+  `rules:suggest`, then `useRuleEditor().openEditor({ draft, optIn: true })`.
+- Toast after a hand categorization in `pages/transactions-page.tsx`
+  `onRowCategory`: once per merchant per session (module-level Set on the
+  normalized description), skip rows a rule sorted; "Make a rule" suggests
+  from that row with the chosen category. Strings exist in `s.rules`.
+- Rule chip in `components/transactions/transaction-row.tsx` when
+  `ruleId != null && (categorySource === "rule" || excluded)`; click opens
+  the rule from `useRules()`. Note: `rule_id` names the last rule that set
+  any field, so with a category rule and a later exclude rule the chip
+  opens the exclude rule.
+
+## Spec 08 notes
+
+- Isracard and Amex login success ("any personal-area page after the login
+  page") is inferred from the library's URL layout, not seen live.
+- Behatsdaa purchases can also appear on a synced card and count twice.
+- Behatsdaa's site now asks for ID plus a one-time code; the library's own
+  form selectors no longer exist (self-login does not use them).
+
 ## Wave 2 candidates
 
 - (Done in main: channels exist) UI for the user's card-bill decisions:
