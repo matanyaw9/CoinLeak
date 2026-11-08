@@ -41,7 +41,7 @@ function Entries({ model }: { model: RowMenuModel }) {
         <Menu.Item key={e.key} className={ITEM} onClick={e.onSelect}>
           <e.icon className={cn("mt-0.5 size-4 shrink-0", e.danger ? "text-destructive" : "text-muted-foreground")} strokeWidth={1.75} />
           <span className="min-w-0">
-            <span dir="auto" className={cn("block truncate", e.danger && "text-destructive")}>
+            <span dir="auto" className={cn("line-clamp-2 block", e.danger && "text-destructive")}>
               {e.label}
             </span>
             {e.hint && <span className="block text-xs text-muted-foreground">{e.hint}</span>}
