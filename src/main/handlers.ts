@@ -3,6 +3,7 @@
 
 import type { Db } from "@core/db";
 import {
+  categoryCurves,
   deleteGoneRows,
   listAccounts,
   listCategories,
@@ -40,6 +41,7 @@ export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps)
     "transactions:deleteGone": ({ ids }) => ({ deleted: deleteGoneRows(db, ids) }),
     "summary:month": ({ month }) => monthSummary(db, month),
     "summary:trend": ({ months }) => trend(db, months),
+    "summary:curves": (args) => categoryCurves(db, args),
     "sync:start": ({ provider }) => sync.start(provider),
     "sync:cancel": () => {
       sync.cancel();
