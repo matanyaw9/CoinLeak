@@ -7,7 +7,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { ArrowLeftRight, CircleCheck, Eye, EyeOff, Search, SearchX, Trash2, WandSparkles, X } from "lucide-react";
+import { ArrowLeftRight, CircleCheck, Eye, EyeOff, ListPlus, Search, SearchX, Trash2, WandSparkles, X } from "lucide-react";
 import type { Category, TransactionFilter, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ import {
   useUpdateTransactions,
 } from "@/lib/hooks";
 import { useKept, useReviewActions, useRowActions } from "@/lib/review-actions";
+import { useAddKnownPlace } from "@/lib/rule-actions";
 import { allIgnored, menuTargets, shouldOfferRule, suggestFor } from "@/lib/review-rows";
 import { useShot } from "@/lib/shot";
 import { useMonth } from "@/lib/month-context";
@@ -90,6 +91,7 @@ export function TransactionsPage() {
   const firstRun = useFirstRun();
   const rowActions = useRowActions();
   const { openEditor } = useRuleEditor();
+  const addKnownPlace = useAddKnownPlace();
 
   // Selection belongs to one filter; changing month or filters starts fresh.
   const scope = JSON.stringify(filter);
@@ -122,7 +124,9 @@ export function TransactionsPage() {
       duration: still ? Infinity : 8000,
       // Hidden screenshot runs never advance transitions; demo shots skip them.
       className: still ? "!transition-none" : undefined,
-      action: { label: s.rules.makeRule, onClick: () => void makeRule([row], category) },
+      // spec 13: yes adds the shop to the category's known places.
+      action: { label: s.rulesV2.knownPlaces.offerYes, onClick: () => addKnownPlace(row.description, category) },
+      cancel: { label: s.rulesV2.knownPlaces.offerRule, onClick: () => void makeRule([row], category) },
     });
 
   const categorize = (ids: number[], category: Category | null, one?: Row) => {
@@ -146,6 +150,7 @@ export function TransactionsPage() {
     const many = targets.length > 1;
     const ignoredAll = allIgnored(targets);
     const after = many ? clearSelection : undefined;
+    const category = !many && row.categoryId != null ? index.byId.get(row.categoryId) : undefined;
     return {
       heading: many ? s.rowMenu.forSelection(targets.length) : undefined,
       entries: [
@@ -155,6 +160,17 @@ export function TransactionsPage() {
           icon: WandSparkles,
           onSelect: () => void makeRule(targets),
         },
+        ...(category
+          ? [
+              {
+                key: "known",
+                label: s.rulesV2.knownPlaces.add(row.description.trim(), category.name),
+                hint: s.rulesV2.knownPlaces.addHint,
+                icon: ListPlus,
+                onSelect: () => addKnownPlace(row.description, category),
+              },
+            ]
+          : []),
         {
           key: "ignore",
           label: ignoredAll ? s.rowMenu.countAgain : s.rowMenu.ignore,
@@ -402,6 +418,8 @@ function useDemoShot(
     const id = setTimeout(() => {
       const spending = rows.filter((r) => r.flow === "spending" && r.categorySource !== "rule" && r.amount < 0);
       if (shot === "menu") setMenuRow(spending[0]?.id ?? null);
+      // spec 13: a row sorted by hand, so the menu offers its known places.
+      if (shot === "menu-known") setMenuRow(spending.find((r) => r.categorySource === "user" && r.categoryId != null)?.id ?? null);
       if (shot === "select") aids.select(new Set(spending.slice(0, 3).map((r) => r.id)));
       if (shot === "bills" || shot === "bills-on") aids.lastMonth();
       if (shot === "bills-on") aids.setShowBills(true);

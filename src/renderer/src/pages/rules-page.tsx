@@ -1,17 +1,18 @@
 // Rules: the ordered list, each rule as one plain sentence, with a switch,
 // edit, delete with Undo, and reordering by drag or the up and down arrows.
-// A friendly empty state explains what a rule is.
+// A friendly empty state explains what a rule is. Spec 13: Apply now, and
+// the starter lists offer.
 
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, EyeOff, GripVertical, Pencil, Plus, Trash, WandSparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, EyeOff, GripVertical, ListPlus, Pencil, Plus, RefreshCw, Trash, WandSparkles } from "lucide-react";
 import type { Rule } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { call } from "@/lib/api";
 import { indexCategories, type CategoryIndex } from "@/lib/categories";
 import { refreshRules, useCategories, useRules } from "@/lib/hooks";
-import { useRuleActions } from "@/lib/rule-actions";
+import { useRuleActions, useStarters } from "@/lib/rule-actions";
 import { moveId } from "@/lib/rules";
 import { useShot } from "@/lib/shot";
 import type { SentenceContext } from "@/lib/rule-sentence";
@@ -25,6 +26,10 @@ import { EmptyState, QueryError } from "@/components/common/empty-state";
 import { CategoryBubble, IconBubble } from "@/components/common/chips";
 import { RuleSentence, useSentenceContext } from "@/components/rules/rule-sentence";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
+import { StarterListsDialog } from "@/components/rules/starter-lists";
+
+/** Names shown per list in a rule's sentence before "or N more". */
+const SENTENCE_VALUES = 6;
 
 type Drag = { id: number; order: number[] };
 
@@ -44,6 +49,9 @@ export function RulesPage() {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [held, setHeld] = useState<{ ids: number[]; base: Rule[] | undefined } | null>(null);
   const [armed, setArmed] = useState<number | null>(null);
+  const [startersOpen, setStartersOpen] = useState(false);
+  const starters = useStarters();
+  const offerStarters = (starters.data?.lists.length ?? 0) > 0;
   const order = drag?.order ?? (held && held.base === rules.data ? held.ids : saved);
   const shown = order.flatMap((id) => byId.get(id) ?? []);
 
@@ -53,7 +61,7 @@ export function RulesPage() {
     actions.reorder(ids);
   };
 
-  useDemoShot(list, openEditor);
+  useDemoShot(list, openEditor, () => setStartersOpen(true));
 
   return (
     <Page title={s.rules.title}>
@@ -66,12 +74,44 @@ export function RulesPage() {
             </p>
           </div>
           {list.length > 0 && (
-            <Button className="ms-auto h-10 shrink-0 rounded-full px-5" onClick={() => openEditor({})}>
-              <Plus />
-              {s.rules.newRule}
-            </Button>
+            <div className="ms-auto flex shrink-0 items-center gap-2">
+              <Hint label={s.rulesV2.applyHint}>
+                <Button
+                  variant="outline"
+                  className="h-10 rounded-full px-4"
+                  disabled={actions.applying}
+                  onClick={actions.applyNow}
+                >
+                  <RefreshCw className={cn(actions.applying && "animate-spin")} />
+                  {s.rulesV2.applyNow}
+                </Button>
+              </Hint>
+              <Button className="h-10 rounded-full px-5" onClick={() => openEditor({})}>
+                <Plus />
+                {s.rules.newRule}
+              </Button>
+            </div>
           )}
         </div>
+        {offerStarters && (
+          <button
+            type="button"
+            onClick={() => setStartersOpen(true)}
+            className="mt-6 flex w-full items-center gap-4 rounded-2xl border border-dashed border-foreground/20 bg-card/60 px-5 py-3.5 text-start transition-colors outline-none hover:border-foreground/35 hover:bg-card focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            <ListPlus className="size-5 shrink-0 text-primary" strokeWidth={1.75} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{s.rulesV2.starters.open}</span>
+              <span className="block truncate text-xs text-muted-foreground">{s.rulesV2.starters.intro}</span>
+            </span>
+            {(starters.data?.sorts ?? 0) > 0 && (
+              <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                {s.rulesV2.starters.sorts(starters.data?.sorts ?? 0)}
+              </span>
+            )}
+          </button>
+        )}
+        {startersOpen && <StarterListsDialog open onOpenChange={setStartersOpen} />}
 
         <div className="mt-8">
           {rules.isError ? (
@@ -246,7 +286,12 @@ function RuleLine({
             </span>
           )}
         </span>
-        <RuleSentence rule={rule} context={context} className={cn("mt-0.5 text-[13px]", !rule.enabled && "opacity-70")} />
+        <RuleSentence
+          rule={rule}
+          context={context}
+          maxValues={SENTENCE_VALUES}
+          className={cn("mt-0.5 text-[13px]", !rule.enabled && "opacity-70")}
+        />
       </button>
 
       <div className="flex shrink-0 items-center gap-1">
@@ -279,8 +324,10 @@ function RuleLine({
 /**
  * Demo screenshot aid: `?shot=new`, `?shot=edit-3` or `?shot=suggest` opens
  * the editor; `?shot=empty` deletes every demo rule to show the empty state.
+ * Spec 13: `?shot=handset` opens a rule that would take over rows sorted by
+ * hand, `?shot=starters` the starter lists.
  */
-function useDemoShot(rules: Rule[], openEditor: ReturnType<typeof useRuleEditor>["openEditor"]) {
+function useDemoShot(rules: Rule[], openEditor: ReturnType<typeof useRuleEditor>["openEditor"], openStarters: () => void) {
   const shot = useShot();
   const client = useQueryClient();
   const ready = rules.length > 0;
@@ -292,6 +339,26 @@ function useDemoShot(rules: Rule[], openEditor: ReturnType<typeof useRuleEditor>
       if (rule) openEditor({ rule });
       if (shot === "empty") {
         void Promise.all(rules.map((r) => call("rules:delete", { id: r.id }))).then(() => refreshRules(client));
+      }
+      if (shot === "starters") openStarters();
+      if (shot === "handset") {
+        openEditor({
+          draft: {
+            name: "Bit and PayBox",
+            enabled: true,
+            join: "any",
+            conditions: [
+              { kind: "text", field: "description", mode: "starts_with", values: ["העברה ב-BIT", "PAYBOX"] },
+              { kind: "text", field: "memo", mode: "contains", values: ["דנה"] },
+            ],
+            setCategoryId: 61,
+            setExcluded: null,
+          },
+        });
+        setTimeout(() => {
+          const form = document.querySelector("[data-hand-set]")?.closest("form");
+          if (form) form.scrollTop = form.scrollHeight;
+        }, 1500);
       }
       if (shot === "suggest") {
         void call("transactions:list", { search: "שופרסל" }).then(async (rows) => {

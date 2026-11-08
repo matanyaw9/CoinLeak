@@ -20,13 +20,16 @@ export function useSentenceContext(): SentenceContext {
 export function RuleSentence({
   rule,
   context,
+  maxValues,
   className,
 }: {
   rule: Parameters<typeof ruleSentence>[0];
   context: SentenceContext;
+  /** Names shown per text condition before "or N more". */
+  maxValues?: number;
   className?: string;
 }) {
-  const parts = ruleSentence(rule, context);
+  const parts = ruleSentence(rule, context, { maxValues });
   return (
     <p className={cn("leading-relaxed text-pretty text-muted-foreground", className)}>
       {parts.map((p, i) => {

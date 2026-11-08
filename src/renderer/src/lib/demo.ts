@@ -14,8 +14,9 @@ import type {
   MonthSummary,
   ProviderId,
   ReviewFlag,
-  Rule,
+  RuleCondition,
   RuleInput,
+  RuleMatchMode,
   SyncStage,
   TransactionFilter,
   TransactionPatch,
@@ -25,7 +26,7 @@ import type {
 import type { Args, Channel, EventName, IpcEvents, Res } from "@shared/ipc";
 import { ERROR_MESSAGES, type ErrorCode, type Result } from "@shared/errors";
 import { daysInMonth, parseMonth, shiftMonth, toIsoDate, toIsoMonth } from "./month";
-import { applyRules, cleanConditions, cleanRule, matcher, suggest } from "./demo-rules";
+import { createDemoRules } from "./demo-rules";
 
 export interface Demo {
   invoke<C extends Channel>(channel: C, args: Args<C>): Promise<Result<Res<C>>>;
@@ -101,34 +102,31 @@ interface DemoRow extends TransactionRow {
   trashed: boolean;
 }
 
-// The rules a person might have after a few months: every match mode, each
-// condition, an exclude rule, and one switched off.
+// The rules a person might have after a few months: list rules (known
+// places), several conditions joined by all or any, every match mode, an
+// exclude rule, and one switched off.
 const SEED_RULES: RuleInput[] = [
-  seedRule("Salary", "equals", "משכורת", { accountId: BANK, direction: "in", setCategoryId: 7 }),
-  seedRule("Savings transfers", "starts_with", "העברה לחשבון חיסכון", { setExcluded: true }),
-  seedRule("Shufersal", "starts_with", "שופרסל", { setCategoryId: 11 }),
-  seedRule("Coffee on the go", "contains", "קפה", { amountMax: 6000, setCategoryId: 13 }),
-  seedRule("Wolt", "contains", "wolt", { setCategoryId: 12 }),
-  seedRule("Fuel at Paz", "starts_with", "פז", { accountId: CARD_MAIN, setCategoryId: 21 }),
-  seedRule("Streaming", "regex", "netflix|spotify", { setCategoryId: 33 }),
-  seedRule("Bit transfers", "starts_with", "העברה ב-BIT", { direction: "out", setCategoryId: 63, enabled: false }),
+  seedRule("Salary", [text("equals", ["משכורת"]), { kind: "account", accountId: BANK }, { kind: "direction", direction: "in" }], { setCategoryId: 7 }),
+  seedRule("Savings transfers", [text("starts_with", ["העברה לחשבון חיסכון"])], { setExcluded: true }),
+  seedRule("Groceries", [text("contains", ["שופרסל", "רמי לוי", "יוחננוף"])], { setCategoryId: 11 }),
+  seedRule("Coffee & Cafes", [text("contains", ["ארומה", "קופיקס", "קפה קפה", "לנדוור"])], { setCategoryId: 13 }),
+  seedRule("Restaurants", [text("contains", ["WOLT", "תן ביס"])], { setCategoryId: 12 }),
+  seedRule("Fuel on the everyday card", [text("starts_with", ["פז", "דלק", "סונול"]), { kind: "account", accountId: CARD_MAIN }], {
+    setCategoryId: 21,
+  }),
+  seedRule("Streaming", [text("regex", ["netflix|spotify"])], { setCategoryId: 33 }),
+  seedRule("Bit transfers", [text("starts_with", ["העברה ב-BIT"]), { kind: "direction", direction: "out" }], {
+    setCategoryId: 63,
+    enabled: false,
+  }),
 ];
 
-function seedRule(name: string, matchMode: RuleInput["matchMode"], matchText: string, rest: Partial<RuleInput>): RuleInput {
-  return {
-    name,
-    enabled: true,
-    matchField: "description",
-    matchMode,
-    matchText,
-    accountId: null,
-    amountMin: null,
-    amountMax: null,
-    direction: null,
-    setCategoryId: null,
-    setExcluded: null,
-    ...rest,
-  };
+function text(mode: RuleMatchMode, values: string[]): RuleCondition {
+  return { kind: "text", field: "description", mode, values };
+}
+
+function seedRule(name: string, conditions: RuleCondition[], rest: Partial<RuleInput>): RuleInput {
+  return { name, enabled: true, join: "all", conditions, setCategoryId: null, setExcluded: null, ...rest };
 }
 
 // ---- Deterministic randomness ----
@@ -394,28 +392,24 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
   const current = toIsoMonth(today);
   const rows = generate(today);
 
-  // Rules: rows a seeded rule fits are the rule's, every other sorted row the user's.
-  let rules: Rule[] = SEED_RULES.map((r, i) => ({ ...r, id: i + 1, position: i + 1 }));
-  let nextRuleId = rules.length + 1;
-  for (const rule of rules.filter((r) => r.enabled)) {
-    const fits = matcher(rule);
-    for (const r of rows.filter(fits)) {
-      if (rule.setCategoryId !== null) [r.categoryId, r.categorySource] = [null, null];
-      if (rule.setExcluded !== null) [r.excluded, r.excludedSource] = [false, null];
-    }
-  }
-  const reapply = () => {
-    applyRules(rows.filter((r) => !r.trashed), rules);
-    rows.forEach(derive);
-  };
-  reapply();
-
   const synced = new Date(today.getTime() - 2 * 3600 * 1000).toISOString();
   const accounts: Account[] = [
     { id: BANK, provider: "discount", kind: "bank", accountNumber: "0123456789", name: "Current account", cardMode: null, lastSyncedAt: synced },
     { id: CARD_MAIN, provider: "visaCal", kind: "card", accountNumber: "4821", name: "Everyday card", cardMode: "credit", lastSyncedAt: synced },
     { id: CARD_ONLINE, provider: "visaCal", kind: "card", accountNumber: "7390", name: "Online card", cardMode: "credit", lastSyncedAt: synced },
   ];
+
+  // Rules (spec 13): demo-rules.ts answers every rules channel, like core.
+  const rules = createDemoRules(
+    {
+      rows: () => rows,
+      listed: () => list({}),
+      accountIds: () => new Set(accounts.map((a) => a.id)),
+      categories: () => CATEGORIES,
+      changed: () => rows.forEach(derive),
+    },
+    SEED_RULES,
+  );
 
   const listeners = new Map<EventName, Set<(p: never) => void>>();
   const emit = <E extends EventName>(event: E, payload: IpcEvents[E]) => {
@@ -573,9 +567,19 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       .map(publicRow);
   }
 
-  function update(ids: number[], patch: TransactionPatch): Result<{ updated: number }> {
+  function update(ids: number[], patch: TransactionPatch): Result<Res<"transactions:update">> {
     if (!Array.isArray(ids) || ids.length === 0) return fail("BAD_REQUEST");
     if (patch.categoryId != null && !byId.has(patch.categoryId)) return fail("BAD_REQUEST");
+    // spec 13: Undo of Ignore puts back who excluded the row, as in core.
+    const source = patch.excludedSource === undefined ? "user" : patch.excludedSource;
+    if (patch.excludedSource !== undefined && patch.excluded === undefined) return fail("BAD_REQUEST");
+    const before =
+      patch.excluded === undefined
+        ? undefined
+        : rows
+            .filter((r) => ids.includes(r.id))
+            .sort((a, b) => a.id - b.id)
+            .map((r) => ({ id: r.id, excluded: r.excluded, excludedSource: r.excludedSource }));
     let updated = 0;
     for (const r of rows) {
       if (!ids.includes(r.id)) continue;
@@ -587,12 +591,13 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       if ("note" in patch) r.note = patch.note ?? null;
       if (patch.excluded !== undefined) {
         r.excluded = patch.excluded;
-        r.excludedSource = "user";
+        r.excludedSource = source;
       }
       derive(r);
       updated++;
     }
-    return ok({ updated });
+    if (source !== "user") rules.reapply();
+    return ok(before ? { updated, before } : { updated });
   }
 
   function setInternal(ids: unknown, internal: unknown): Result<{ updated: number }> {
@@ -630,7 +635,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       r.trashed = trashed;
       updated++;
     }
-    reapply();
+    rules.reapply();
     return ok({ updated });
   }
 
@@ -643,65 +648,6 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       }
     }
     return ok({ deleted });
-  }
-
-  // ---- Rules, answered like core: every change reapplies all rules ----
-
-  const accountIds = () => new Set(accounts.map((a) => a.id));
-  const categoryIds = new Set(CATEGORIES.map((c) => c.id));
-  const ordered = () => [...rules].sort((a, b) => a.position - b.position);
-  const renumber = (list: Rule[]) => {
-    rules = list.map((r, i) => ({ ...r, position: i + 1 }));
-  };
-
-  function createRule(input: unknown): Result<Rule> {
-    const rule = cleanRule(input, accountIds(), categoryIds);
-    if (!rule) return fail("BAD_REQUEST");
-    const saved: Rule = { ...rule, id: nextRuleId++, position: rules.length + 1 };
-    rules.push(saved);
-    reapply();
-    return ok(saved);
-  }
-
-  function updateRule(id: unknown, input: unknown): Result<Rule> {
-    const rule = cleanRule(input, accountIds(), categoryIds);
-    const old = rules.find((r) => r.id === id);
-    if (!rule || !old) return fail("BAD_REQUEST");
-    const saved: Rule = { ...rule, id: old.id, position: old.position };
-    rules = rules.map((r) => (r.id === old.id ? saved : r));
-    reapply();
-    return ok(saved);
-  }
-
-  function deleteRule(id: unknown): Result<null> {
-    if (!rules.some((r) => r.id === id)) return fail("BAD_REQUEST");
-    renumber(ordered().filter((r) => r.id !== id));
-    reapply();
-    return ok(null);
-  }
-
-  function reorderRules(ids: unknown): Result<null> {
-    const byRule = new Map(rules.map((r) => [r.id, r]));
-    if (!Array.isArray(ids) || ids.length !== rules.length || new Set(ids).size !== ids.length) return fail("BAD_REQUEST");
-    if (!ids.every((id) => byRule.has(id))) return fail("BAD_REQUEST");
-    renumber(ids.map((id) => byRule.get(id) as Rule));
-    reapply();
-    return ok(null);
-  }
-
-  /** Every row the conditions fit, whoever sorted it, newest first. */
-  function previewRule(input: unknown): Result<Res<"rules:preview">> {
-    const conditions = cleanConditions(input, accountIds());
-    if (!conditions) return fail("BAD_REQUEST");
-    const fits = matcher(conditions);
-    const all = list({}).filter(fits);
-    return ok({ matches: all.length, sample: all.slice(0, 20) });
-  }
-
-  function suggestRule(ids: unknown): Result<RuleInput> {
-    if (!validIds(ids)) return fail("BAD_REQUEST");
-    const draft = suggest(rows.filter((r) => ids.includes(r.id)).sort((a, b) => a.id - b.id));
-    return draft ? ok(draft) : fail("BAD_REQUEST");
   }
 
   // Demo card bills are fixed in advance, so switching mode only records it.
@@ -793,22 +739,8 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
         const a = args as Args<"accounts:setCardMode">;
         return setCardMode(a?.accountId, a?.mode);
       }
-      case "rules:list":
-        return ok(ordered());
-      case "rules:create":
-        return createRule(args);
-      case "rules:update": {
-        const a = args as Args<"rules:update">;
-        return updateRule(a?.id, a?.rule);
-      }
-      case "rules:delete":
-        return deleteRule((args as Args<"rules:delete">)?.id);
-      case "rules:reorder":
-        return reorderRules((args as Args<"rules:reorder">)?.ids);
-      case "rules:preview":
-        return previewRule(args);
-      case "rules:suggest":
-        return suggestRule((args as Args<"rules:suggest">)?.ids);
+      default:
+        return rules.answer(channel, args) ?? fail("BAD_REQUEST");
     }
   }
 

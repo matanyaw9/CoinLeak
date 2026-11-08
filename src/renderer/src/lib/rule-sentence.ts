@@ -1,8 +1,8 @@
-// A rule as one plain sentence: "When the description starts with שופרסל,
-// set Groceries." Returned as parts so screens can style the values the
-// user typed or chose; `sentenceText` joins them for tests and labels.
+// A rule as one plain sentence: "If the description contains Aroma, Cofix
+// or Landwer, set Coffee & Cafes." Returned as parts so screens can style
+// the values the user typed or chose; `sentenceText` joins them for tests.
 
-import type { Account, Agorot, Category, RuleInput } from "@shared/types";
+import type { Account, Agorot, Category, RuleCondition, RuleInput } from "@shared/types";
 import { s } from "@/strings";
 import { ils } from "./format";
 
@@ -19,10 +19,12 @@ export interface SentenceContext {
   account: (id: number) => Account | undefined;
 }
 
-type Rule = Pick<
-  RuleInput,
-  "matchField" | "matchMode" | "matchText" | "accountId" | "amountMin" | "amountMax" | "direction" | "setCategoryId" | "setExcluded"
->;
+type Rule = Pick<RuleInput, "join" | "conditions" | "setCategoryId" | "setExcluded">;
+
+export interface SentenceOptions {
+  /** Names shown per text condition before "or N more". */
+  maxValues?: number;
+}
 
 const text = (t: string): SentencePart => ({ kind: "text", text: t });
 const money = (a: Agorot): SentencePart => ({ kind: "money", text: ils(a, { decimals: a % 100 !== 0 }) });
@@ -32,27 +34,10 @@ export function accountName(a: Account): string {
   return `${a.name ?? s.providers[a.provider].short} ··${a.accountNumber.slice(-4)}`;
 }
 
-export function ruleSentence(rule: Rule, ctx: SentenceContext): SentencePart[] {
+export function ruleSentence(rule: Rule, ctx: SentenceContext, opts: SentenceOptions = {}): SentencePart[] {
   const w = s.rules.sentence;
-  const clauses: SentencePart[][] = [];
-
-  const typed = rule.matchMode === "regex" ? rule.matchText : rule.matchText.trim();
-  clauses.push([
-    text(`${w.field[rule.matchField]} ${w.mode[rule.matchMode]} `),
-    { kind: "value", text: typed === "" ? w.emptyText : typed },
-  ]);
-
-  if (rule.accountId !== null) {
-    const a = ctx.account(rule.accountId);
-    clauses.push([text(w.onAccount), { kind: "account", text: a ? accountName(a) : w.unknownAccount }]);
-  }
-  if (rule.direction !== null) clauses.push([text(w.direction[rule.direction])]);
-
-  const { amountMin: lo, amountMax: hi } = rule;
-  if (lo !== null && hi !== null && lo === hi) clauses.push([text(w.exactly), money(lo)]);
-  else if (lo !== null && hi !== null) clauses.push([text(w.between), money(lo), text(w.and), money(hi)]);
-  else if (lo !== null) clauses.push([text(w.atLeast), money(lo)]);
-  else if (hi !== null) clauses.push([text(w.atMost), money(hi)]);
+  const clauses = rule.conditions.map((c) => clause(c, ctx, opts.maxValues ?? Infinity));
+  if (clauses.length === 0) clauses.push([text(`${w.field.description} ${w.mode.contains} `), { kind: "value", text: w.emptyText }]);
 
   const actions: SentencePart[][] = [];
   if (rule.setCategoryId !== null) {
@@ -62,17 +47,44 @@ export function ruleSentence(rule: Rule, ctx: SentenceContext): SentencePart[] {
   if (rule.setExcluded !== null) actions.push([text(rule.setExcluded ? w.exclude : w.count)]);
   if (actions.length === 0) actions.push([text(w.noAction)]);
 
-  return merge([text(w.when), ...list(clauses), text(w.then), ...list(actions, true), text(w.end)]);
+  const joinWord = rule.join === "any" ? s.rulesV2.sentence.or : w.and;
+  return merge([text(w.when), ...list(clauses, joinWord), text(w.then), ...list(actions, w.and, true), text(w.end)]);
 }
+
+function clause(c: RuleCondition, ctx: SentenceContext, maxValues: number): SentencePart[] {
+  const w = s.rules.sentence;
+  const v2 = s.rulesV2.sentence;
+  if (c.kind === "text") {
+    const typed = c.values.map((v) => (c.mode === "regex" ? v : v.trim())).filter((v) => v !== "");
+    const shown: SentencePart[][] = typed.slice(0, maxValues).map((v) => [{ kind: "value", text: v }]);
+    if (typed.length > maxValues) shown.push([text(v2.more(typed.length - maxValues))]);
+    if (shown.length === 0) shown.push([{ kind: "value", text: w.emptyText }]);
+    return [text(`${w.field[c.field]} ${w.mode[c.mode]} `), ...list(shown, v2.or)];
+  }
+  if (c.kind === "account") {
+    const a = ctx.account(c.accountId);
+    return [text(w.onAccount), { kind: "account", text: a ? accountName(a) : c.accountId > 0 ? w.unknownAccount : w.emptyText }];
+  }
+  if (c.kind === "direction") return [text(w.direction[c.direction])];
+  const { min: lo, max: hi } = c;
+  if (lo !== null && hi !== null && lo === hi) return [text(w.exactly), money(lo)];
+  if (lo !== null && hi !== null) return [text(w.between), money(lo), text(w.and), money(hi)];
+  if (lo !== null) return [text(w.atLeast), money(lo)];
+  if (hi !== null) return [text(w.atMost), money(hi)];
+  return [text(v2.amountUnset)];
+}
+
+/** One condition alone as a phrase: "it's on Everyday card ··4821". */
+export const conditionPhrase = (c: RuleCondition, ctx: SentenceContext): SentencePart[] => merge(clause(c, ctx, Infinity));
 
 export const sentenceText = (parts: SentencePart[]) => parts.map((p) => p.text).join("");
 
-/** "a", "a and b", "a, b and c". Actions always join with "and". */
-function list(items: SentencePart[][], andOnly = false): SentencePart[] {
+/** "a", "a <last> b", "a, b <last> c". With `only`, every glue is `last`. */
+function list(items: SentencePart[][], last: string, only = false): SentencePart[] {
   const w = s.rules.sentence;
   return items.flatMap((item, i) => {
     if (i === 0) return item;
-    const glue = andOnly || i === items.length - 1 ? w.and : w.listComma;
+    const glue = only || i === items.length - 1 ? last : w.listComma;
     return [text(glue), ...item];
   });
 }

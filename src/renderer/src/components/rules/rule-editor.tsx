@@ -1,6 +1,7 @@
-// The rule editor dialog: name, what to match, optional conditions, what to
-// do, and an Advanced corner for patterns, with a live preview beside it
-// that asks the app what the rule fits today. Saving creates or updates.
+// The rule editor dialog: name, the "If" conditions (all or any), what to
+// do, the rows sorted by hand it would take over only if ticked, and an
+// Advanced corner, with a live preview beside it that asks the app what the
+// rule fits today. Saving creates or updates and says how many it sorted.
 
 import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
@@ -11,14 +12,15 @@ import { ApiError } from "@/lib/api";
 import { indexCategories } from "@/lib/categories";
 import { useAccounts, useCategories, useRulePreview } from "@/lib/hooks";
 import { useRuleActions } from "@/lib/rule-actions";
-import { checkForm, formFrom, MAX_NAME, MAX_TEXT, type RuleForm } from "@/lib/rule-form";
+import { checkForm, formFrom, MAX_NAME, type RuleForm } from "@/lib/rule-form";
 import { useDebounced } from "@/lib/use-debounced";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Segmented } from "@/components/common/segmented";
-import { AccountField, CategoryField, OptionRow, Problem, Section, fieldClass } from "./rule-fields";
+import { CategoryField, OptionRow, Problem, Section } from "./rule-fields";
+import { HandSetPrompt } from "./hand-set";
+import { RuleConditions } from "./rule-conditions";
 import { RulePreview } from "./rule-preview";
 import { RuleSentence, useSentenceContext } from "./rule-sentence";
 
@@ -27,11 +29,9 @@ export interface EditorRequest {
   rule?: Rule;
   /** A new rule's starting point, e.g. a suggestion from selected rows. */
   draft?: RuleInput;
-  /** Show the draft's account and amount span switched off. */
+  /** Set the draft's account and amount aside, to add with one click. */
   optIn?: boolean;
 }
-
-const PLAIN_MODES = ["contains", "starts_with", "equals"] as const;
 
 export function RuleEditor({
   request,
@@ -45,8 +45,12 @@ export function RuleEditor({
   const e = s.rules.editor;
   const editing = request.rule ?? null;
   const [form, setForm] = useState<RuleForm>(() => formFrom(request.rule ?? request.draft ?? null, { optIn: request.optIn }));
-  const [advanced, setAdvanced] = useState(form.matchMode === "regex" || form.exclusion === "count");
+  const [advanced, setAdvanced] = useState(
+    form.exclusion === "count" || form.conditions.some((c) => c.kind === "text" && c.mode === "regex"),
+  );
   const [tried, setTried] = useState(false);
+  // Unticked by default: rows the user sorted by hand stay theirs.
+  const [alsoChange, setAlsoChange] = useState(false);
   const set = (patch: Partial<RuleForm>) => setForm((f) => ({ ...f, ...patch }));
 
   const categories = useCategories();
@@ -60,13 +64,17 @@ export function RuleEditor({
   const previewInput = useMemo(() => JSON.parse(previewKey) as RuleInput | null, [previewKey]);
   const preview = useRulePreview(previewInput);
   const broken = previewInput !== null && preview.isError && preview.error instanceof ApiError && preview.error.code === "BAD_REQUEST";
-  const regex = form.matchMode === "regex";
+  const regex = form.conditions.some((c) => c.kind === "text" && c.mode === "regex");
+  // Rows sorted by hand that the rule would take over, for the category chosen now.
+  const fresh = previewInput !== null && previewInput.setCategoryId === form.setCategoryId && form.setCategoryId !== null;
+  const handSet = fresh && form.enabled ? (preview.data?.handSet ?? []) : [];
 
   const save = () => {
     setTried(true);
     if (!check.rule) return;
+    const ids = alsoChange ? handSet.map((r) => r.id) : [];
     actions
-      .save(editing?.id ?? null, check.rule)
+      .save(editing?.id ?? null, check.rule, ids)
       .then(() => onOpenChange(false))
       .catch(() => undefined);
   };
@@ -101,64 +109,18 @@ export function RuleEditor({
               />
             </Section>
 
-            <Section label={e.when}>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Segmented
-                  label={e.when}
-                  value={form.matchField}
-                  onChange={(matchField) => set({ matchField })}
-                  options={(["description", "memo"] as const).map((f) => ({ value: f, label: e.field[f] }))}
-                />
-                {regex ? (
-                  <span className="inline-flex h-9 items-center rounded-full bg-primary/10 px-3.5 text-sm font-medium text-primary">
-                    {e.patternMode}
-                  </span>
-                ) : (
-                  <Segmented
-                    value={form.matchMode}
-                    onChange={(matchMode) => set({ matchMode })}
-                    options={PLAIN_MODES.map((m) => ({ value: m, label: e.mode[m] }))}
-                  />
-                )}
-              </div>
-              <Input
-                value={form.matchText}
-                maxLength={MAX_TEXT}
-                onChange={(ev) => set({ matchText: ev.target.value })}
-                placeholder={regex ? e.patternPlaceholder : e.textPlaceholder}
-                className={cn("mt-3 h-11 rounded-xl text-[15px]", regex && "font-mono text-sm")}
-                dir="auto"
-                autoFocus={!editing && !request.draft}
-                spellCheck={false}
-              />
-              {broken && regex ? <Problem>{e.badPattern}</Problem> : tried && check.problems.text && <Problem>{check.problems.text}</Problem>}
-            </Section>
-
-            <Section label={e.onlyWhen} aside={e.optional}>
-              <div className="space-y-2.5">
-                <OptionRow on={form.useAccount} onToggle={(useAccount) => set({ useAccount })} label={e.account}>
-                  <AccountField
-                    accounts={accounts.data ?? []}
-                    value={form.accountId}
-                    onChange={(accountId) => set({ accountId, useAccount: true })}
-                  />
-                </OptionRow>
-                <OptionRow on={form.useAmount} onToggle={(useAmount) => set({ useAmount })} label={e.amount}>
-                  <ShekelInput value={form.amountMin} onChange={(amountMin) => set({ amountMin, useAmount: true })} />
-                  <span className="text-sm text-muted-foreground">{e.amountAnd}</span>
-                  <ShekelInput value={form.amountMax} onChange={(amountMax) => set({ amountMax, useAmount: true })} />
-                </OptionRow>
-                {form.useAmount && check.problems.amount && <Problem>{check.problems.amount}</Problem>}
-                <OptionRow on={form.useDirection} onToggle={(useDirection) => set({ useDirection })} label={e.direction}>
-                  <Segmented
-                    label={e.direction}
-                    value={form.direction}
-                    onChange={(direction) => set({ direction, useDirection: true })}
-                    options={(["out", "in"] as const).map((d) => ({ value: d, label: e.directionOption[d] }))}
-                  />
-                </OptionRow>
-              </div>
-            </Section>
+            <RuleConditions
+              join={form.join}
+              conditions={form.conditions}
+              suggested={form.suggested}
+              accounts={accounts.data ?? []}
+              context={context}
+              problems={check.problems.conditions}
+              showProblems={tried}
+              advanced={advanced}
+              autoFocus={!editing && !request.draft}
+              onChange={set}
+            />
 
             <Section label={e.then}>
               <div className="space-y-2.5">
@@ -178,6 +140,10 @@ export function RuleEditor({
               {tried && check.problems.action && <Problem>{check.problems.action}</Problem>}
             </Section>
 
+            {handSet.length > 0 && (
+              <HandSetPrompt rows={handSet} ticked={alsoChange} onTick={setAlsoChange} index={index} />
+            )}
+
             <section>
               <button
                 type="button"
@@ -190,12 +156,7 @@ export function RuleEditor({
               </button>
               {advanced && (
                 <div className="mt-3 space-y-2.5 animate-in fade-in-0 slide-in-from-top-1">
-                  <OptionRow
-                    on={regex}
-                    onToggle={(on) => set({ matchMode: on ? "regex" : "contains" })}
-                    label={e.regex}
-                    hint={e.regexHint}
-                  />
+                  <p className="text-xs text-muted-foreground">{regex ? e.regexHint : s.rulesV2.editor.patternHint}</p>
                   <OptionRow
                     on={form.exclusion === "count"}
                     onToggle={(on) => set({ exclusion: on ? "count" : "none" })}
@@ -210,7 +171,7 @@ export function RuleEditor({
 
           <aside className="flex min-h-0 flex-col border-s border-border bg-secondary/35">
             <RulePreview
-              waiting={previewInput === null && !check.problems.amount}
+              waiting={previewInput === null}
               data={previewInput ? preview.data : undefined}
               loading={preview.isFetching || JSON.stringify(check.preview) !== previewKey}
               broken={broken}
@@ -249,21 +210,5 @@ export function RuleEditor({
         </footer>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ShekelInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <span className={cn(fieldClass, "w-24 gap-1 px-2.5 focus-within:ring-2 focus-within:ring-ring/40")}>
-      <span className="text-muted-foreground">₪</span>
-      <input
-        value={value}
-        onChange={(ev) => onChange(ev.target.value)}
-        inputMode="decimal"
-        placeholder={s.rules.editor.anyAmount}
-        className="num w-full min-w-0 bg-transparent text-[15px] outline-none placeholder:font-sans placeholder:text-sm placeholder:text-muted-foreground/70"
-        dir="ltr"
-      />
-    </span>
   );
 }
