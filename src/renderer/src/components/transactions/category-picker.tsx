@@ -10,6 +10,12 @@ import { cn } from "@/lib/utils";
 import { pathOf, type CategoryIndex } from "@/lib/categories";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+const KIND_LABEL: Record<CategoryKind, () => string> = {
+  expense: () => s.picker.spending,
+  transfer: () => s.flow.pickerTransfer,
+  income: () => s.picker.income,
+};
+
 export function CategoryPicker({
   index,
   value,
@@ -42,7 +48,8 @@ export function CategoryPicker({
   }, [open]);
 
   const q = query.trim().toLowerCase();
-  const kinds: CategoryKind[] = preferKind === "income" ? ["income", "expense"] : ["expense", "income"];
+  // Transfers (savings, investments) can go either way, so they sit in the middle.
+  const kinds: CategoryKind[] = preferKind === "income" ? ["income", "transfer", "expense"] : ["expense", "transfer", "income"];
   const selectable = (c: Category) => !(index.children.get(c.id)?.length);
   const matches = q
     ? [...index.byId.values()].filter((c) => selectable(c) && pathOf(index, c).toLowerCase().includes(q))
@@ -111,7 +118,7 @@ export function CategoryPicker({
                 return (
                   <div key={kind} className="pb-1">
                     <div className="px-2 pt-2 pb-1 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                      {kind === "expense" ? s.picker.spending : s.picker.income}
+                      {KIND_LABEL[kind]()}
                     </div>
                     {roots.flatMap((r) => {
                       const kids = index.children.get(r.id) ?? [];

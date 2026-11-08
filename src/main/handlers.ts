@@ -11,6 +11,7 @@ import {
   listAccounts,
   listCategories,
   listTransactions,
+  monthFlow,
   monthSummary,
   restoreTransactions,
   setAccountsSyncing,
@@ -53,6 +54,7 @@ export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps)
     "summary:month": ({ month }) => monthSummary(db, month),
     "summary:trend": ({ months }) => trend(db, months),
     "summary:curves": (args) => categoryCurves(db, args),
+    "summary:flow": ({ month }) => monthFlow(db, month),
     "sync:start": ({ provider }) => sync.start(provider),
     "sync:cancel": () => {
       sync.cancel();

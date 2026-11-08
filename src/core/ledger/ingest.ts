@@ -129,6 +129,10 @@ function saveAccount(db: Db, ctx: SaveContext, rows: Incoming[], counts: Counts)
      WHERE id = ?`,
   );
   const revive = db.prepare("UPDATE transactions SET gone_at = NULL, updated_at = ? WHERE id = ?");
+  // A row the user deleted by emptying the Trash counts as already present.
+  const tombstoned = db.prepare(
+    "SELECT 1 FROM trash_tombstones WHERE account_id = ? AND dedup_hash = ? AND dedup_seq = ?",
+  );
 
   const matched = new Set<number>();
   const fresh: Incoming[] = [];
@@ -137,7 +141,7 @@ function saveAccount(db: Db, ctx: SaveContext, rows: Incoming[], counts: Counts)
       | { id: number; status: string; gone_at: string | null }
       | undefined;
     if (!existing) {
-      fresh.push(row);
+      if (tombstoned.get(accountId, row.hash, row.seq) === undefined) fresh.push(row);
       continue;
     }
     matched.add(existing.id);

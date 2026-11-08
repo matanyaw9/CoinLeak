@@ -8,11 +8,9 @@ import { s } from "@/strings";
 import { ApiError, call } from "@/lib/api";
 import { refreshRules } from "@/lib/hooks";
 
-/**
- * Every kind of `CategoryKind`, and whether the editor offers it. Spec 14
- * adds `transfer`; this record then stops compiling until it is listed here.
- */
-const KIND_OFFERED: Record<CategoryKind, boolean> = { expense: true, income: true };
+// Every kind of `CategoryKind`, and whether the editor offers it. A new kind
+// stops this record compiling until it is listed here.
+const KIND_OFFERED: Record<CategoryKind, boolean> = { expense: true, income: true, transfer: true };
 export const KINDS = (Object.keys(KIND_OFFERED) as CategoryKind[]).filter((k) => KIND_OFFERED[k]);
 
 export const kindLabel = (kind: CategoryKind): string => s.catEdit.kinds[kind] ?? kind;

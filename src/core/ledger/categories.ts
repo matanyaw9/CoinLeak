@@ -16,7 +16,7 @@ import { transaction, type Db } from "../db";
 import { listCategories } from "./queries";
 import { check, isId } from "./validate";
 
-const KINDS: readonly CategoryKind[] = ["expense", "income"];
+const KINDS: readonly CategoryKind[] = ["expense", "income", "transfer"];
 const NAME_MAX = 60;
 const EMOJI_MAX = 16;
 const COLOR = /^#[0-9A-Fa-f]{6}$/;
