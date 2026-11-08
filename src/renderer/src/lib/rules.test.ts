@@ -3,19 +3,28 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Rule, RuleInput } from "@shared/types";
-import { checkForm, formFrom, parseShekels, shekelText } from "./rule-form";
+import {
+  addValues,
+  blankCondition,
+  checkForm,
+  formFrom,
+  parseShekels,
+  shekelText,
+  splitValues,
+  type FormCondition,
+  type RuleForm,
+} from "./rule-form";
 import { moveId, restoreRule, toInput } from "./rules";
 
 const draft: RuleInput = {
   name: "שופרסל",
   enabled: true,
-  matchField: "description",
-  matchMode: "starts_with",
-  matchText: "שופרסל",
-  accountId: 2,
-  amountMin: 5800,
-  amountMax: 64050,
-  direction: null,
+  join: "all",
+  conditions: [
+    { kind: "text", field: "description", mode: "starts_with", values: ["שופרסל"] },
+    { kind: "account", accountId: 2 },
+    { kind: "amount", min: 5800, max: 64050 },
+  ],
   setCategoryId: 11,
   setExcluded: null,
 };
@@ -28,32 +37,72 @@ describe("rule form", () => {
     ]);
   });
 
-  it("shows a suggestion's account and amount span but leaves them off", () => {
+  it("sets a suggestion's account and amount aside until the user adds them", () => {
     const form = formFrom(draft, { optIn: true });
-    expect(form).toMatchObject({ useAccount: false, accountId: 2, useAmount: false, amountMin: "58", amountMax: "640.50" });
-    expect(checkForm(form).rule).toEqual({ ...draft, accountId: null, amountMin: null, amountMax: null });
-    expect(checkForm({ ...form, useAccount: true, useAmount: true }).rule).toEqual(draft);
+    expect(form.conditions.map((c) => c.kind)).toEqual(["text"]);
+    expect(form.suggested.map((c) => c.kind)).toEqual(["account", "amount"]);
+    expect(checkForm(form).rule).toEqual({ ...draft, conditions: [draft.conditions[0]] });
+    expect(checkForm({ ...form, conditions: [...form.conditions, ...form.suggested] }).rule).toEqual(draft);
   });
 
-  it("round-trips a saved rule, and names it after its text when the name is empty", () => {
-    const saved: RuleInput = { ...draft, direction: "out", setExcluded: false, enabled: false };
+  it("round-trips a saved rule, and names it after its names when the name is empty", () => {
+    const saved: RuleInput = { ...draft, join: "any", setExcluded: false, enabled: false };
     expect(checkForm(formFrom(saved)).rule).toEqual(saved);
-    expect(checkForm({ ...formFrom(saved), name: "  " }).rule?.name).toBe("שופרסל");
+    const list: RuleInput = { ...draft, conditions: [{ kind: "text", field: "description", mode: "contains", values: ["Aroma", "Cofix"] }] };
+    expect(checkForm({ ...formFrom(list), name: "  " }).rule?.name).toBe("Aroma, Cofix");
   });
 
-  it("explains what is missing, and previews before an action is chosen", () => {
+  it("takes several names as chips, counting what is still typed, without repeats", () => {
+    expect(splitValues(" Aroma, Cofix\nקפה  קפה ,, ")).toEqual(["Aroma", "Cofix", "קפה קפה"]);
+    expect(addValues(["Aroma"], ["aroma", "Cofix"])).toEqual(["Aroma", "Cofix"]);
+    const form = formFrom(null);
+    const [text] = form.conditions;
+    if (text?.kind !== "text") throw new Error("expected a text condition");
+    const typed = { ...form, setCategoryId: 13, conditions: [{ ...text, values: ["Aroma"], draft: "Cofix, aroma" }] };
+    expect(checkForm(typed).rule?.conditions).toEqual([{ kind: "text", field: "description", mode: "contains", values: ["Aroma", "Cofix"] }]);
+  });
+
+  it("explains what is missing per condition, and previews the finished ones", () => {
     const blank = checkForm(formFrom(null));
     expect(blank.rule).toBeNull();
     expect(blank.preview).toBeNull();
-    expect(Object.keys(blank.problems).sort()).toEqual(["action", "text"]);
+    expect(Object.values(blank.problems.conditions)).toHaveLength(1);
+    expect(blank.problems.action).toBeDefined();
 
-    const noAction = checkForm({ ...formFrom(null), matchText: " wolt " });
-    expect(noAction.preview).toMatchObject({ matchText: "wolt", setCategoryId: null, setExcluded: null });
-    expect(noAction.rule).toBeNull();
+    const form = formFrom(null);
+    const [text] = form.conditions;
+    if (text?.kind !== "text") throw new Error("expected a text condition");
+    const half = { ...form, conditions: [{ ...text, draft: " wolt " }, blankCondition("account")] };
+    const check = checkForm(half);
+    expect(check.rule).toBeNull();
+    expect(check.preview?.conditions).toEqual([{ kind: "text", field: "description", mode: "contains", values: ["wolt"] }]);
+    expect(Object.keys(check.problems.conditions)).toEqual([String(half.conditions[1]?.key)]);
 
-    const bad = checkForm({ ...formFrom(draft), amountMin: "700" });
-    expect(bad.problems.amount).toBeDefined();
-    expect(bad.preview).toBeNull();
+    const amount = { ...blankCondition("amount"), min: "700", max: "1" } as FormCondition;
+    expect(Object.values(checkForm({ ...half, conditions: [amount] }).problems.conditions)).toHaveLength(1);
+  });
+
+  it("builds an any rule from conditions of every kind", () => {
+    const form: RuleForm = {
+      ...formFrom(null),
+      join: "any",
+      setCategoryId: 21,
+      conditions: [
+        { key: 1, kind: "text", field: "memo", mode: "regex", values: [], draft: "paz|sonol" },
+        { key: 2, kind: "account", accountId: 3 },
+        { key: 3, kind: "amount", min: "", max: "60" },
+        { key: 4, kind: "direction", direction: "in" },
+      ],
+    };
+    expect(checkForm(form).rule).toMatchObject({
+      join: "any",
+      conditions: [
+        { kind: "text", field: "memo", mode: "regex", values: ["paz|sonol"] },
+        { kind: "account", accountId: 3 },
+        { kind: "amount", min: null, max: 6000 },
+        { kind: "direction", direction: "in" },
+      ],
+    });
   });
 });
 

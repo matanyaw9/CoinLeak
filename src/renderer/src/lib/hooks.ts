@@ -70,6 +70,9 @@ export function refreshRules(client: QueryClient): Promise<void> {
   return Promise.all([
     client.invalidateQueries({ queryKey: ["rules:list"] }),
     client.invalidateQueries({ queryKey: ["rules:preview"] }),
+    // spec 13: known places and starter lists read the rules too.
+    client.invalidateQueries({ queryKey: ["rules:knownPlaces"] }),
+    client.invalidateQueries({ queryKey: ["rules:starters"] }),
     refreshLedger(client),
   ]).then(() => undefined);
 }
