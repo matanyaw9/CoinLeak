@@ -313,7 +313,72 @@ describe("updateTransactions", () => {
     expect(() => updateTransactions(db, [a], { categoryId: 99999 })).toThrow("BAD_REQUEST");
     expect(() => updateTransactions(db, [0], { note: "x" })).toThrow("BAD_REQUEST");
     expect(() => updateTransactions(db, [a], { excluded: "yes" as never })).toThrow("BAD_REQUEST");
+    expect(() => updateTransactions(db, [a], { note: "x", excludedSource: "rule" })).toThrow("BAD_REQUEST");
+    expect(() => updateTransactions(db, [a], { excluded: true, excludedSource: "bank" as never })).toThrow(
+      "BAD_REQUEST",
+    );
     expect(stored(db, a)).toEqual(before);
+  });
+});
+
+describe("undo Ignore (spec 13)", () => {
+  const exclusion = (db: Db, id: number) => {
+    const r = stored(db, id);
+    return { excluded: r.excluded, excluded_source: r.excluded_source, rule_id: r.rule_id };
+  };
+
+  it("restores each row's previous excluded and excluded_source exactly", () => {
+    const db = newDb();
+    ingest(
+      db,
+      [
+        bank([
+          txn({ date: "2026-03-01", amount: -100, description: "never excluded" }),
+          txn({ date: "2026-03-02", amount: -200, description: "counted by a rule" }),
+          txn({ date: "2026-03-03", amount: -300, description: "counted by the user" }),
+        ]),
+      ],
+      { now: NOW },
+    );
+    createRule(db, ruleInput({ matchText: "counted by a rule", setExcluded: false }));
+    const [plain, ruled, user] = ["never excluded", "counted by a rule", "counted by the user"].map((d) => idOf(db, d));
+    updateTransactions(db, [user as number], { excluded: false });
+    const ids = [plain, ruled, user] as number[];
+    const before = ids.map((id) => exclusion(db, id));
+
+    const ignore = updateTransactions(db, ids, { excluded: true });
+    expect(ignore.before).toEqual([
+      { id: plain, excluded: false, excludedSource: null },
+      { id: ruled, excluded: false, excludedSource: "rule" },
+      { id: user, excluded: false, excludedSource: "user" },
+    ]);
+    // What the window's Undo sends: one call per previous state.
+    for (const state of ignore.before ?? []) {
+      updateTransactions(db, [state.id], { excluded: state.excluded, excludedSource: state.excludedSource });
+    }
+    expect(ids.map((id) => exclusion(db, id))).toEqual(before);
+  });
+
+  it("a row handed back to the rules can be excluded by a rule again", () => {
+    const db = newDb();
+    ingest(db, [bank([txn({ date: "2026-03-01", amount: -100, description: "העברה לחיסכון" })])], { now: NOW });
+    const id = idOf(db, "העברה לחיסכון");
+    const ignore = updateTransactions(db, [id], { excluded: true });
+    updateTransactions(db, [id], { excluded: false, excludedSource: ignore.before?.[0]?.excludedSource ?? null });
+    const rule = createRule(db, ruleInput({ matchText: "העברה", setExcluded: true }));
+    expect(exclusion(db, id)).toEqual({ excluded: 1, excluded_source: "rule", rule_id: rule.id });
+  });
+
+  it("restores a rule's exclusion after Count again", () => {
+    const db = newDb();
+    ingest(db, [bank([txn({ date: "2026-03-01", amount: -100, description: "העברה לחיסכון" })])], { now: NOW });
+    const rule = createRule(db, ruleInput({ matchText: "העברה", setExcluded: true }));
+    const id = idOf(db, "העברה לחיסכון");
+    const count = updateTransactions(db, [id], { excluded: false });
+    expect(exclusion(db, id)).toMatchObject({ excluded: 0, excluded_source: "user" });
+    const [state] = count.before ?? [];
+    updateTransactions(db, [id], { excluded: state?.excluded ?? true, excludedSource: state?.excludedSource ?? null });
+    expect(exclusion(db, id)).toEqual({ excluded: 1, excluded_source: "rule", rule_id: rule.id });
   });
 });
 

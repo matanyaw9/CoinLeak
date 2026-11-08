@@ -1,8 +1,9 @@
 // A draft rule from rows the user selected: `starts_with` on their longest
-// common description prefix (the full text for one row), plus the account,
-// amount span and category they share. The window lets the user edit it.
+// common description prefix (the full text for one row), plus the account
+// and amount span they share as further conditions, and their shared
+// category. The window shows the account and amount off until opted in.
 
-import type { RuleInput } from "@shared/types";
+import type { RuleCondition, RuleInput } from "@shared/types";
 import type { Db } from "../db";
 import { assertIds, check } from "../ledger/validate";
 import { cleanText } from "./match";
@@ -25,19 +26,18 @@ export function suggestRule(db: Db, ids: number[]): RuleInput {
     .all(JSON.stringify(ids)) as unknown as PickedRow[];
   check(rows.length > 0);
 
-  const matchText = commonPrefix(rows.map((r) => cleanText(r.description)));
+  const text = commonPrefix(rows.map((r) => cleanText(r.description)));
   const sizes = rows.map((r) => Math.abs(r.amount));
+  const accountId = shared(rows.map((r) => r.account_id));
+  // No direction condition, so the merchant's refunds get the same category.
+  const conditions: RuleCondition[] = [{ kind: "text", field: "description", mode: "starts_with", values: [text] }];
+  if (accountId !== null) conditions.push({ kind: "account", accountId });
+  conditions.push({ kind: "amount", min: Math.min(...sizes), max: Math.max(...sizes) });
   return {
-    name: matchText,
+    name: text,
     enabled: true,
-    matchField: "description",
-    matchMode: "starts_with",
-    matchText,
-    accountId: shared(rows.map((r) => r.account_id)),
-    amountMin: Math.min(...sizes),
-    amountMax: Math.max(...sizes),
-    // Left open, so the merchant's refunds get the same category.
-    direction: null,
+    join: "all",
+    conditions,
     setCategoryId: shared(rows.map((r) => r.category_id)),
     setExcluded: null,
   };

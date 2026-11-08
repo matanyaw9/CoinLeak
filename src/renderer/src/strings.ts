@@ -308,7 +308,7 @@ export const s = {
     savedBody: "It sorts matching transactions, past and future.",
 
     sentence: {
-      when: "When ",
+      when: "If ",
       field: { description: "the description", memo: "the memo" },
       mode: { contains: "contains", starts_with: "starts with", equals: "is exactly", regex: "matches the pattern" },
       onAccount: "it's on ",
@@ -338,7 +338,7 @@ export const s = {
       draftSubtitle: "Drafted from the transactions you picked. Change anything you like.",
       name: "Name",
       namePlaceholder: "Optional. Named after the text if left empty",
-      when: "When",
+      when: "If",
       field: { description: "Description", memo: "Memo" },
       mode: { contains: "Contains", starts_with: "Starts with", equals: "Is exactly" },
       patternMode: "Pattern",
@@ -586,6 +586,93 @@ export const s = {
     removedIntro: "These no longer sync. Their transactions stay and keep counting.",
     addBack: "Add back",
     addedBack: (label: string) => `${label} syncs again`,
+  },
+
+  // spec 13
+  rulesV2: {
+    sentence: {
+      or: " or ",
+      more: (n: number) => `${n} more`,
+      amountUnset: "the amount is …",
+    },
+    editor: {
+      joinLabel: "Conditions must",
+      join: { all: "All match", any: "Any matches" },
+      joinWord: { all: "and", any: "or" },
+      addCondition: "Add a condition",
+      kind: { text: "Text", account: "Account", amount: "Amount", direction: "Money in or out" },
+      kindHint: {
+        text: "The description or memo",
+        account: "Only on one bank or card",
+        amount: "Between two amounts",
+        direction: "Money going out or coming in",
+      },
+      remove: "Remove this condition",
+      valuesPlaceholder: "Type a name, then Enter",
+      valuesMore: "Add another",
+      valuesHint: "Any of these names fits. Press Enter or a comma after each.",
+      removeValue: (v: string) => `Remove ${v}`,
+      onAccount: "It's on",
+      amountIs: "The amount is between",
+      directionIs: "The money is",
+      pattern: "Pattern",
+      patternHint: "Text conditions can now match a Pattern: a regular expression, for experts.",
+      needsAccount: "Choose an account.",
+      needsAmount: "Type at least one amount.",
+      suggested: "Suggested",
+      suggestedHint: "From the transactions you picked. Add any that help.",
+    },
+    handSet: {
+      question: (n: number) =>
+        n === 1 ? "Also change 1 transaction you categorized by hand?" : `Also change ${n} transactions you categorized by hand?`,
+      hint: "You put them in another category. Left unticked, they stay as you set them.",
+      more: (n: number) => `and ${n} more`,
+    },
+    saved: (name: string) => `Saved “${name}”`,
+    applied: (n: number) =>
+      n === 0 ? "Fits no transactions yet. It sorts new ones after every sync." : `Applied to ${plural(n, "transaction", "transactions")}.`,
+    applyNow: "Apply now",
+    applyHint: "Run every rule over every transaction again",
+    appliedAll: (n: number) =>
+      n === 0 ? "Rules applied. Nothing needed changing." : `Rules applied. ${plural(n, "transaction", "transactions")} changed.`,
+    appliedAllBody: (n: number) => `Rules sort ${plural(n, "transaction", "transactions")} in all.`,
+    starters: {
+      open: "Add starter lists",
+      title: "Add starter lists",
+      intro:
+        "Lists of common Israeli shops, spelled the way banks print them. Each becomes an ordinary rule you can edit or delete.",
+      names: {
+        supermarkets: "Supermarkets",
+        cafes: "Cafes",
+        restaurants: "Restaurants and delivery",
+        fuel: "Fuel and parking",
+        pharmacies: "Pharmacies",
+        publicTransport: "Public transport",
+        telecom: "Phone and internet",
+        streaming: "Streaming",
+      } as Record<string, string>,
+      fallbackName: "Starter list",
+      into: (category: string) => `into ${category}`,
+      sorts: (n: number) => (n === 0 ? "Sorts nothing yet" : `Sorts ${plural(n, "transaction", "transactions")}`),
+      more: (n: number) => `+${n} more`,
+      total: (n: number) => `Would sort ${plural(n, "transaction", "transactions")} you have now.`,
+      nothing: "You already have every starter list, or their categories were renamed.",
+      add: (n: number) => (n === 1 ? "Add 1 list" : `Add ${n} lists`),
+      cancel: "Cancel",
+      added: (n: number) => (n === 1 ? "Added 1 starter list" : `Added ${n} starter lists`),
+      addedBody: (n: number) => `${plural(n, "transaction", "transactions")} changed. Edit or delete them like any rule.`,
+      handSetNote: "Transactions you categorized by hand keep their category.",
+    },
+    knownPlaces: {
+      add: (business: string, category: string) => `Add ${business} to known places of ${category}`,
+      addHint: "Sorts it there from now on",
+      added: (business: string, category: string) => `${business} is a known place of ${category}`,
+      already: (business: string, category: string) => `${business} was already a known place of ${category}`,
+      body: (n: number) =>
+        n === 0 ? "Nothing else needed sorting." : `${plural(n, "transaction", "transactions")} sorted.`,
+      offerYes: "Yes, always",
+      offerRule: "Make a rule",
+    },
   },
 };
 

@@ -12,7 +12,10 @@ import type {
   CategoryDeleteResult,
   CategoryInput,
   CategoryPatch,
+  ExclusionState,
   IsoMonth,
+  KnownPlaceAdded,
+  KnownPlaces,
   MoneyFlow,
   MonthSummary,
   ProviderId,
@@ -21,6 +24,10 @@ import type {
   RulePreview,
   SettingEntry,
   SettingKey,
+  RuleSaved,
+  RulesApplied,
+  StarterPreview,
+  StartersAdded,
   SyncProgress,
   SyncResult,
   TransactionFilter,
@@ -35,7 +42,11 @@ export interface IpcContract {
   "accounts:list": { args: undefined; result: Account[] };
   "categories:list": { args: undefined; result: Category[] };
   "transactions:list": { args: TransactionFilter; result: TransactionRow[] };
-  "transactions:update": { args: { ids: number[]; patch: TransactionPatch }; result: { updated: number } };
+  /** With `excluded` in the patch, `before` holds each named row's exclusion as it was, for Undo (spec 13). */
+  "transactions:update": {
+    args: { ids: number[]; patch: TransactionPatch };
+    result: { updated: number; before?: ExclusionState[] };
+  };
   /** The user's word on card bills: true internal, false spending, null back to automatic. */
   "transactions:setInternal": { args: { ids: number[]; internal: boolean | null }; result: { updated: number } };
   /** Only rows with status `gone` can be deleted. */
@@ -74,6 +85,23 @@ export interface IpcContract {
   "accounts:setSyncing": { args: { ids: number[]; enabled: boolean }; result: { updated: number } };
   "settings:get": { args: { key: SettingKey }; result: AppSettings[SettingKey] };
   "settings:set": { args: SettingEntry; result: null };
+  // ---- spec 13 ----
+  /**
+   * Creates (`id` null) or updates a rule and reapplies all rules. `alsoChange`
+   * names rows the user sorted by hand (from the preview's `handSet`) that this
+   * rule may take over once; any other row the user set stays as it is.
+   */
+  "rules:save": { args: { id: number | null; rule: RuleInput; alsoChange?: number[] }; result: RuleSaved };
+  /** Reapplies every rule to every row now. */
+  "rules:apply": { args: undefined; result: RulesApplied };
+  /** Per category, the names in its list rules, in category id order. Only categories that have some. */
+  "rules:knownPlaces": { args: undefined; result: KnownPlaces[] };
+  /** Appends a name to the category's first list rule, or makes one, then reapplies. */
+  "rules:addKnownPlace": { args: { categoryId: number; name: string }; result: KnownPlaceAdded };
+  /** The starter lists on offer and what they would sort. Saves nothing. */
+  "rules:starters": { args: undefined; result: StarterPreview };
+  /** Adds the chosen starter lists as ordinary list rules, then reapplies. */
+  "rules:addStarters": { args: { keys: string[] }; result: StartersAdded };
 }
 
 export interface IpcEvents {
@@ -116,6 +144,12 @@ export const CHANNELS = [
   "accounts:setSyncing",
   "settings:get",
   "settings:set",
+  "rules:save",
+  "rules:apply",
+  "rules:knownPlaces",
+  "rules:addKnownPlace",
+  "rules:starters",
+  "rules:addStarters",
 ] as const satisfies readonly Channel[];
 
 export const EVENTS = ["sync:progress"] as const satisfies readonly EventName[];

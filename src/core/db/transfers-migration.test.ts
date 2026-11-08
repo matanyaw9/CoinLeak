@@ -37,14 +37,15 @@ describe("migration 0006 (transfers)", () => {
     const db = databaseAt5();
     const categories = all(db, "SELECT * FROM categories ORDER BY id");
     const transactions = all(db, "SELECT * FROM transactions ORDER BY id");
-    const rules = all(db, "SELECT * FROM rules ORDER BY id");
+    // 0007 (spec 13) reshapes rules after this; their category links must hold.
+    const rules = all(db, "SELECT id, name, set_category_id FROM rules ORDER BY id");
 
     migrate(db);
 
     const after = all(db, "SELECT * FROM categories ORDER BY id");
     expect(after.slice(0, categories.length)).toEqual(categories);
     expect(all(db, "SELECT * FROM transactions ORDER BY id")).toEqual(transactions);
-    expect(all(db, "SELECT * FROM rules ORDER BY id")).toEqual(rules);
+    expect(all(db, "SELECT id, name, set_category_id FROM rules ORDER BY id")).toEqual(rules);
     expect(all(db, "PRAGMA foreign_key_check")).toEqual([]);
     expect(db.prepare("SELECT COUNT(*) AS n FROM transactions WHERE category_id IS NOT NULL").get()).toEqual({ n: 4 });
   });

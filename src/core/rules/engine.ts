@@ -4,7 +4,7 @@
 // cleared when no rule matches any more, so editing a rule fixes old rows.
 // Trashed rows are left alone until the user restores them.
 
-import type { CategorySource } from "@shared/types";
+import type { CategorySource, Rule } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { applyCardBills } from "../ledger/card-bills";
 import { assertIds, check, isId } from "../ledger/validate";
@@ -19,8 +19,18 @@ export interface RuleRunStats {
   changed: number;
 }
 
+/** A run's stats plus, per rule id, the rows in scope that rule sorts now. */
+export interface RuleRunDetail extends RuleRunStats {
+  applied: Map<number, number>;
+  /** Rows in scope some rule sorts now. */
+  sorted: number;
+}
+
 type Bit = 0 | 1;
 type ExcludedSource = "user" | "rule";
+
+/** What the engine needs from a rule; `id` may be a stand-in for a rule not saved yet. */
+export type RuleLike = Pick<Rule, "id" | "enabled" | "join" | "conditions" | "setCategoryId" | "setExcluded">;
 
 interface CompiledRule {
   id: number;
@@ -38,12 +48,18 @@ interface RuleFields {
   rule_id: number | null;
 }
 
-interface StoredRow extends RuleFields {
+export interface StoredRow extends RuleFields {
   id: number;
   account_id: number;
   amount: number;
   description: string;
   memo: string | null;
+}
+
+interface Decision {
+  next: RuleFields;
+  categoryRule: number | null;
+  excludedRule: number | null;
 }
 
 const FIELD_KEYS: (keyof RuleFields)[] = ["category_id", "category_source", "excluded", "excluded_source", "rule_id"];
@@ -55,24 +71,28 @@ export function applyRules(db: Db, scope: RuleScope, now = new Date()): RuleRunS
 
 /** Same as `applyRules`, for callers already inside a transaction (ingest). */
 export function applyRulesInTransaction(db: Db, scope: RuleScope, now = new Date()): RuleRunStats {
+  const { changed } = runRules(db, scope, now);
+  return { changed };
+}
+
+/** Applies the rules and also counts what each rule sorts now. Inside a transaction. */
+export function runRules(db: Db, scope: RuleScope, now = new Date()): RuleRunDetail {
   assertScope(scope);
-  const rules: CompiledRule[] = loadRules(db)
-    .filter((r) => r.enabled)
-    .map((r) => ({
-      id: r.id,
-      matches: compileMatcher(r),
-      setCategoryId: r.setCategoryId,
-      setExcluded: r.setExcluded === null ? null : r.setExcluded ? 1 : 0,
-    }));
+  const rules = compileRules(loadRules(db));
   const update = db.prepare(
     `UPDATE transactions SET category_id = ?, category_source = ?, excluded = ?, excluded_source = ?, rule_id = ?,
        updated_at = ? WHERE id = ?`,
   );
   const at = now.toISOString();
+  const applied = new Map<number, number>();
   let changed = 0;
+  let sorted = 0;
   let exclusionChanged = false;
   for (const row of loadRows(db, scope)) {
-    const next = decide(row, rules);
+    const { next, categoryRule, excludedRule } = decide(row, rules);
+    const by = new Set([categoryRule, excludedRule].filter((id) => id !== null));
+    by.forEach((id) => applied.set(id, (applied.get(id) ?? 0) + 1));
+    if (by.size > 0) sorted++;
     if (FIELD_KEYS.every((k) => row[k] === next[k])) continue;
     update.run(...FIELD_KEYS.map((k) => next[k]), at, row.id);
     changed++;
@@ -80,15 +100,42 @@ export function applyRulesInTransaction(db: Db, scope: RuleScope, now = new Date
   }
   // Excluded bank lines are frozen for the card-bill matcher, so rematch.
   if (exclusionChanged) applyCardBills(db);
-  return { changed };
+  return { changed, applied, sorted };
 }
 
-function decide(row: StoredRow, rules: CompiledRule[]): RuleFields {
+/**
+ * Without writing anything: per rule id, the rows whose category that rule
+ * would set if `rules` were the rules, in this order. For offers such as the
+ * starter lists, whose rules are not saved yet.
+ */
+export function wouldCategorize(db: Db, rules: RuleLike[]): Map<number, StoredRow[]> {
+  const compiled = compileRules(rules);
+  const out = new Map<number, StoredRow[]>();
+  for (const row of loadRows(db, "all")) {
+    const { next, categoryRule } = decide(row, compiled);
+    if (categoryRule === null || next.category_id === row.category_id) continue;
+    out.set(categoryRule, [...(out.get(categoryRule) ?? []), row]);
+  }
+  return out;
+}
+
+function compileRules(rules: RuleLike[]): CompiledRule[] {
+  return rules
+    .filter((r) => r.enabled)
+    .map((r) => ({
+      id: r.id,
+      matches: compileMatcher(r),
+      setCategoryId: r.setCategoryId,
+      setExcluded: r.setExcluded === null ? null : r.setExcluded ? 1 : 0,
+    }));
+}
+
+function decide(row: StoredRow, rules: CompiledRule[]): Decision {
   const userCategory = row.category_source === "user";
   // An exclusion with no source predates rules, so it is the user's.
   const userExcluded = row.excluded_source === "user" || (row.excluded === 1 && row.excluded_source === null);
   const next: RuleFields = { ...pickFields(row), rule_id: null };
-  if (userCategory && userExcluded) return next;
+  if (userCategory && userExcluded) return { next, categoryRule: null, excludedRule: null };
 
   const { account_id: accountId, amount, description, memo } = row;
   const facts = prepareRow({ accountId, amount, description, memo });
@@ -123,7 +170,7 @@ function decide(row: StoredRow, rules: CompiledRule[]): RuleFields {
   // The last rule in order that set something here.
   const applied = rules.filter((r) => r === categoryRule || r === excludedRule);
   next.rule_id = applied.at(-1)?.id ?? null;
-  return next;
+  return { next, categoryRule: categoryRule?.id ?? null, excludedRule: excludedRule?.id ?? null };
 }
 
 function pickFields(row: StoredRow): RuleFields {
@@ -136,7 +183,7 @@ function pickFields(row: StoredRow): RuleFields {
   };
 }
 
-function loadRows(db: Db, scope: RuleScope): StoredRow[] {
+export function loadRows(db: Db, scope: RuleScope): StoredRow[] {
   const select = `SELECT id, account_id, amount, description, memo, category_id, category_source, excluded,
     excluded_source, rule_id FROM transactions WHERE trashed_at IS NULL`;
   if (scope === "all") return db.prepare(`${select} ORDER BY id`).all() as unknown as StoredRow[];
