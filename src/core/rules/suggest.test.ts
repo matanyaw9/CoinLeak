@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ingest } from "../ledger/ingest";
 import { listTransactions, updateTransactions } from "../ledger/queries";
 import { NOW, accountId, bank, card, categoryId, charge, idOf, idsOf, newDb, txn } from "../testing/ledger";
-import { lastRunId } from "../testing/rules";
+import { lastRunId, textValues } from "../testing/rules";
 import { applyRules } from "./engine";
 import { createRule } from "./queries";
 import { commonPrefix, suggestRule } from "./suggest";
@@ -27,13 +27,12 @@ describe("suggestRule", () => {
     expect(suggestRule(db, ids)).toEqual({
       name: "שופרסל",
       enabled: true,
-      matchField: "description",
-      matchMode: "starts_with",
-      matchText: "שופרסל",
-      accountId: accountId(db, "visaCal", "4321"),
-      amountMin: 8550,
-      amountMax: 30100,
-      direction: null,
+      join: "all",
+      conditions: [
+        { kind: "text", field: "description", mode: "starts_with", values: ["שופרסל"] },
+        { kind: "account", accountId: accountId(db, "visaCal", "4321") },
+        { kind: "amount", min: 8550, max: 30100 },
+      ],
       setCategoryId: categoryId(db, "Groceries"),
       setExcluded: null,
     });
@@ -43,10 +42,11 @@ describe("suggestRule", () => {
     const db = newDb();
     ingest(db, [bank([txn({ date: "2026-03-01", amount: -4990, description: " נטפליקס  ישראל " })])], { now: NOW });
     expect(suggestRule(db, [idOf(db, " נטפליקס  ישראל ")])).toMatchObject({
-      matchMode: "starts_with",
-      matchText: "נטפליקס ישראל",
-      amountMin: 4990,
-      amountMax: 4990,
+      conditions: [
+        { kind: "text", mode: "starts_with", values: ["נטפליקס ישראל"] },
+        { kind: "account" },
+        { kind: "amount", min: 4990, max: 4990 },
+      ],
       setCategoryId: null,
     });
   });
@@ -58,11 +58,10 @@ describe("suggestRule", () => {
     const ids = idsOf(db, "קפה גרג");
     updateTransactions(db, ids.slice(0, 1), { categoryId: categoryId(db, "Coffee & Cafes") });
     expect(suggestRule(db, ids)).toMatchObject({
-      matchText: "קפה גרג",
-      accountId: null,
-      amountMin: 500,
-      amountMax: 1000,
-      direction: null,
+      conditions: [
+        { kind: "text", values: ["קפה גרג"] },
+        { kind: "amount", min: 500, max: 1000 },
+      ],
       setCategoryId: null,
     });
   });
@@ -70,7 +69,7 @@ describe("suggestRule", () => {
   it("skips unknown ids and rejects a selection with no known row", () => {
     const db = newDb();
     ingest(db, [bank([txn({ date: "2026-03-01", amount: -100, description: "מכולת" })])], { now: NOW });
-    expect(suggestRule(db, [idOf(db, "מכולת"), 999]).matchText).toBe("מכולת");
+    expect(textValues(suggestRule(db, [idOf(db, "מכולת"), 999]))).toEqual(["מכולת"]);
     expect(() => suggestRule(db, [999])).toThrow("BAD_REQUEST");
     expect(() => suggestRule(db, [])).toThrow("BAD_REQUEST");
     expect(() => suggestRule(db, [0])).toThrow("BAD_REQUEST");
@@ -90,7 +89,8 @@ describe("suggestRule", () => {
     );
     const picked = listTransactions(db).map((t) => t.id);
     updateTransactions(db, picked, { categoryId: categoryId(db, "Groceries") });
-    createRule(db, { ...suggestRule(db, picked), amountMin: null, amountMax: null });
+    const draft = suggestRule(db, picked);
+    createRule(db, { ...draft, conditions: draft.conditions.filter((c) => c.kind !== "amount") });
 
     ingest(db, [card("4321", [charge("2026-03-20", -4400, "שופרסל דיל חולון", "2026-04-10")])], { now: NOW });
     applyRules(db, { runId: lastRunId(db) });

@@ -4,7 +4,7 @@ import type { Db } from "../db";
 import { ingest } from "../ledger/ingest";
 import { updateTransactions } from "../ledger/queries";
 import { NOW, accountId, bank, card, categoryId, charge, idOf, newDb, snapshot, stored, txn } from "../testing/ledger";
-import { ruleFields, ruleInput } from "../testing/rules";
+import { ruleFields, ruleInput, textValues } from "../testing/rules";
 import { createRule, deleteRule, listRules, previewRule, reorderRules, updateRule } from "./queries";
 
 const out = (date: string, amount: number, description: string) => txn({ date, amount, description });
@@ -41,9 +41,9 @@ describe("the rules list", () => {
   it("stores the text cleaned of extra whitespace, and a regex exactly as typed", () => {
     const db = coffeeLedger();
     const action = { setCategoryId: categoryId(db, "Coffee & Cafes") };
-    expect(createRule(db, ruleInput({ matchText: "  קפה   הפינה ", ...action })).matchText).toBe("קפה הפינה");
-    expect(createRule(db, ruleInput({ matchMode: "regex", matchText: "^קפה  ?\\S+$", ...action })).matchText).toBe(
-      "^קפה  ?\\S+$",
+    expect(textValues(createRule(db, ruleInput({ matchText: "  קפה   הפינה ", ...action })))).toEqual(["קפה הפינה"]);
+    expect(textValues(createRule(db, ruleInput({ matchMode: "regex", matchText: "^קפה  ?\\S+$", ...action })))).toEqual(
+      ["^קפה  ?\\S+$"],
     );
   });
 
@@ -199,37 +199,48 @@ describe("rejected rules", () => {
     const regex = (matchText: string): RuleInput =>
       ruleInput({ name: "regex", matchMode: "regex", matchText, setCategoryId: categoryId(db, "Restaurants") });
     for (const bad of [regex("(קפה"), regex("[a-"), regex("a".repeat(201)), regex("   ")]) {
-      expect(() => createRule(db, bad), bad.matchText).toThrow("BAD_REQUEST");
-      expect(() => updateRule(db, kept.id, bad), bad.matchText).toThrow("BAD_REQUEST");
+      expect(() => createRule(db, bad), textValues(bad)[0]).toThrow("BAD_REQUEST");
+      expect(() => updateRule(db, kept.id, bad), textValues(bad)[0]).toThrow("BAD_REQUEST");
     }
     expect(snapshot(db)).toEqual(rows);
     expect(listRules(db)).toEqual(rules);
 
     // 200 characters is the limit, not over it.
-    expect(createRule(db, regex(`^${"ק".repeat(199)}`)).matchText).toHaveLength(200);
+    expect(textValues(createRule(db, regex(`^${"ק".repeat(199)}`)))[0]).toHaveLength(200);
   });
 
   it("rejects malformed rules, unknown references and rules with no action", () => {
     const db = coffeeLedger();
     const good = ruleInput({ matchText: "קפה", setCategoryId: categoryId(db, "Coffee & Cafes") });
+    const with1 = (condition: unknown) => ({ ...good, conditions: [good.conditions[0], condition] });
+    const many = (n: number) => Array.from({ length: n }, (_, i) => `name ${i}`);
     const bad: [string, unknown][] = [
       ["not an object", null],
       ["no action", { ...good, setCategoryId: null }],
       ["blank name", { ...good, name: "   " }],
       ["long name", { ...good, name: "x".repeat(101) }],
-      ["blank text", { ...good, matchText: " \t " }],
-      ["long text", { ...good, matchText: "x".repeat(201) }],
-      ["unknown mode", { ...good, matchMode: "like" }],
-      ["unknown field", { ...good, matchField: "note" }],
+      ["blank text", with1({ kind: "text", field: "description", mode: "contains", values: [" \t "] })],
+      ["long text", with1({ kind: "text", field: "description", mode: "contains", values: ["x".repeat(201)] })],
+      ["no values", with1({ kind: "text", field: "description", mode: "contains", values: [] })],
+      ["too many values", with1({ kind: "text", field: "description", mode: "contains", values: many(201) })],
+      ["value not text", with1({ kind: "text", field: "description", mode: "contains", values: [5] })],
+      ["unknown mode", with1({ kind: "text", field: "description", mode: "like", values: ["x"] })],
+      ["unknown field", with1({ kind: "text", field: "note", mode: "contains", values: ["x"] })],
+      ["unknown kind", with1({ kind: "note", values: ["x"] })],
       ["unknown category", { ...good, setCategoryId: 99999 }],
-      ["unknown account", { ...good, accountId: 99999 }],
-      ["negative amount", { ...good, amountMin: -1 }],
-      ["float amount", { ...good, amountMax: 12.5 }],
-      ["min above max", { ...good, amountMin: 500, amountMax: 400 }],
-      ["unknown direction", { ...good, direction: "sideways" }],
+      ["unknown account", with1({ kind: "account", accountId: 99999 })],
+      ["negative amount", with1({ kind: "amount", min: -1, max: null })],
+      ["float amount", with1({ kind: "amount", min: null, max: 12.5 })],
+      ["empty amount", with1({ kind: "amount", min: null, max: null })],
+      ["min above max", with1({ kind: "amount", min: 500, max: 400 })],
+      ["unknown direction", with1({ kind: "direction", direction: "sideways" })],
+      ["unknown join", { ...good, join: "some" }],
+      ["no conditions", { ...good, conditions: [] }],
+      ["too many conditions", { ...good, conditions: Array.from({ length: 21 }, () => good.conditions[0]) }],
+      ["conditions not a list", { ...good, conditions: "קפה" }],
       ["enabled not boolean", { ...good, enabled: 1 }],
       ["excluded not boolean", { ...good, setExcluded: "yes" }],
-      ["missing field", { ...good, accountId: undefined }],
+      ["missing field", { ...good, setExcluded: undefined }],
     ];
     for (const [label, input] of bad) expect(() => createRule(db, input), label).toThrow("BAD_REQUEST");
     expect(listRules(db)).toEqual([]);
@@ -282,7 +293,8 @@ describe("previewRule", () => {
     updateTransactions(db, [idOf(db, "קפה גרג")], { categoryId: categoryId(db, "Restaurants") });
     const draft = { ...ruleInput({ matchText: "קפה" }), name: "" };
     expect(previewRule(db, draft).matches).toBe(2);
-    expect(previewRule(db, { ...draft, amountMax: 2000 }).sample.map((t) => t.description)).toEqual(["קפה הפינה"]);
-    expect(() => previewRule(db, { ...draft, matchMode: "regex", matchText: "(" })).toThrow("BAD_REQUEST");
+    const cheap = { ...ruleInput({ matchText: "קפה", amountMax: 2000 }), name: "" };
+    expect(previewRule(db, cheap).sample.map((t) => t.description)).toEqual(["קפה הפינה"]);
+    expect(() => previewRule(db, ruleInput({ matchMode: "regex", matchText: "(" }))).toThrow("BAD_REQUEST");
   });
 });

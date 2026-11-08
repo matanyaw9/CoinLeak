@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { RuleCondition, RuleJoin, RuleMatchMode } from "@shared/types";
 import { ruleInput } from "../testing/rules";
 import { compileMatcher, normalizeText, prepareRow, type MatchFacts } from "./match";
 
@@ -111,5 +112,68 @@ describe("account, amount and direction conditions", () => {
     expect(matches(rule, { accountId: 2 })).toBe(false);
     expect(matches(rule, { amount: -6001 })).toBe(false);
     expect(matches(rule, { amount: 5000 })).toBe(false);
+  });
+});
+
+describe("several conditions (spec 13)", () => {
+  const cafes: RuleCondition = {
+    kind: "text",
+    field: "description",
+    mode: "contains",
+    values: ["ארומה", "Aroma", "קופיקס"],
+  };
+  const fits = (join: RuleJoin, conditions: RuleCondition[], facts: Partial<MatchFacts>) =>
+    compileMatcher({ join, conditions })(prepareRow(row(facts)));
+
+  it("a text condition with several values fits when any value does", () => {
+    expect(fits("all", [cafes], { description: "ארומה תל אביב" })).toBe(true);
+    expect(fits("all", [cafes], { description: "AROMA TLV" })).toBe(true);
+    expect(fits("all", [cafes], { description: "קופיקס  רמת גן" })).toBe(true);
+    expect(fits("all", [cafes], { description: "לנדוור" })).toBe(false);
+  });
+
+  it("every mode reads every value", () => {
+    const text = (mode: RuleMatchMode, values: string[]): RuleCondition => ({
+      kind: "text",
+      field: "description",
+      mode,
+      values,
+    });
+    const facts = { description: "Cofix Ramat Gan" };
+    expect(fits("all", [text("starts_with", ["aroma", "cofix"])], facts)).toBe(true);
+    expect(fits("all", [text("equals", ["aroma", "cofix ramat gan"])], facts)).toBe(true);
+    expect(fits("all", [text("regex", ["^aroma", "gan$"])], facts)).toBe(true);
+    expect(fits("all", [text("starts_with", ["aroma", "ramat"])], facts)).toBe(false);
+  });
+
+  it("all needs every condition, with account and amount", () => {
+    const conditions: RuleCondition[] = [
+      cafes,
+      { kind: "account", accountId: 2 },
+      { kind: "amount", min: 1000, max: 3000 },
+    ];
+    expect(fits("all", conditions, { description: "Aroma", accountId: 2, amount: -2400 })).toBe(true);
+    expect(fits("all", conditions, { description: "Aroma", accountId: 1, amount: -2400 })).toBe(false);
+    expect(fits("all", conditions, { description: "Aroma", accountId: 2, amount: -5000 })).toBe(false);
+    expect(fits("all", conditions, { description: "לנדוור", accountId: 2, amount: -2400 })).toBe(false);
+  });
+
+  it("any needs one condition, with account and amount", () => {
+    const conditions: RuleCondition[] = [
+      cafes,
+      { kind: "account", accountId: 2 },
+      { kind: "amount", min: null, max: 1000 },
+    ];
+    expect(fits("any", conditions, { description: "Aroma", accountId: 1, amount: -5000 })).toBe(true);
+    expect(fits("any", conditions, { description: "לנדוור", accountId: 2, amount: -5000 })).toBe(true);
+    expect(fits("any", conditions, { description: "לנדוור", accountId: 1, amount: -900 })).toBe(true);
+    expect(fits("any", conditions, { description: "לנדוור", accountId: 1, amount: -5000 })).toBe(false);
+  });
+
+  it("direction joins like any other condition", () => {
+    const conditions: RuleCondition[] = [cafes, { kind: "direction", direction: "in" }];
+    expect(fits("all", conditions, { description: "Aroma", amount: 2400 })).toBe(true);
+    expect(fits("all", conditions, { description: "Aroma", amount: -2400 })).toBe(false);
+    expect(fits("any", conditions, { description: "Wolt", amount: 2400 })).toBe(true);
   });
 });

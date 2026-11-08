@@ -1,13 +1,11 @@
-// How one rule's conditions read one row: text on description or memo, then
-// account, amount range on the absolute amount, and direction. Text compares
-// without case, without direction marks, and with whitespace runs collapsed.
+// How a rule's conditions read one row: text on description or memo (any of
+// its values), account, amount range on the absolute amount, and direction,
+// joined by all or any. Text compares without case, without direction marks,
+// and with whitespace runs collapsed.
 
-import type { Agorot, RuleInput, RuleMatchField, RuleMatchMode } from "@shared/types";
+import type { Agorot, RuleCondition, RuleInput, RuleMatchField, RuleMatchMode } from "@shared/types";
 
-export type Conditions = Pick<
-  RuleInput,
-  "matchField" | "matchMode" | "matchText" | "accountId" | "amountMin" | "amountMax" | "direction"
->;
+export type Conditions = Pick<RuleInput, "join" | "conditions">;
 
 /** What the conditions read from a row. */
 export interface MatchFacts {
@@ -62,16 +60,30 @@ export function compileRegex(pattern: string): RegExp | null {
 
 /** Conditions must already be valid (see `validate.ts`). */
 export function compileMatcher(c: Conditions): Matcher {
-  const matchesText = textTest(c.matchMode, c.matchText);
-  return (row) => {
-    if (c.accountId !== null && row.accountId !== c.accountId) return false;
-    if (c.direction !== null && directionOf(row.amount) !== c.direction) return false;
-    const size = Math.abs(row.amount);
-    if (c.amountMin !== null && size < c.amountMin) return false;
-    if (c.amountMax !== null && size > c.amountMax) return false;
-    const text = row.text[c.matchField];
-    return text !== null && matchesText(text);
-  };
+  const tests = c.conditions.map(compileCondition);
+  if (c.join === "any") return (row) => tests.some((t) => t(row));
+  return (row) => tests.every((t) => t(row));
+}
+
+function compileCondition(c: RuleCondition): Matcher {
+  switch (c.kind) {
+    case "account":
+      return (row) => row.accountId === c.accountId;
+    case "direction":
+      return (row) => directionOf(row.amount) === c.direction;
+    case "amount":
+      return (row) => {
+        const size = Math.abs(row.amount);
+        return (c.min === null || size >= c.min) && (c.max === null || size <= c.max);
+      };
+    case "text": {
+      const fits = c.values.map((v) => textTest(c.mode, v));
+      return (row) => {
+        const text = row.text[c.field];
+        return text !== null && fits.some((f) => f(text));
+      };
+    }
+  }
 }
 
 /** Same split as the flow: money in is above zero, everything else is out. */

@@ -126,6 +126,12 @@ export interface TransactionPatch {
   categoryId?: number | null;
   note?: string | null;
   excluded?: boolean;
+  /**
+   * Who `excluded` belongs to, only with `excluded` (spec 13, for Undo).
+   * Defaults to the user. `rule` or null hands the row back to the rules,
+   * which run on it at once.
+   */
+  excludedSource?: ExcludedSource | null;
 }
 
 export interface MonthSummary {
@@ -190,23 +196,32 @@ export type RuleMatchMode = "contains" | "starts_with" | "equals" | "regex";
 /** `in`: money in (amount above zero). `out`: everything else, as in the flow. */
 export type RuleDirection = "out" | "in";
 
+/** `all`: every condition must hold (AND). `any`: at least one (OR). */
+export type RuleJoin = "all" | "any";
+
 /**
- * A rule as the window writes it. All conditions must hold; at least one
- * action is set. For each action the first enabled matching rule wins, and
- * a field the user set is never changed.
+ * One test a row is put to. A text condition holds one or more values and
+ * holds when any of them fits ("contains Aroma, Cofix or Landwer"). Text
+ * compares without case and with whitespace runs collapsed. An amount
+ * condition reads the absolute amount, bounds inclusive, at least one set.
+ */
+export type RuleCondition =
+  | { kind: "text"; field: RuleMatchField; mode: RuleMatchMode; values: string[] }
+  | { kind: "account"; accountId: number }
+  | { kind: "amount"; min: Agorot | null; max: Agorot | null }
+  | { kind: "direction"; direction: RuleDirection };
+
+/**
+ * A rule as the window writes it: conditions joined by `join`, and at least
+ * one action. For each action the first enabled matching rule wins, and a
+ * field the user set is never changed (spec 13 changed this shape).
  */
 export interface RuleInput {
   name: string;
   enabled: boolean;
-  matchField: RuleMatchField;
-  matchMode: RuleMatchMode;
-  /** At most 200 characters. A `regex` must compile. */
-  matchText: string;
-  accountId: number | null;
-  /** Inclusive bounds on the absolute amount. */
-  amountMin: Agorot | null;
-  amountMax: Agorot | null;
-  direction: RuleDirection | null;
+  join: RuleJoin;
+  /** 1 to 20. Each text value at most 200 characters, at most 200 values; a `regex` value must compile. */
+  conditions: RuleCondition[];
   setCategoryId: number | null;
   /** true excludes the row, false counts it (and stops later exclude rules). */
   setExcluded: boolean | null;
@@ -223,4 +238,87 @@ export interface RulePreview {
   matches: number;
   /** Up to 20 of them, newest first. */
   sample: TransactionRow[];
+  /**
+   * Matching rows the user sorted by hand into a category other than the
+   * rule's, newest first, every one of them (spec 13). Empty when the rule
+   * sets no category. The rule leaves them alone unless the save names them.
+   */
+  handSet: TransactionRow[];
+}
+
+// ---- Rules v2 (spec 13) ----
+
+/** What saving a rule did. */
+export interface RuleSaved {
+  rule: Rule;
+  /** Rows this rule sorts now (sets their category or exclusion). */
+  applied: number;
+  /** Rows whose category, exclusion or rule changed with this save. */
+  changed: number;
+}
+
+/** What "Apply now" did. */
+export interface RulesApplied {
+  /** Rows whose category, exclusion or rule changed. */
+  changed: number;
+  /** Rows the rules sort, all together, after the run. */
+  sorted: number;
+}
+
+/**
+ * A category's known places: the names in its list rules. A list rule is an
+ * enabled rule with exactly one condition, a text condition on the
+ * description that is not a pattern, and one action: set this category.
+ */
+export interface KnownPlaces {
+  categoryId: number;
+  /** Every name, in rule order then list order, repeats (ignoring case) removed. */
+  names: string[];
+  /** The list rules they come from, in rule order. New names go to the first. */
+  ruleIds: number[];
+}
+
+export interface KnownPlaceAdded {
+  /** The list rule that holds the name. */
+  ruleId: number;
+  /** True when the category had no list rule and one was made. */
+  created: boolean;
+  /** False when the name was already on the list. */
+  added: boolean;
+  /** Rows whose category, exclusion or rule changed. */
+  changed: number;
+}
+
+/** One starter list the Rules page can offer (never added without the user). */
+export interface StarterList {
+  /** Stable key, e.g. "supermarkets"; the window names it. */
+  key: string;
+  categoryId: number;
+  /** The names that would be added: those no list rule has yet. */
+  names: string[];
+  /** Rows this list would sort if added with the others offered. */
+  sorts: number;
+}
+
+export interface StarterPreview {
+  /** Lists for seeded categories the user has not renamed or removed. */
+  lists: StarterList[];
+  /** Rows all offered lists would sort together. */
+  sorts: number;
+}
+
+export interface StartersAdded {
+  /** List rules made or extended. */
+  rules: number;
+  /** Rows whose category, exclusion or rule changed. */
+  changed: number;
+}
+
+export type ExcludedSource = "user" | "rule";
+
+/** A row's exclusion and who set it, so Undo can put both back. */
+export interface ExclusionState {
+  id: number;
+  excluded: boolean;
+  excludedSource: ExcludedSource | null;
 }

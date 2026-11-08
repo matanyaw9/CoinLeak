@@ -17,7 +17,21 @@ import {
   trend,
   updateTransactions,
 } from "@core/ledger";
-import { createRule, deleteRule, listRules, previewRule, reorderRules, suggestRule, updateRule } from "@core/rules";
+import {
+  addKnownPlace,
+  addStarters,
+  applyAllRules,
+  createRule,
+  deleteRule,
+  knownPlaces,
+  listRules,
+  previewRule,
+  reorderRules,
+  saveRule,
+  starterPreview,
+  suggestRule,
+  updateRule,
+} from "@core/rules";
 import type { Handlers } from "./ipc";
 import type { SyncService } from "./sync-service";
 
@@ -66,5 +80,11 @@ export function createHandlers({ db, version, dataDir, dev, sync }: HandlerDeps)
     },
     "rules:preview": (rule) => previewRule(db, rule),
     "rules:suggest": ({ ids }) => suggestRule(db, ids),
+    "rules:save": (args) => saveRule(db, args),
+    "rules:apply": () => applyAllRules(db),
+    "rules:knownPlaces": () => knownPlaces(db),
+    "rules:addKnownPlace": (args) => addKnownPlace(db, args),
+    "rules:starters": () => starterPreview(db),
+    "rules:addStarters": (args) => addStarters(db, args),
   };
 }

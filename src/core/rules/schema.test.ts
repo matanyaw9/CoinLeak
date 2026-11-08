@@ -27,16 +27,26 @@ describe("rules schema (0004)", () => {
     ]);
   });
 
-  it("refuses a rule with no action, a float amount, or a reversed range", () => {
+  it("refuses a rule with no action, a float amount, a reversed range or an empty list", () => {
     const db = newDb();
-    const insert = db.prepare(
-      `INSERT INTO rules (name, position, match_field, match_mode, match_text, amount_min, amount_max,
-         set_category_id, set_excluded, created_at, updated_at)
-       VALUES ('r', 1, 'description', 'contains', 'x', ?, ?, NULL, ?, '', '')`,
+    const rule = db.prepare(
+      `INSERT INTO rules (name, position, set_category_id, set_excluded, created_at, updated_at)
+       VALUES ('r', 1, NULL, ?, '', '')`,
     );
-    expect(() => insert.run(null, null, null)).toThrow();
-    expect(() => insert.run(1.5, null, 1)).toThrow();
-    expect(() => insert.run(500, 400, 1)).toThrow();
-    expect(insert.run(400, 500, 1).changes).toBe(1);
+    expect(() => rule.run(null)).toThrow();
+    const ruleId = Number(rule.run(1).lastInsertRowid);
+    const amount = db.prepare(
+      "INSERT INTO rule_conditions (rule_id, position, kind, amount_min, amount_max) VALUES (?, 1, 'amount', ?, ?)",
+    );
+    expect(() => amount.run(ruleId, 1.5, null)).toThrow();
+    expect(() => amount.run(ruleId, 500, 400)).toThrow();
+    expect(() => amount.run(ruleId, null, null)).toThrow();
+    expect(amount.run(ruleId, 400, 500).changes).toBe(1);
+    const text = db.prepare(
+      "INSERT INTO rule_conditions (rule_id, position, kind, match_field, match_mode, match_values) VALUES (?, 2, 'text', 'description', 'contains', ?)",
+    );
+    expect(() => text.run(ruleId, "[]")).toThrow();
+    expect(() => text.run(ruleId, "not json")).toThrow();
+    expect(text.run(ruleId, '["x"]').changes).toBe(1);
   });
 });
