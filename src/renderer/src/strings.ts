@@ -397,6 +397,51 @@ export const s = {
     offerEnd: "?",
     offerBody: "A rule can sort it for you from now on.",
   },
+
+  // spec 11
+  rowMenu: {
+    open: "More actions",
+    makeRule: (business: string) => `Make a rule for ${business}`,
+    makeRuleMany: (n: number) => `Make a rule for these ${n}`,
+    ignore: "Ignore",
+    ignoreHint: "Leave it out of every total",
+    countAgain: "Count again",
+    trash: "Move to trash",
+    trashHint: "Restore it any time from Trash",
+    forSelection: (n: number) => plural(n, "selected transaction", "selected transactions"),
+    ignored: (n: number) => (n === 1 ? "Ignored. It no longer counts." : `Ignored ${n} transactions. They no longer count.`),
+    counted: (n: number) => (n === 1 ? "Counted again" : `Counting ${n} transactions again`),
+    trashed: (n: number) => (n === 1 ? "Moved to trash" : `Moved ${n} transactions to trash`),
+    trashedBody: "It counts nowhere until you restore it from Trash.",
+    noSuggestion: "Could not make a rule from this one.",
+  },
+  bulk: {
+    makeRule: "Make a rule",
+    ignore: "Ignore",
+    trash: "Trash",
+  },
+  cardBills: {
+    show: (n: number) => (n === 1 ? "Show 1 card bill" : `Show ${n} card bills`),
+    hide: "Hide card bills",
+    hint: "Bank lines that pay a card you track. They never count: the card's own purchases do.",
+  },
+  trash: {
+    nav: "Trash",
+    title: "Trash",
+    subtitle: "Transactions you moved here count nowhere. Restore them any time.",
+    empty: "Trash is empty. Anything you move here waits until you restore it.",
+    restore: "Restore",
+    restoreSelected: (n: number) => `Restore ${n}`,
+    restored: (n: number) => (n === 1 ? "Restored. It counts again." : `Restored ${n} transactions`),
+    emptyTrash: "Empty trash",
+    confirmTitle: "Empty the trash?",
+    confirmBody: (n: number) =>
+      `This deletes ${plural(n, "transaction", "transactions")} for good. While they sit in Trash, a sync knows them and skips them. Once deleted, a sync that still finds one at the bank adds it back as new.`,
+    confirm: "Delete for good",
+    cancel: "Keep them",
+    emptied: (n: number) => (n === 1 ? "Deleted 1 transaction for good" : `Deleted ${n} transactions for good`),
+    count: (n: number) => `${plural(n, "transaction", "transactions")} in trash`,
+  },
 };
 
 export type Strings = typeof s;
