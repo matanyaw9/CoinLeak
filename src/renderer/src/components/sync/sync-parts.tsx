@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ProviderBadge, lastDigits } from "@/components/common/chips";
 import { ProviderTag } from "@/components/accounts/provider-tag";
 import { syncedText } from "@/components/accounts/sync-time";
+import { useCurrentProfile } from "@/components/layout/use-profiles";
 
 const STEPS: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading", "saving"];
 /** Stages where Cancel still stops something; saving is quick and final. */
@@ -133,6 +134,8 @@ export function ProviderSyncRow({
   const sync = useSync();
   const mine = sync.provider === provider;
   const busy = sync.provider != null;
+  // The Demo profile never syncs; main refuses too (spec 19).
+  const demo = useCurrentProfile()?.demo ?? false;
   const when = lastSync(accounts, provider);
   const stage = mine ? sync.stage : null;
   const head = (
@@ -155,7 +158,13 @@ export function ProviderSyncRow({
           </Button>
         )
       ) : (
-        <Button variant="outline" size="sm" disabled={busy} onClick={() => sync.start(provider)}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy || demo}
+          title={demo ? s.profiles.syncOff : undefined}
+          onClick={() => sync.start(provider)}
+        >
           <RefreshCw className="size-3.5" />
           {s.sync.syncOne}
         </Button>

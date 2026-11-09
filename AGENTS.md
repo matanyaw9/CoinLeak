@@ -59,8 +59,12 @@ prompt:
   Only if your spec allows a new dependency, install it in your worktree
   and say so in your report.
 - **Screenshots:** build once, then shoot headless (no display, no socket):
-  `VITE_DEMO=1 npx electron-vite build` then
-  `COINLEAK_SCREENSHOT=$PWD/.claude/shots/x.png COINLEAK_START_ROUTE=/transactions COINLEAK_THEME=light COINLEAK_SCREENSHOT_DELAY=2500 npm run shot`.
+  `npx electron-vite build` then
+  `COINLEAK_SCREENSHOT=$PWD/.claude/shots/x.png COINLEAK_START_ROUTE=/transactions COINLEAK_THEME=light COINLEAK_SCREENSHOT_DELAY=3000 npm run shot`.
+  A screenshot run always gets a fresh temp folder with only a seeded Demo
+  profile (the real app on made-up data); it never opens a real database.
+  Run `mkdir -p .claude/shots` first, or the shot hangs. Build and shoot
+  from your own worktree, never from the main checkout.
   Save under your worktree's `.claude/shots/` (inside the project, so the
   image can be read); the lead copies the final ones. `--no-sandbox` in
   `npm run shot` is for these demo screenshots only.

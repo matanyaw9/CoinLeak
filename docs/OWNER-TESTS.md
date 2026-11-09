@@ -40,8 +40,8 @@ is saved; it only prints counts.
 
 ## 2. Look and feel
 
-Run `npm run dev` (empty database) or build with demo data:
-`VITE_DEMO=1 npm run preview`. Say what feels wrong, rough, or missing.
+Run `npm run dev`. To look around on made-up data, add the Demo profile in
+Settings, Profiles. Say what feels wrong, rough, or missing.
 Screenshots with amounts blurred are welcome.
 
 ## 3. Wave 6 (periods, transactions tools, categories, sync feel)
@@ -74,3 +74,16 @@ Run `npm run dev` (your dev data). About 15 minutes.
    open. Stops on done or cancel.
 8. **Rules drag.** On a long rules list, drag a rule to the bottom edge:
    the page scrolls.
+
+## 4. Profiles (spec 19)
+
+Run `npm run dev`.
+
+1. The sidebar's bottom card shows "Me". Your data is all there.
+2. Settings, Profiles: Add a profile ("Test"). Switch to it from the
+   sidebar card: the window reloads, everything is empty. Switch back to
+   Me: all your data is back.
+3. Add the Demo profile and switch to it: made-up months of data, Sync
+   greyed out everywhere. "Reset demo data" brings it back fresh.
+4. Rename "Test", then delete it (type its name to confirm). Delete is
+   not offered for the profile that is open.
