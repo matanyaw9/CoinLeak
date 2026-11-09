@@ -526,7 +526,9 @@ export interface ThisMonth {
   today: IsoDate;
   income: Agorot;
   spending: Agorot;
-  /** Income minus spending; negative when spending outran income. */
+  /** Net money moved to savings or investments this month (positive: moved out). */
+  transfers: Agorot;
+  /** Income minus spending minus savings moves; negative when they outran income. */
   left: Agorot;
   /** From today to the month's last day, today included. */
   daysLeft: number;

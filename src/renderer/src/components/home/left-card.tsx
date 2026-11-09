@@ -1,5 +1,5 @@
-// "Left this month" (spec 22, F51): income minus spending this calendar
-// month and about how much a day that leaves until the month ends. Core
+// "Left this month" (spec 22, F51): income minus spending and savings moves
+// this calendar month and about how much a day that leaves until the month ends. Core
 // works out every number (summary:thisMonth); this card only words them.
 // Overspent reads in the same warning style as the hero's line.
 
@@ -33,7 +33,7 @@ export function LeftCard({ left }: { left: ThisMonth }) {
         )}
         <p className="mt-2 text-sm text-muted-foreground">
           {left.income === 0 && <span className="me-2 text-foreground">{s.left.noIncome}</span>}
-          {s.left.soFar(money(left.income), money(left.spending))}
+          {s.left.soFar(money(left.income), money(left.spending), left.transfers !== 0 ? money(left.transfers) : null)}
         </p>
       </div>
     </Card>

@@ -501,23 +501,24 @@ describe("money left this month (spec 22)", () => {
   });
   const at = (iso: string) => thisMonth(db, { now: new Date(iso) });
 
-  // March: income 1,000,000; spending 9,000 (the card bill is internal, the
-  // savings move a transfer, the gift excluded, the clothes trashed).
-  it("counts income and spending only, over the whole month", () => {
+  // March: income 1,000,000; spending 9,000; 100,000 moved to savings (the
+  // card bill is internal, the gift excluded, the clothes trashed).
+  it("subtracts spending and savings moves from income, over the whole month", () => {
     expect(at("2026-03-20T09:00:00Z")).toEqual({
       month: "2026-03",
       today: "2026-03-20",
       income: 1000000,
       spending: 9000,
-      left: 991000,
+      transfers: 100000,
+      left: 891000,
       daysLeft: 12,
-      perDay: 82500,
+      perDay: 74200,
     });
   });
 
   it("the first and the last day of the month", () => {
-    expect(at("2026-03-01T10:00:00Z")).toMatchObject({ daysLeft: 31, left: 991000, perDay: 31900 });
-    expect(at("2026-03-31T10:00:00Z")).toMatchObject({ daysLeft: 1, left: 991000, perDay: 991000 });
+    expect(at("2026-03-01T10:00:00Z")).toMatchObject({ daysLeft: 31, left: 891000, perDay: 28700 });
+    expect(at("2026-03-31T10:00:00Z")).toMatchObject({ daysLeft: 1, left: 891000, perDay: 891000 });
   });
 
   it("follows Israel time at midnight", () => {
@@ -531,6 +532,7 @@ describe("money left this month (spec 22)", () => {
       today: "2026-04-01",
       income: 0,
       spending: 0,
+      transfers: 0,
       left: 0,
       daysLeft: 30,
       perDay: null,

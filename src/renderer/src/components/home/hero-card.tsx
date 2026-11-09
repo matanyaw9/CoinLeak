@@ -38,13 +38,13 @@ export function HeroCard({
   const { ongoing, calendar } = words;
   const base = summary.previous.sameTime;
   const diff = summary.spending - base;
-  const left = all.income - all.spending;
+  const left = all.income - all.spending - all.transfers;
   const spent = summary.spending > 0;
   const moved = summary.transfers;
   const isThisMonth = calendar && ongoing && summary.from.endsWith("-01") && monthOf(summary.from) === monthOf(summary.to);
 
   const topLine = isThisMonth
-    ? s.home.todayLine(formatDayLong(today), daysInMonth(monthOf(today)) - parseDate(today).getDate())
+    ? s.home.todayLine(formatDayLong(today), daysInMonth(monthOf(today)) - parseDate(today).getDate() + 1)
     : ongoing
       ? `${formatDayLong(today)} · ${rangeLabel(summary)}`
       : s.periodHome.rangeLine(rangeLabel(summary));

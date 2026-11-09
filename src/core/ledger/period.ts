@@ -359,8 +359,9 @@ export function periodCurves(
 
 /**
  * Money left this calendar month in Israel time (spec 22): income received
- * minus spending, both over the whole month like every month total, and how
- * much that leaves per day from today to the month's end, today included,
+ * minus spending minus money moved to savings (it is not spending, but it is
+ * no longer there to spend), over the whole month like every month total, and
+ * how much that leaves per day from today to the month's end, today included,
  * rounded down to whole shekels.
  */
 export function thisMonth(db: Db, opts: { now?: Date } = {}): ThisMonth {
@@ -368,8 +369,8 @@ export function thisMonth(db: Db, opts: { now?: Date } = {}): ThisMonth {
   const month = today.slice(0, 7);
   const { from, until } = monthBounds(month);
   const t = totals(db, from, until);
-  const left = t.income - t.spending;
+  const left = t.income - t.spending - t.transfers;
   const daysLeft = dayNumber(until) - dayNumber(today);
   const perDay = left > 0 ? Math.floor(left / daysLeft / 100) * 100 : null;
-  return { month, today, income: t.income, spending: t.spending, left, daysLeft, perDay };
+  return { month, today, income: t.income, spending: t.spending, transfers: t.transfers, left, daysLeft, perDay };
 }

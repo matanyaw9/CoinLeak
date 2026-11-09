@@ -118,7 +118,9 @@ Glossary. Use these words in code, UI and docs.
 | income    | money in, otherwise |
 | spending  | money out, otherwise (including untracked card bills, flagged) |
 
-Monthly story: **income minus spending = what was left.** Pending rows count
+Monthly story: **income minus spending minus money moved to savings = what
+was left** (savings are not spending, but no longer there to spend; lead
+call at the spec 22 merge, 2026-11-09, owner to confirm). Pending rows count
 and are marked.
 
 ## 5. Sync

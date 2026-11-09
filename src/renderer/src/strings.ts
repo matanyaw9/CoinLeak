@@ -104,7 +104,7 @@ export const s = {
   home: {
     title: "Home",
     todayLine: (today: string, daysLeft: number) =>
-      `${today} · ${daysLeft === 0 ? "last day of the month" : `${plural(daysLeft, "day", "days")} to go`}`,
+      `${today} · ${daysLeft === 1 ? "last day of the month" : `${plural(daysLeft, "day", "days")} to go`}`,
     pastLine: (month: string) => `Looking back at ${month}`,
     headlineSoFar: "You've spent",
     headlineSoFarTail: "so far this month.",
@@ -125,7 +125,7 @@ export const s = {
     overspent: "Spent more than came in",
     incomeHint: "Salary and other money in",
     spentHint: "After refunds, card bills counted once",
-    leftHint: "Income minus spending",
+    leftHint: "After spending and savings",
     review: (n: number) => `${plural(n, "transaction needs", "transactions need")} a look`,
     curveTitle: "Spending through the month",
     curveByDay: (day: number, month: string) => `by day ${day} in ${month}`,
@@ -836,10 +836,11 @@ export const s = {
     perDay: (left: string, days: number, perDay: string) =>
       `${left} left for ${days === 1 ? "1 day" : `${days} days`}: about ${perDay} a day.`,
     nothing: (days: number) => `Nothing left for the ${days === 1 ? "last day" : `${days} days to go`}.`,
-    over: (amount: string) => `You spent ${amount} more than came in this month.`,
+    over: (amount: string) => `You spent and saved ${amount} more than came in this month.`,
     noIncome: "No income this month yet.",
-    soFar: (income: string, spent: string) => `Came in ${income} · spent ${spent}, this month so far.`,
-    hint: "Income minus spending this calendar month, whatever period Home shows. Savings moves and card bills count as neither.",
+    soFar: (income: string, spent: string, saved: string | null) =>
+      `Came in ${income} · spent ${spent}${saved ? ` · moved to savings ${saved}` : ""}, this month so far.`,
+    hint: "Income minus spending minus money moved to savings, this calendar month, whatever period Home shows. Card bills are counted once. Days left include today.",
   },
   essentials: {
     label: "Which spending",
