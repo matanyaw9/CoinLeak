@@ -120,6 +120,10 @@ export interface TransactionRow {
   flags: ReviewFlag[];
   /** The last rule, in order, that set this row's category or exclusion. */
   ruleId: number | null;
+  /** spec 20: `manual` rows were typed in and can be edited. Set by core. */
+  source?: TxnSource;
+  /** spec 20: a bank cash withdrawal counted as money moved into the cash wallet. Set by core. */
+  movedToCash?: boolean;
 }
 
 export interface TransactionFilter {
@@ -575,4 +579,29 @@ export interface ProfileList {
   /** Id of the profile that is open now. */
   current: string;
   profiles: Profile[];
+}
+
+// ---- Cash wallet and rows by hand (spec 20) ----
+
+/** Where a row came from: a bank download, or typed in by the user. */
+export type TxnSource = "sync" | "manual";
+
+/**
+ * A row the user types into the cash wallet. `amount` is signed agorot,
+ * never 0 (negative is money out). `description` 1 to 200 characters after
+ * trimming; `note` at most 500, empty means none.
+ */
+export interface ManualTransactionInput {
+  date: IsoDate;
+  amount: Agorot;
+  description: string;
+  categoryId: number | null;
+  note: string | null;
+}
+
+/** The profile's one cash wallet. It never syncs. */
+export interface CashWallet {
+  id: number;
+  /** Its rows, trashed ones left out. */
+  rowCount: number;
 }

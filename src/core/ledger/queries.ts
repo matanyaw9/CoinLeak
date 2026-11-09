@@ -21,6 +21,7 @@ import type {
   TransactionRow,
   TransactionSort,
   TrendPoint,
+  TxnSource,
 } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { applyRulesInTransaction } from "../rules/engine";
@@ -28,17 +29,20 @@ import { applyCardBills } from "./card-bills";
 import { addMonths, assertMonth, israelMonth } from "./dates";
 import { LEDGER_SQL } from "./flow";
 import { monthRange, NEEDS_REVIEW_SQL, periodSummary, trendPoint } from "./period";
-import { FLOWS, assertIds, assertOptionalDate, check, isId } from "./validate";
+import { FLOWS, assertIds, assertOptionalDate, check, cleanNote, isId } from "./validate";
+import { getCashWallet } from "./cash";
+import { isCashWithdrawal } from "./cash-patterns";
 
 const WITH_LEDGER = `WITH ledger AS (${LEDGER_SQL})`;
 
 // ---- Accounts and categories ----
 
+/** Bank accounts and cards. The cash wallet has its own call (cash.ts, spec 20). */
 export function listAccounts(db: Db): Account[] {
   const rows = db
     .prepare(
       `SELECT id, provider, kind, account_number, name, card_mode, last_synced_at, sync_enabled FROM accounts
-       ORDER BY kind = 'card', provider, account_number`,
+       WHERE kind <> 'cash' ORDER BY kind = 'card', provider, account_number`,
     )
     .all() as {
     id: number;
@@ -120,6 +124,9 @@ interface LedgerRow {
   note: string | null;
   excluded: number;
   rule_id: number | null;
+  source: TxnSource;
+  internal_by_user: number;
+  card_bill_account_id: number | null;
   flow: Flow;
   flag_uncategorized: number;
   flag_possible_card_bill: number;
@@ -209,7 +216,8 @@ export function listTransactions(db: Db, filter: TransactionFilter = {}): Transa
   const sql = `${WITH_LEDGER} SELECT * FROM ledger
     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
     ORDER BY ${ORDER_SQL[sort]}`;
-  const rows = (db.prepare(sql).all(...params) as unknown as LedgerRow[]).map(toTransactionRow);
+  const wallet = getCashWallet(db)?.id ?? null;
+  const rows = (db.prepare(sql).all(...params) as unknown as LedgerRow[]).map((r) => toTransactionRow(r, wallet));
   // SQLite has no Hebrew-aware natural order, so names sort here.
   return sort === "name" ? rows.sort(byName) : rows;
 }
@@ -227,7 +235,17 @@ function byName(a: TransactionRow, b: TransactionRow): number {
   return NAMES.compare(a.description.trim(), b.description.trim()) || b.id - a.id;
 }
 
-function toTransactionRow(r: LedgerRow): TransactionRow {
+/**
+ * Spec 20: an internal bank line is money moved into the cash wallet when
+ * the matcher sent it there, or when the user marked a withdrawal internal.
+ */
+function movedToCash(r: LedgerRow, wallet: number | null): boolean {
+  if (wallet === null || r.flow !== "internal" || r.account_id === wallet) return false;
+  if (r.card_bill_account_id === wallet) return true;
+  return r.internal_by_user === 1 && r.card_bill_account_id === null && isCashWithdrawal(r.description, r.amount);
+}
+
+function toTransactionRow(r: LedgerRow, wallet: number | null): TransactionRow {
   const flags: ReviewFlag[] = [];
   if (r.flag_uncategorized) flags.push("uncategorized");
   if (r.flag_possible_card_bill) flags.push("possible_card_bill");
@@ -254,6 +272,8 @@ function toTransactionRow(r: LedgerRow): TransactionRow {
     flow: r.flow,
     flags,
     ruleId: r.rule_id,
+    source: r.source,
+    movedToCash: movedToCash(r, wallet),
   };
 }
 
@@ -285,9 +305,8 @@ export function updateTransactions(
     params.push(patch.categoryId);
   }
   if (patch.note !== undefined) {
-    check(patch.note === null || typeof patch.note === "string");
     sets.push("note = ?");
-    params.push(patch.note);
+    params.push(cleanNote(patch.note));
   }
   const source = patch.excludedSource === undefined ? "user" : patch.excludedSource;
   check(patch.excludedSource === undefined || patch.excluded !== undefined);
