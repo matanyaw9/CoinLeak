@@ -51,7 +51,7 @@ Change a decision only by editing this table and the affected specs together.
 | D10 | Money is integer agorot everywhere. Floats exist only at the scraper edge and are converted immediately. |
 | D11 | Errors crossing to the window are fixed codes with our own text (`src/shared/errors.ts`). Library and bank error text is never shown, logged, or stored. |
 | D12 | Look: Spent's warm buttercream and sage theme, warm dark variant, serif numbers, generous whitespace. React, Tailwind v4, shadcn/ui on base-ui, Recharts. |
-| D13 | Categories are a two-level tree (category, subcategory). Rules are visible and ordered. Rows the user categorized by hand are never changed by rules unless asked. |
+| D13 | Categories are a two-level tree (category, subcategory). Rules are visible and ordered. Rows the user categorized by hand are never changed by sync; saving a rule also changes the matching hand-set rows, listed in the editor first (F45). |
 | D14 | Untracked card bills stay counted. A bank line that looks like a card bill but matches no tracked card counts as spending and is flagged for review. |
 | D15 | Supply chain: exact versions, install scripts off by default, new versions only after a two-week cooldown (Electron security patches excepted), scraper diffs reviewed before upgrade. |
 | D16 | Built by AI agents, one spec per agent, each in its own git worktree. The lead (Claude in the main session) writes specs, reviews and merges. |
