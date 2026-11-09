@@ -2,6 +2,7 @@
 // settles pending rows in place (exactly or with drift), marks pending rows the
 // download no longer has as gone, then rematches card bills. One transaction.
 // Accounts the user removed from syncing (spec 15) are left exactly as they are.
+// Keeps each balance the bank sent (spec 24).
 // Rules: REQUIREMENTS section 5 and spec 04. User fields are never written.
 
 import { CodedError } from "@shared/errors";
@@ -69,6 +70,7 @@ export function ingest(db: Db, accounts: ScrapedAccount[], opts: IngestOptions):
     const downloads = new Map<number, { counter: SequenceCounter; rows: Incoming[] }>();
     for (const account of syncing) {
       const accountId = upsertAccount(db, provider, account, now);
+      if (account.balance !== null) saveBalance(db, accountId, account.balance, now, runId);
       const download = downloads.get(accountId) ?? { counter: new SequenceCounter(), rows: [] };
       downloads.set(accountId, download);
       for (const t of account.transactions) {
@@ -255,6 +257,15 @@ function upsertAccount(db: Db, provider: ProviderId, a: ScrapedAccount, now: str
     )
     .get(provider, kind, a.accountNumber, kind === "card" ? "credit" : null, a.balance, now, now) as { id: number };
   return row.id;
+}
+
+/** Keeps the balance the bank sent with this sync (spec 24). An account
+ *  listed twice in one download keeps the last balance, like `accounts`. */
+function saveBalance(db: Db, accountId: number, balance: number, now: string, runId: number): void {
+  db.prepare(
+    `INSERT INTO balance_snapshots (account_id, balance, taken_at, sync_run_id) VALUES (?, ?, ?, ?)
+     ON CONFLICT (account_id, sync_run_id) DO UPDATE SET balance = excluded.balance`,
+  ).run(accountId, balance, now, runId);
 }
 
 // The download comes from our own sync module, but a bad row must stop the

@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRow } from "@shared/types";
 import { openDatabase, type Db } from "../db";
-import { getCashWallet, listAccounts, listCategories, listTransactions, monthSummary } from "../ledger";
+import { balanceChecks, getCashWallet, listAccounts, listCategories, listTransactions, monthSummary } from "../ledger";
 import { listRules } from "../rules";
 import { seedDemo } from "./seed";
 
@@ -70,6 +70,16 @@ describe("seedDemo", () => {
     expect(calBills.length).toBeGreaterThan(5);
     expect(calBills.every((r) => r.flow === "internal")).toBe(true);
     expect(listAccounts(db).filter((a) => a.syncEnabled === false)).toHaveLength(1);
+  });
+
+  it("has one bank account whose balance adds up and one with a small gap (spec 24)", () => {
+    const db = seeded();
+    const checks = balanceChecks(db).filter((c) => c.status !== "unknown");
+    expect(checks.map(({ status, gap, window }) => ({ status, gap, window }))).toEqual([
+      { status: "matches", gap: 0, window: { from: "2026-11-03", to: "2026-11-07" } },
+      { status: "gap", gap: -12_000, window: { from: "2026-11-03", to: "2026-11-07" } },
+    ]);
+    expect(checks.every((c) => c.rowCount > 0)).toBe(true);
   });
 
   it("has a cash wallet fed by an ATM withdrawal (spec 20)", () => {

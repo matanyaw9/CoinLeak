@@ -3,6 +3,7 @@
 // card, and a Sync button that shows each stage as it happens. Accounts can be
 // removed from syncing (spec 15): they move to a Removed group, rows intact.
 // Spec 20: the cash wallet, which never syncs, under the providers.
+// Spec 24: each bank account's balance and whether its rows add up to it.
 // Look adapted from Spent (github.com/Shaya16/Spent), settings bank accounts screen.
 
 import { useEffect, useState } from "react";
@@ -27,6 +28,7 @@ import { removedAccounts, syncingAccounts, visibleProviders } from "@/components
 import { RemoveSyncDialog, RemovedGroup, type RemoveTarget } from "@/components/accounts/remove-sync";
 import { syncedText } from "@/components/accounts/sync-time";
 import { CashWalletCard } from "@/components/accounts/cash-wallet-card";
+import { BalanceAmount, BalanceLine, useBalanceChecks } from "@/components/accounts/balance-check";
 
 const MODES: CardMode[] = ["credit", "debit"];
 
@@ -178,6 +180,8 @@ function AccountLine({ account, onRemove }: { account: Account; onRemove: () => 
   const Icon = account.kind === "bank" ? Landmark : CreditCard;
   const actions = useReviewActions();
   const mode = actions.pendingCardMode(account) ?? account.cardMode;
+  const checks = useBalanceChecks();
+  const check = checks.data?.find((c) => c.accountId === account.id);
   return (
     <li className="px-6 py-4">
       <div className="flex items-center gap-4">
@@ -203,12 +207,13 @@ function AccountLine({ account, onRemove }: { account: Account; onRemove: () => 
             className="shrink-0"
           />
         )}
+        {account.kind === "bank" && <BalanceAmount check={check} />}
       </div>
-      <div className="mt-1 flex items-center justify-between gap-3 ps-[52px]">
+      <div className="mt-1 flex items-start justify-between gap-3 ps-[52px]">
         {account.kind === "card" && mode ? (
           <p className="text-xs text-muted-foreground">{s.accounts.cardModeHelp[mode]}</p>
         ) : (
-          <span />
+          <BalanceLine check={check} />
         )}
         <Button variant="ghost" size="xs" className="-me-2 shrink-0 text-muted-foreground" onClick={onRemove}>
           {s.removeSync.remove}

@@ -4,6 +4,7 @@
 import type {
   Account,
   AppInfo,
+  BalanceCheck,
   CardMode,
   CashWallet,
   AppSettings,
@@ -152,6 +153,9 @@ export interface IpcContract {
   "transactions:addManual": { args: ManualTransactionInput; result: { id: number } };
   /** Changes every field of a row typed by hand. Synced rows are refused. */
   "transactions:editManual": { args: { id: number; input: ManualTransactionInput }; result: { updated: number } };
+  // ---- spec 24: balance check ----
+  /** One check per bank and card account (not the cash wallet). Read only. */
+  "accounts:balanceChecks": { args: undefined; result: BalanceCheck[] };
 }
 
 export interface IpcEvents {
@@ -216,6 +220,7 @@ export const CHANNELS = [
   "cash:wallet",
   "transactions:addManual",
   "transactions:editManual",
+  "accounts:balanceChecks",
 ] as const satisfies readonly Channel[];
 
 export const EVENTS = ["sync:progress"] as const satisfies readonly EventName[];

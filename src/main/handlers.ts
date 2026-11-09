@@ -25,6 +25,7 @@ import {
 } from "@core/ledger";
 import { groupFlow, periodCurves, periodFlow, periodSummary, periodTrend, thisMonth } from "@core/ledger";
 import { addManualTransaction, editManualTransaction, getCashWallet } from "@core/ledger";
+import { balanceChecks } from "@core/ledger";
 import {
   addKnownPlace,
   addStarters,
@@ -142,6 +143,8 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "cash:wallet": () => getCashWallet(getDb()),
     "transactions:addManual": (input) => addManualTransaction(getDb(), input),
     "transactions:editManual": ({ id, input }) => editManualTransaction(getDb(), id, input),
+    // spec 24
+    "accounts:balanceChecks": () => balanceChecks(getDb()),
   };
 }
 

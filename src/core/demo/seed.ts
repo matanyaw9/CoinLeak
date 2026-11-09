@@ -1,7 +1,8 @@
 // Fills a database with about six months of made-up money for the Demo
 // profile, through the real core: ingest() for the downloads, createRule()
 // and createCategory() for the setup, then a few hand edits and a cash
-// wallet (spec 20). Same date in, same data out.
+// wallet (spec 20). The bank syncs twice, so its two accounts have balances
+// to check (spec 24): one adds up, one has a small gap. Same date in, same data out.
 
 import type { Agorot, IsoDate, RuleCondition, RuleInput, ScrapedAccount, ScrapedTransaction } from "@shared/types";
 import { openDatabase, type Db } from "../db";
@@ -22,6 +23,9 @@ import { createRule } from "../rules";
 import { ACCOUNTS, CARD_SPENDS, RULES, type DemoAccount, type DemoRule } from "./shops";
 
 const MONTHS = 6;
+/** spec 24: the bank's earlier sync, and a fee its second account's rows miss. */
+const EARLIER_SYNC_DAYS = 4;
+const MISSING_FEE: Agorot = -12_000;
 
 interface Draft {
   account: DemoAccount;
@@ -55,8 +59,20 @@ export function seedDemo(db: Db, today: Date): void {
   // A pending bank line the next download no longer has turns "gone".
   const firstDay = `${todayIso.slice(0, 7)}-01`;
   const gone: Draft = { account: "bank", date: firstDay, amount: -35000, description: "חיוב זמני למפתח מזומן", pending: true };
-  ingest(db, [scraped("bank", [...drafts, gone])], { now });
-  ingest(db, [scraped("bank", drafts)], { now });
+  // spec 24: the bank synced four days ago too, so each bank account has two
+  // balances to compare. The first one's adds up; the second one's bank
+  // charged a ₪120 fee CoinLeak never got, a small gap.
+  const earlier = new Date(today.getTime() - EARLIER_SYNC_DAYS * 86_400_000);
+  const upToEarlier = drafts.filter((d) => d.date <= israelToday(earlier));
+  ingest(
+    db,
+    [
+      scraped("bank", [...upToEarlier, gone], balanceBefore("bank", drafts, upToEarlier, 0)),
+      scraped("joint", upToEarlier, balanceBefore("joint", drafts, upToEarlier, MISSING_FEE)),
+    ],
+    { now: earlier },
+  );
+  ingest(db, [scraped("bank", drafts), scraped("joint", drafts)], { now });
   ingest(db, [scraped("everyday", drafts), scraped("online", drafts)], { now });
   ingest(db, [scraped("old", drafts)], { now });
 
@@ -128,6 +144,10 @@ function makeDrafts(today: IsoDate): Draft[] {
     }
     add(randomDay(), { account: "bank", amount: -int(5, 30) * 1000, description: "העברה ב-BIT", memo: "דנה" });
 
+    // The second bank account (spec 24): interest in, a fee out.
+    add(day(1), { account: "joint", amount: 850, description: "ריבית זכות" });
+    add(day(4), { account: "joint", amount: -990, description: "עמלת ניהול חשבון" });
+
     // The everyday card.
     for (const spend of CARD_SPENDS) {
       const n = Math.round(int(spend.perMonth[0], spend.perMonth[1]) * share);
@@ -171,6 +191,9 @@ function makeDrafts(today: IsoDate): Draft[] {
     { account: "online", date: today, amount: 0, description: "ETSY.COM", pending: true, original: { amount: -5000, currency: "USD" } },
     // spec 20: the cash the wallet's rows are spent from.
     { account: "bank", date: toIsoDate(dayNumber(today) - ATM_DAYS_AGO), amount: -30000, description: "משיכת מזומן", memo: "כספומט" },
+    // spec 24: rows since the bank's earlier sync, so both balance checks have some.
+    { account: "bank", date: toIsoDate(dayNumber(today) - 1), amount: -4500, description: "העברה ב-BIT", memo: "יואב" },
+    { account: "joint", date: toIsoDate(dayNumber(today) - 2), amount: -1500, description: "עמלת פעולה בסניף" },
   );
 
   // Statements name the branch, so one chain reads a few ways.
@@ -208,7 +231,15 @@ function billDate(d: Draft): IsoDate | null {
   return d.account === "bank" ? d.date : `${addMonths(d.date.slice(0, 7), 1)}-10`;
 }
 
-function scraped(account: DemoAccount, drafts: Draft[]): ScrapedAccount {
+/** spec 24: the balance at the earlier sync, worked back from today's.
+ *  `unseen` is money the bank moved since then that no row shows. */
+function balanceBefore(account: DemoAccount, drafts: Draft[], upToEarlier: Draft[], unseen: Agorot): Agorot {
+  const today = ACCOUNTS[account].balance ?? 0;
+  const since = drafts.filter((d) => d.account === account && !d.pending && !upToEarlier.includes(d));
+  return today - since.reduce((t, d) => t + d.amount, 0) - unseen;
+}
+
+function scraped(account: DemoAccount, drafts: Draft[], balance = ACCOUNTS[account].balance): ScrapedAccount {
   const transactions: ScrapedTransaction[] = drafts
     .filter((d) => d.account === account)
     .map((d) => ({
@@ -223,7 +254,7 @@ function scraped(account: DemoAccount, drafts: Draft[]): ScrapedAccount {
       installment: d.installment ?? null,
       identifier: null,
     }));
-  return { ...ACCOUNTS[account], transactions };
+  return { ...ACCOUNTS[account], balance, transactions };
 }
 
 function ruleInput(db: Db, rule: DemoRule): RuleInput {

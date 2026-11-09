@@ -630,3 +630,29 @@ export interface CashWallet {
   /** Its rows, trashed ones left out. */
   rowCount: number;
 }
+
+// ---- spec 24: balance check ----
+
+/**
+ * Does a money account's balance agree with CoinLeak's rows? Compares the
+ * two newest balances the bank sent with the rows booked between them.
+ * `unknown` when there is nothing to compare: a card (`card`), a bank that
+ * never sent a balance (`no_balance`), or one balance so far (`one_balance`).
+ */
+export interface BalanceCheck {
+  accountId: number;
+  /** The newest balance the bank sent, or null if none yet. */
+  balance: Agorot | null;
+  /** When that balance was taken, ISO UTC. */
+  asOf: string | null;
+  status: "matches" | "gap" | "unknown";
+  unknownReason: "card" | "no_balance" | "one_balance" | null;
+  /** The days compared, both included: the older balance's day (Israel time)
+   *  to the newer one's. Null when unknown. */
+  window: DateRange | null;
+  /** Rows counted in the window. */
+  rowCount: number;
+  /** The bank's change minus the rows' sum. Positive means the bank shows
+   *  more money than the rows explain. 0 unless `gap`. */
+  gap: Agorot;
+}
