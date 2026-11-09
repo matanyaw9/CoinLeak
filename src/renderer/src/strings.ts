@@ -379,7 +379,7 @@ export const s = {
       matches: (n: number) => (n === 0 ? "No matches yet" : `Matches ${plural(n, "transaction", "transactions")}`),
       typeSomething: "Type some text, and the transactions it fits show up here.",
       none: "Nothing fits right now. That's fine: it will sort new ones after a sync.",
-      yours: "Transactions you sorted by hand keep their category.",
+      yours: "Sync and Apply now never change a category you set by hand.",
       newest: (shown: number, all: number) => (shown < all ? `The newest ${shown}` : ""),
       setByYou: "Sorted by you",
       broken: "Fix the pattern to see a preview.",
