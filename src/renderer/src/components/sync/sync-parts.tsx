@@ -14,6 +14,7 @@ import { ProviderBadge, lastDigits } from "@/components/common/chips";
 import { ProviderTag } from "@/components/accounts/provider-tag";
 import { syncedText } from "@/components/accounts/sync-time";
 import { useCurrentProfile } from "@/components/layout/use-profiles";
+import { formatRangeDay, useSyncStart } from "./sync-range";
 
 const STEPS: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading", "saving"];
 /** Stages where Cancel still stops something; saving is quick and final. */
@@ -122,6 +123,7 @@ export function ProviderSyncRow({
   className,
   withTooltip,
   tooltipOpen,
+  showStart,
 }: {
   provider: ProviderId;
   accounts: Account[] | undefined;
@@ -130,7 +132,10 @@ export function ProviderSyncRow({
   withTooltip?: boolean;
   /** Demo screenshots only: hold the tooltip open. */
   tooltipOpen?: boolean;
+  /** "Downloads from <day>" under the name (spec 23). */
+  showStart?: boolean;
 }) {
+  const start = useSyncStart(provider);
   const sync = useSync();
   const mine = sync.provider === provider;
   const busy = sync.provider != null;
@@ -149,6 +154,9 @@ export function ProviderSyncRow({
         <div className="truncate text-xs text-muted-foreground">
           {stage ? s.sync.stageShort[stage] : when ? s.sync.lastSynced(formatRelative(when)) : s.sync.never}
         </div>
+        {showStart && start && (
+          <div className="truncate text-xs text-muted-foreground">{s.syncRange.downloadsFrom(formatRangeDay(start))}</div>
+        )}
       </div>
       {mine ? (
         stage &&

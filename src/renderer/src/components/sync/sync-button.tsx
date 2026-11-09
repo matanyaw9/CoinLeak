@@ -52,6 +52,7 @@ export function SyncButton() {
                 provider={p}
                 accounts={syncing}
                 withTooltip
+                showStart
                 tooltipOpen={shot === `sync-tip-${p}` ? true : undefined}
               />
             ))}

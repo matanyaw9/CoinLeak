@@ -976,6 +976,48 @@ export const s = {
     whyNote: "CoinLeak never adds, hides or changes a transaction to make the numbers match.",
     syncAgain: "Sync again to check the balance.",
   },
+
+  // spec 23
+  syncRange: {
+    title: "How far back to sync",
+    hint: "A sync downloads this much history from each bank. Rows you already have stay either way.",
+    label: "How far back",
+    max: "As far as each bank allows",
+    fromDay: "From a date",
+    dayLabel: "Start date",
+    limits: "What each bank allows",
+    duration: (months: number) =>
+      months >= 24 && months % 12 === 0 ? `${months / 12} years` : months === 1 ? "1 month" : `${months} months`,
+    earlierNote: "A bank that does not go back this far starts at its own limit.",
+    downloadsFrom: (day: string) => `Downloads from ${day}`,
+    failed: "Failed to save how far back to sync.",
+  },
+  danger: {
+    title: "Danger zone",
+    hint: "Delete your data from this computer for good.",
+    profileTitle: "Delete this profile's data",
+    profileBody: (name: string) => `Everything in ${name}. The profile stays, empty, as if new.`,
+    profileButton: "Delete data",
+    demoTitle: "Reset demo data",
+    demoBody: "Throws away your changes to the Demo profile and brings back fresh made-up data.",
+    demoButton: "Reset",
+    allTitle: "Delete everything",
+    allBody: "Every profile and all its data. CoinLeak starts again like a fresh install.",
+    allButton: "Delete everything",
+    confirmProfileTitle: (name: string) => `Delete all data in ${name}?`,
+    confirmAllTitle: "Delete everything?",
+    goesProfile: "All transactions, categories, rules, notes and money accounts in this profile.",
+    goesAll: "Every profile, with all its transactions, categories, rules, notes and money accounts, and the list of profiles.",
+    noUndo:
+      "This cannot be undone. There is no copy anywhere else: CoinLeak never sent your data off this computer.",
+    disk:
+      "SSDs and some file systems can keep old copies of deleted files where no app can reach them. Disk encryption (offered when installing Fedora, or BitLocker on Windows) is what protects against that.",
+    typeWord: "DELETE",
+    typeLabel: (word: string) => `Type ${word} to confirm`,
+    cancel: "Cancel",
+    confirm: "Delete for good",
+    failed: "Failed to delete the data.",
+  },
 };
 
 export type Strings = typeof s;
