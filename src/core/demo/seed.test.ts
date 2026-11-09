@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRow } from "@shared/types";
 import { openDatabase, type Db } from "../db";
-import { listAccounts, listCategories, listTransactions, monthSummary } from "../ledger";
+import { getCashWallet, listAccounts, listCategories, listTransactions, monthSummary } from "../ledger";
 import { listRules } from "../rules";
 import { seedDemo } from "./seed";
 
@@ -70,5 +70,17 @@ describe("seedDemo", () => {
     expect(calBills.length).toBeGreaterThan(5);
     expect(calBills.every((r) => r.flow === "internal")).toBe(true);
     expect(listAccounts(db).filter((a) => a.syncEnabled === false)).toHaveLength(1);
+  });
+
+  it("has a cash wallet fed by an ATM withdrawal (spec 20)", () => {
+    const db = seeded();
+    const wallet = getCashWallet(db);
+    expect(wallet?.rowCount).toBe(5);
+    const rows = listTransactions(db, { from: "2026-10-25" });
+    const cash = rows.filter((r) => r.source === "manual");
+    expect(cash.some((r) => r.flow === "income" && r.categoryId === null)).toBe(true);
+    expect(cash.some((r) => r.note !== null)).toBe(true);
+    const atm = rows.find((r) => r.date === "2026-11-01" && r.description === "משיכת מזומן" && r.amount === -30000);
+    expect(atm).toMatchObject({ flow: "internal", movedToCash: true });
   });
 });

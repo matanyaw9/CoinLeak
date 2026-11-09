@@ -1,11 +1,12 @@
 // Fills a database with about six months of made-up money for the Demo
 // profile, through the real core: ingest() for the downloads, createRule()
-// and createCategory() for the setup, then a few hand edits. Same date in,
-// same data out.
+// and createCategory() for the setup, then a few hand edits and a cash
+// wallet (spec 20). Same date in, same data out.
 
 import type { Agorot, IsoDate, RuleCondition, RuleInput, ScrapedAccount, ScrapedTransaction } from "@shared/types";
 import { openDatabase, type Db } from "../db";
 import {
+  addManualTransaction,
   createCategory,
   ingest,
   listAccounts,
@@ -70,7 +71,24 @@ export function seedDemo(db: Db, today: Date): void {
   trashTransactions(db, [...byText("עמלת פעולה בערוץ ישיר"), ...byText("החזר עמלה")], now);
   const old = listAccounts(db).filter((a) => a.accountNumber === ACCOUNTS.old.accountNumber);
   setAccountsSyncing(db, old.map((a) => a.id), false);
+
+  // spec 20: a cash wallet, spent from after this week's ATM withdrawal.
+  for (const c of CASH) {
+    const date = toIsoDate(dayNumber(todayIso) - c.daysAgo);
+    const category = c.category ? categoryId(db, c.category) : null;
+    addManualTransaction(db, { date, amount: c.amount, description: c.description, categoryId: category, note: c.note ?? null }, now);
+  }
 }
+
+/** Rows typed into the cash wallet, the days after the ATM withdrawal (`ATM_DAYS_AGO`). */
+const ATM_DAYS_AGO = 6;
+const CASH: { daysAgo: number; amount: Agorot; description: string; category?: string; note?: string }[] = [
+  { daysAgo: 5, amount: -1800, description: "קפה ברחוב", category: "Coffee & Cafes" },
+  { daysAgo: 4, amount: -6400, description: "שוק הכרמל", category: "Groceries", note: "Fruit and vegetables for the week" },
+  { daysAgo: 3, amount: -3200, description: "פלאפל", category: "Restaurants", note: "Lunch with Noa" },
+  { daysAgo: 2, amount: 20000, description: "מזומן מסבתא", note: "Birthday money" },
+  { daysAgo: 1, amount: -1000, description: "חניה ברחוב", category: "Parking" },
+];
 
 function makeDrafts(today: IsoDate): Draft[] {
   const rand = mulberry32(20261107);
@@ -151,6 +169,8 @@ function makeDrafts(today: IsoDate): Draft[] {
     { account: "everyday", date: first, amount: -8500, description: "PAYBOX" },
     { account: "everyday", date: first, amount: -24900, description: "ח.י. שיווק בע״מ" },
     { account: "online", date: today, amount: 0, description: "ETSY.COM", pending: true, original: { amount: -5000, currency: "USD" } },
+    // spec 20: the cash the wallet's rows are spent from.
+    { account: "bank", date: toIsoDate(dayNumber(today) - ATM_DAYS_AGO), amount: -30000, description: "משיכת מזומן", memo: "כספומט" },
   );
 
   // Statements name the branch, so one chain reads a few ways.
