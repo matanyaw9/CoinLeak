@@ -154,3 +154,18 @@ Nothing open.
   owner to confirm on GNOME.
 - The window icon path assumes `build/` sits next to `out/`; the installer
   spec must ship `build/icon.png` or switch to a packaged path.
+
+## From spec 20
+
+- The Cash wallet is left out of `accounts:list` (window code looks up a
+  provider for every account), so the Transactions money-account filter
+  cannot pick "Cash". Add it as its own filter option.
+- `useFirstRun` keys off `accounts:list`: a profile with only a Cash wallet
+  still shows the welcome screen.
+- "Add note" from the right-click menu relies on the popover staying open
+  after the menu closes; no test or screenshot. Owner to try.
+- ATM withdrawals move into the wallet only from the first day of the
+  wallet's first month (the month it was made or of its oldest row, the
+  earlier), so making a wallet never removes years of past ATM spending.
+  Lead accepted at merge, 2026-11-09; one line in `loadWallet`
+  (`card-bills.ts`) if the owner wants otherwise.
