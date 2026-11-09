@@ -6,7 +6,7 @@ import { AppWindow, Check, LoaderCircle, RefreshCw } from "lucide-react";
 import type { Account, ProviderId, SyncStage } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { useSync } from "@/lib/sync";
+import { useSync, useSyncElapsed } from "@/lib/sync";
 import { formatRelative } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -17,6 +17,8 @@ import { syncedText } from "@/components/accounts/sync-time";
 const STEPS: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading", "saving"];
 /** Stages where Cancel still stops something; saving is quick and final. */
 const CANCELLABLE: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading"];
+/** Stages where the sync is still working, so the live note shows. */
+const RUNNING: SyncStage[] = STEPS;
 
 export function lastSync(accounts: Account[] | undefined, provider: ProviderId): string | null {
   const times = (accounts ?? []).flatMap((a) => (a.provider === provider && a.lastSyncedAt ? [a.lastSyncedAt] : []));
@@ -66,6 +68,37 @@ export function LoginNote({ className }: { className?: string }) {
         <p className="text-sm leading-snug font-medium text-pretty">{s.sync.loginTitle}</p>
         <p className="mt-1 text-xs leading-relaxed text-pretty text-muted-foreground">{s.sync.loginBody}</p>
       </div>
+    </div>
+  );
+}
+
+/** A pulsing dot: the sync is alive. Decorative; the words carry the state. */
+export function LiveDot({ className }: { className?: string }) {
+  return (
+    <span className={cn("relative flex size-2 shrink-0", className)} aria-hidden>
+      <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60 motion-reduce:animate-none" />
+      <span className="relative inline-flex size-2 rounded-full bg-primary" />
+    </span>
+  );
+}
+
+/** While a sync runs (spec 18): who, how long so far, and to keep the bank window open. */
+export function LiveNote({ provider, className }: { provider: ProviderId; className?: string }) {
+  const elapsed = useSyncElapsed();
+  return (
+    <div className={cn("rounded-2xl border border-border bg-muted/50 px-3.5 py-3", className)}>
+      <div className="flex items-center gap-2.5">
+        <LiveDot />
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.syncLive.working(s.providers[provider].short)}</span>
+        {elapsed && (
+          <span className="font-mono text-xs tabular-nums text-muted-foreground" aria-label={s.syncLive.elapsed(elapsed)}>
+            {elapsed}
+          </span>
+        )}
+      </div>
+      <p role="status" className="mt-1.5 text-xs leading-relaxed text-pretty text-muted-foreground">
+        {s.syncLive.keepOpen}
+      </p>
     </div>
   );
 }
@@ -143,6 +176,7 @@ export function ProviderSyncRow({
       ) : (
         head
       )}
+      {stage && RUNNING.includes(stage) && <LiveNote provider={provider} className="mt-4 ms-12" />}
       {stage && stage !== "failed" && <SyncSteps stage={stage} className="mt-4 ms-12" />}
       {stage === "waiting_for_login" && <LoginNote className="mt-4 ms-12" />}
     </div>

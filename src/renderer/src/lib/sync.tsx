@@ -8,11 +8,14 @@ import { toast } from "sonner";
 import type { ProviderId, SyncStage } from "@shared/types";
 import { s } from "@/strings";
 import { loadAddedProviders, type AddedStore } from "@/components/sync/added-providers";
+import { IDLE, elapsedMs, formatElapsed, onClock, ticking, type ClockEvent, type SyncClock } from "@/components/sync/sync-clock";
 import { ApiError, call, listen } from "./api";
 
 interface SyncState {
   provider: ProviderId | null;
   stage: SyncStage | null;
+  /** When the running sync started and stopped (spec 18). */
+  clock: SyncClock;
   start: (provider: ProviderId) => void;
   cancel: () => void;
   /** The top bar's Sync panel, so a welcome screen can open it. */
@@ -52,6 +55,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const [provider, setProvider] = useState<ProviderId | null>(null);
   const [stage, setStage] = useState<SyncStage | null>(null);
+  const [clock, setClock] = useState<SyncClock>(IDLE);
+  const tick = useCallback((event: ClockEvent) => setClock((c) => onClock(c, event)), []);
   const [panelOpen, setPanelOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [added, setAdded] = useState<ProviderId[]>([]);
@@ -70,9 +75,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   useEffect(
     () =>
       listen("sync:progress", (p) => {
-        if (active.current) setStage(p.stage);
+        if (!active.current) return;
+        setStage(p.stage);
+        tick({ type: "stage", stage: p.stage, at: Date.now() });
       }),
-    [],
+    [tick],
   );
 
   const start = useCallback(
@@ -81,6 +88,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       active.current = true;
       setProvider(id);
       setStage("opening_browser");
+      tick({ type: "start", at: Date.now() });
       const name = s.providers[id].short;
       call("sync:start", { provider: id })
         .then((r) => {
@@ -96,16 +104,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           active.current = false;
           setProvider(null);
           setStage(null);
+          tick({ type: "end" });
           // A sync can bring accounts, categories and rows: refresh it all.
           void client.invalidateQueries();
         });
     },
-    [client],
+    [client, tick],
   );
 
   const cancel = useCallback(() => {
+    tick({ type: "cancel", at: Date.now() });
     void call("sync:cancel", undefined).catch(() => undefined);
-  }, []);
+  }, [tick]);
 
   const addProvider = useCallback((id: ProviderId) => {
     setAdded((list) => {
@@ -128,6 +138,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     () => ({
       provider,
       stage,
+      clock,
       start,
       cancel,
       panelOpen,
@@ -138,7 +149,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       addProvider,
       removeProvider,
     }),
-    [provider, stage, start, cancel, panelOpen, pickerOpen, added, addProvider, removeProvider],
+    [provider, stage, clock, start, cancel, panelOpen, pickerOpen, added, addProvider, removeProvider],
   );
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
 }
@@ -147,4 +158,17 @@ export function useSync(): SyncState {
   const ctx = useContext(SyncContext);
   if (!ctx) throw new Error("useSync outside SyncProvider");
   return ctx;
+}
+
+/** "1:23" since the sync started, ticking each second until it stops; null when idle. */
+export function useSyncElapsed(): string | null {
+  const { clock } = useSync();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ticking(clock)) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [clock]);
+  const ms = elapsedMs(clock, Math.max(now, clock.startedAt ?? 0));
+  return ms === null ? null : formatElapsed(ms);
 }

@@ -645,7 +645,8 @@ export const s = {
         supermarkets: "Supermarkets",
         cafes: "Cafes",
         restaurants: "Restaurants and delivery",
-        fuel: "Fuel and parking",
+        fuel: "Fuel",
+        parking: "Parking",
         pharmacies: "Pharmacies",
         publicTransport: "Public transport",
         telecom: "Phone and internet",
@@ -673,6 +674,22 @@ export const s = {
       offerYes: "Yes, always",
       offerRule: "Make a rule",
     },
+  },
+
+  // spec 18
+  essential: {
+    label: "Essential or extra",
+    hint: "Extras are where a month can be cut",
+    essential: "Essential",
+    extra: "Extra",
+    badge: "Extra",
+    badgeTitle: "Extra spending: where a month can be cut",
+  },
+  syncLive: {
+    working: (provider: string) => `Syncing ${provider}`,
+    keepOpen: "Keep the bank window open. CoinLeak is downloading; this can take a minute or two.",
+    elapsed: (time: string) => `Running for ${time}`,
+    button: (stage: string, time: string) => `${stage} ${time}`,
   },
 };
 
