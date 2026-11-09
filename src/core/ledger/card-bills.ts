@@ -8,7 +8,8 @@
 import type { CardMode, IsoDate, ProviderId } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { companyOf, last4, readCardLine, type CardLine } from "./card-patterns";
-import { daysApart } from "./dates";
+import { isCashWithdrawal } from "./cash-patterns";
+import { daysApart, israelMonth } from "./dates";
 import { assertIds, check, isId } from "./validate";
 
 export const MATCH_WINDOW_DAYS = 3;
@@ -85,7 +86,7 @@ export function recomputeCardBills(db: Db): CardBillStats {
 export function applyCardBills(db: Db): CardBillStats {
   const cards = loadCards(db);
   const lines = loadBankLines(db);
-  const plan = planCardBills(cards, loadCardRows(db), lines);
+  const plan = planCardBills(cards, loadCardRows(db), lines, loadWallet(db));
   const update = db.prepare(
     `UPDATE transactions SET internal = ?, possible_card_bill = ?, card_bill_account_id = ?,
        card_bill_style = ?, card_bill_txn_id = ?, card_bill_date = ? WHERE id = ?`,
@@ -109,11 +110,14 @@ export function applyCardBills(db: Db): CardBillStats {
  * still use up card rows. Pass 1 tries each card's own style, pass 2 the
  * other style on what is left. Within a pass the strongest pairing wins:
  * a line naming the card's number, then the closest date.
+ * Spec 20: a line no card took that looks like an ATM withdrawal, from the
+ * wallet's first month on, is money moved into the cash wallet.
  */
 function planCardBills(
   cards: CardAccount[],
   cardRows: CardRow[],
   lines: BankLine[],
+  wallet: Wallet | null,
 ): Map<number, MatchState> {
   const rowsByCard = groupBy(cardRows, (r) => r.accountId);
   const consumed = new Set<number>();
@@ -166,8 +170,38 @@ function planCardBills(
   }
 
   const plan = new Map<number, MatchState>();
-  for (const { line, info } of open) plan.set(line.id, decided.get(line.id) ?? (info ? FLAGGED : PLAIN));
+  const toWallet = (line: BankLine): boolean =>
+    wallet !== null && line.date >= wallet.since && isCashWithdrawal(line.description, line.amount);
+  for (const { line, info } of open) {
+    const auto = wallet && toWallet(line) ? { ...PLAIN, internal: 1 as Bit, card_bill_account_id: wallet.id } : info ? FLAGGED : PLAIN;
+    plan.set(line.id, decided.get(line.id) ?? auto);
+  }
   return plan;
+}
+
+interface Wallet {
+  id: number;
+  /** First day bank withdrawals move into it. */
+  since: IsoDate;
+}
+
+/**
+ * The cash wallet and the first day withdrawals move into it: the first of
+ * the month it started, the earlier of the month it was made and the month
+ * of its oldest row. Older withdrawals stay spending, because the cash they
+ * took out was never written down here.
+ */
+function loadWallet(db: Db): Wallet | null {
+  const row = db
+    .prepare(
+      `SELECT a.id, a.created_at, (SELECT MIN(t.date) FROM transactions t WHERE t.account_id = a.id) AS first
+       FROM accounts a WHERE a.kind = 'cash'`,
+    )
+    .get() as { id: number; created_at: string; first: IsoDate | null } | undefined;
+  if (!row) return null;
+  const made = israelMonth(new Date(row.created_at));
+  const firstRow = row.first?.slice(0, 7) ?? made;
+  return { id: row.id, since: `${firstRow < made ? firstRow : made}-01` };
 }
 
 /** A numbered line can only pay the card with that number. A line naming a

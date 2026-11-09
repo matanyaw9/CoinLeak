@@ -3,9 +3,11 @@
 // ignored rows are greyed with the amount struck through. Rows with a
 // question for the user (card bill, gone) carry a strip below. The left
 // gutter selects; right click or "..." opens the row menu. Spec 17: the
-// category chip filters and explains itself (category-cell.tsx).
+// category chip filters and explains itself (category-cell.tsx). Spec 20:
+// the note under the description and its button, cash rows and withdrawals
+// moved into the cash wallet.
 
-import { ArrowLeftRight, Check, CircleDashed, Clock, EyeOff, WandSparkles } from "lucide-react";
+import { ArrowLeftRight, Check, CircleDashed, Clock, EyeOff, StickyNote, Wallet, WandSparkles } from "lucide-react";
 import type { Account, Category, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,7 @@ import { Money } from "@/components/common/money";
 import { AccountChip, CategoryBubble, IconBubble } from "@/components/common/chips";
 import { CategoryCell } from "./category-cell";
 import { CardBillPrompt, GonePrompt, InternalMenu } from "./review-prompt";
+import { NoteButton } from "./note-editor";
 import { RowContextMenu, RowMenuButton, type RowMenuModel } from "./row-menu";
 
 export interface RowReview {
@@ -48,6 +51,8 @@ export function TransactionRow({
   onFilterCategory,
   showDate,
   hintOpen,
+  noteOpen,
+  onNoteOpenChange,
 }: {
   row: Row;
   account: Account | undefined;
@@ -68,6 +73,9 @@ export function TransactionRow({
   showDate?: boolean;
   /** Demo screenshots: show the category hover card at once. */
   hintOpen?: boolean;
+  /** spec 20: the note box is open (from its button or the row menu). */
+  noteOpen?: boolean;
+  onNoteOpenChange?: (open: boolean) => void;
 }) {
   const category = row.categoryId != null ? index.byId.get(row.categoryId) : undefined;
   const gone = isGone(row);
@@ -109,7 +117,7 @@ export function TransactionRow({
                 <CategoryBubble category={category} size={38} />
               ) : (
                 <IconBubble
-                  icon={gone ? CircleDashed : row.flow === "internal" ? ArrowLeftRight : EyeOff}
+                  icon={gone ? CircleDashed : row.movedToCash ? Wallet : row.flow === "internal" ? ArrowLeftRight : EyeOff}
                   size={38}
                   className={cn(ignored && "opacity-60")}
                 />
@@ -169,6 +177,17 @@ export function TransactionRow({
               {showDate && (
                 <>
                   <span className="shrink-0 tabular-nums">{formatDayShort(row.date)}</span>
+                  {(row.note || row.memo || (row.originalAmount != null && row.originalCurrency && !abroad)) && <span>·</span>}
+                </>
+              )}
+              {row.note && (
+                <>
+                  <span className="flex min-w-0 shrink items-center gap-1 text-foreground/65">
+                    <StickyNote className="size-3 shrink-0" strokeWidth={2} />
+                    <span dir="auto" className="truncate">
+                      {row.note}
+                    </span>
+                  </span>
                   {(row.memo || (row.originalAmount != null && row.originalCurrency && !abroad)) && <span>·</span>}
                 </>
               )}
@@ -204,7 +223,7 @@ export function TransactionRow({
           </div>
 
           <div className="hidden w-32 shrink-0 lg:block">
-            <AccountChip account={account} />
+            {row.source === "manual" ? <CashChip /> : <AccountChip account={account} />}
           </div>
 
           <div className="flex w-28 shrink-0 flex-col items-end justify-center gap-1 xl:w-36">
@@ -236,6 +255,7 @@ export function TransactionRow({
             )}
           </div>
 
+          <NoteButton row={row} open={noteOpen ?? false} onOpenChange={(open) => onNoteOpenChange?.(open)} />
           <RowMenuButton key={String(menuOpen)} menu={menu} defaultOpen={menuOpen} />
         </div>
 
@@ -275,8 +295,24 @@ function RuleChip({ ruleId }: { ruleId: number }) {
   );
 }
 
+/** spec 20: in the account column for rows typed into the cash wallet. */
+function CashChip() {
+  return (
+    <span
+      title={s.cash.chipTitle}
+      className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary/70 py-0.5 ps-1 pe-2 text-xs text-secondary-foreground/80"
+    >
+      <span className="flex size-4 items-center justify-center rounded-full bg-status-on-track/20 text-status-on-track">
+        <Wallet className="size-2.5" strokeWidth={2.5} />
+      </span>
+      <span className="truncate">{s.cash.chip}</span>
+    </span>
+  );
+}
+
 function Reason({ row }: { row: Row }) {
   const r = s.transactions.reason;
+  if (row.movedToCash) return <ReasonChip label={s.cash.movedChip} hint={s.cash.movedHint} />;
   if (row.flow === "internal") return <ReasonChip label={r.internal} hint={r.internalHint} />;
   if (row.flow === "excluded") return <ReasonChip label={r.excluded} hint={r.excludedHint} />;
   if (isPossibleCardBill(row)) return <ReasonChip label={r.possibleCardBill} hint={r.possibleCardBillHint} warn />;

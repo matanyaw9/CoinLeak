@@ -19,3 +19,4 @@ export {
 } from "./queries";
 export { createCategory, deleteCategory, updateCategory } from "./categories";
 export { setAccountsSyncing } from "./accounts";
+export { addManualTransaction, editManualTransaction, getCashWallet } from "./cash";

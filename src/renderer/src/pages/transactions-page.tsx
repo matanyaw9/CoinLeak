@@ -5,11 +5,12 @@
 // toggle, and the "Always put X in Y?" offer after sorting a row by hand.
 // Spec 17: the period's Income, Spent and Left on top, sort and filters kept
 // in the URL, a click on a row's category filters to it, and Ctrl+F.
+// Spec 20: select all (top and per day), notes, and cash rows typed by hand.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { ArrowLeftRight, CircleCheck, Eye, EyeOff, ListPlus, Search, SearchX, Trash2, WandSparkles } from "lucide-react";
+import { ArrowLeftRight, CircleCheck, Eye, EyeOff, ListPlus, Pencil, Plus, Search, SearchX, StickyNote, Trash2, WandSparkles } from "lucide-react";
 import type { Category, TransactionFilter, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
@@ -33,7 +34,7 @@ import { formatDayLong } from "@/lib/format";
 import { indexCategories, type CategoryIndex } from "@/lib/categories";
 import { groupByDay } from "@/lib/day-groups";
 import { Page } from "@/components/layout/page";
-import { Input, Skeleton } from "@/components/ui/misc";
+import { Checkbox, Input, Skeleton } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/common/segmented";
 import { EmptyState, QueryError } from "@/components/common/empty-state";
@@ -48,6 +49,8 @@ import { chipsFor, clearFilters, onlyCategory, readView, toFilter, writeView, ty
 import { onFind, takeFindRequest } from "@/components/transactions/find";
 import { Hint } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
+import { checkState, checkedProp, toggleAll, type CheckState } from "@/components/transactions/selection";
+import { ManualDialog } from "@/components/transactions/manual-dialog";
 
 const NONE = new Set<number>();
 // The offer's X sits inside the top right corner, not on sonner's outer edge.
@@ -132,6 +135,13 @@ export function TransactionsPage() {
 
   const clearSelection = () => setSelection({ scope, ids: NONE });
   const selectedRows = rows.filter((r) => selected.has(r.id));
+  // spec 20: the box above the list and each day's box (hidden card bills are not in `rows`).
+  const toggleMany = (ids: number[]) => setSelection({ scope, ids: toggleAll(ids, selected) });
+  const allIds = useMemo(() => rows.map((r) => r.id), [rows]);
+
+  // spec 20: the note box of one row, and the cash form (a row to edit, or null to add).
+  const [noteRow, setNoteRow] = useState<number | null>(null);
+  const [cashForm, setCashForm] = useState<{ open: boolean; row: Row | null }>({ open: false, row: null });
 
   const makeRule = (targets: Row[], category?: Category) =>
     suggestFor(targets.map((r) => r.id), category).then((draft) => openEditor({ draft, optIn: true }), failed);
@@ -193,6 +203,19 @@ export function TransactionsPage() {
               },
             ]
           : []),
+        ...(many
+          ? []
+          : [
+              {
+                key: "note",
+                label: row.note ? s.note.edit : s.note.add,
+                icon: StickyNote,
+                onSelect: () => setNoteRow(row.id),
+              },
+              ...(row.source === "manual"
+                ? [{ key: "edit", label: s.cash.edit, icon: Pencil, onSelect: () => setCashForm({ open: true, row }) }]
+                : []),
+            ]),
         {
           key: "ignore",
           label: ignoredAll ? s.rowMenu.countAgain : s.rowMenu.ignore,
@@ -218,6 +241,8 @@ export function TransactionsPage() {
     lastMonth: () => setMonth(shiftMonth(month, -1)),
     offerRule,
     index,
+    openNote: setNoteRow,
+    openCash: () => setCashForm({ open: true, row: null }),
   });
 
   const setView = (next: ListView) => setParams((p) => writeView(p, next), { replace: true });
@@ -289,6 +314,29 @@ export function TransactionsPage() {
           </label>
         </div>
         <FilterChips chips={chips} view={view} onChange={setView} />
+        {/* spec 20: select every row shown, and add a cash row. */}
+        {tx.data && (
+          <div className="flex h-12 items-center gap-1 border-t border-border pe-4">
+            {rows.length > 0 && (
+              <>
+                <SelectBox
+                  state={checkState(allIds, selected)}
+                  label={checkState(allIds, selected) === "all" ? s.selectAll.clear : s.selectAll.allShown(allIds.length)}
+                  onToggle={() => toggleMany(allIds)}
+                />
+                <span className="text-[13px] text-muted-foreground">
+                  {selected.size > 0 ? s.transactions.selected(selected.size) : s.selectAll.all}
+                </span>
+              </>
+            )}
+            <Hint label={s.cash.addHint}>
+              <Button variant="ghost" size="sm" className="ms-auto rounded-full" onClick={() => setCashForm({ open: true, row: null })}>
+                <Plus />
+                {s.cash.add}
+              </Button>
+            </Hint>
+          </div>
+        )}
 
         {tx.isError ? (
           <QueryError error={tx.error} className="border-t border-border" />
@@ -328,9 +376,18 @@ export function TransactionsPage() {
           <div className={cn("pb-2 transition-opacity", tx.isPlaceholderData && "opacity-60")}>
             {groups.map((g) => (
               <Fragment key={g.date}>
-                {byDay && <div className="flex items-center justify-between border-t border-border bg-secondary/45 px-6 py-2.5">
-                  <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                    {formatDayLong(g.date)}
+                {byDay && <div className="group/day flex items-center justify-between border-t border-border bg-secondary/45 pe-6">
+                  <span className="flex items-center gap-1">
+                    <SelectBox
+                      state={checkState(g.rows.map((r) => r.id), selected)}
+                      label={s.selectAll.day(formatDayLong(g.date))}
+                      onToggle={() => toggleMany(g.rows.map((r) => r.id))}
+                      className="h-10"
+                      quiet={selected.size === 0}
+                    />
+                    <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                      {formatDayLong(g.date)}
+                    </span>
                   </span>
                   <span className="flex items-center gap-3 text-xs text-muted-foreground">
                     {g.income > 0 && <Money amount={g.income} sign className="text-[13px] text-status-on-track" />}
@@ -361,6 +418,8 @@ export function TransactionsPage() {
                     hintOpen={shot.hintRow === row.id}
                     showDate={!byDay}
                     onFilterCategory={(id) => setView(onlyCategory(view, id))}
+                    noteOpen={noteRow === row.id}
+                    onNoteOpenChange={(open) => setNoteRow(open ? row.id : null)}
                     review={{
                       reviewing: review,
                       kept: kept.has(row.id),
@@ -393,7 +452,46 @@ export function TransactionsPage() {
           onClear={clearSelection}
         />
       )}
+      <ManualDialog
+        open={cashForm.open}
+        onOpenChange={(open) => setCashForm((f) => ({ ...f, open }))}
+        row={cashForm.row}
+        index={index}
+      />
     </Page>
+  );
+}
+
+/**
+ * spec 20: the select-all box, above the list and on each day. It sits in
+ * the rows' gutter so it lines up with their checkboxes. `quiet` hides it
+ * until the day is hovered, like the rows' boxes before anything is selected.
+ */
+function SelectBox({
+  state,
+  label,
+  onToggle,
+  className,
+  quiet,
+}: {
+  state: CheckState;
+  label: string;
+  onToggle: () => void;
+  className?: string;
+  quiet?: boolean;
+}) {
+  return (
+    <span className={cn("flex w-[62px] shrink-0 items-center justify-center ps-6", className)}>
+      <Checkbox
+        checked={checkedProp(state)}
+        aria-label={label}
+        onClick={onToggle}
+        className={cn(
+          "size-5 rounded-[6px] border-[1.5px] [&_svg]:size-3.5",
+          quiet && state === "none" && "opacity-0 group-hover/day:opacity-100 focus-visible:opacity-100",
+        )}
+      />
+    </span>
   );
 }
 
@@ -403,7 +501,8 @@ export function TransactionsPage() {
  * in Y?" toast, and `?shot=bills` or `?shot=bills-on` go to last month
  * (which has card bills) with them hidden or shown. Spec 17:
  * `?shot=hover` shows who set the category on a row a rule sorted, and
- * `?shot=hover-user` on a row sorted by hand.
+ * `?shot=hover-user` on a row sorted by hand. Spec 20: `?shot=select-day`,
+ * `?shot=note` and `?shot=add-cash`.
  */
 function useDemoShot(
   rows: Row[],
@@ -413,6 +512,8 @@ function useDemoShot(
     lastMonth: () => void;
     offerRule: (row: Row, category: Category, still: boolean) => void;
     index: CategoryIndex;
+    openNote: (id: number) => void;
+    openCash: () => void;
   },
 ): { menuRow: number | null; hintRow: number | null } {
   const shot = useShot();
@@ -433,6 +534,15 @@ function useDemoShot(
       if (shot === "offer" && spending[0] && groceries) aids.offerRule(spending[0], groceries, true);
       const source = shot === "hover" ? "rule" : shot === "hover-user" ? "user" : null;
       if (source) setHintRow(rows.find((r) => r.categorySource === source && r.categoryId != null)?.id ?? null);
+      // spec 20: two rows of a busy day (that day's box and the top box mixed),
+      // the note box on a row with a note, and the cash form.
+      if (shot === "select-day") {
+        const day = groupByDay(rows).find((g) => g.rows.length >= 3);
+        if (day) aids.select(new Set(day.rows.slice(0, 2).map((r) => r.id)));
+      }
+      const noted = rows.find((r) => r.note);
+      if (shot === "note" && noted) aids.openNote(noted.id);
+      if (shot === "add-cash") aids.openCash();
     }, 400);
     return () => clearTimeout(id);
     // Once per load: refreshed rows must not repeat it.

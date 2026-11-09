@@ -22,3 +22,13 @@ export function assertIds(ids: unknown): asserts ids is number[] {
 export function assertOptionalDate(value: unknown): void {
   check(value === undefined || isIsoDate(value));
 }
+
+export const NOTE_MAX = 500;
+
+/** A note as stored (spec 20): trimmed, empty means none, at most 500 characters. */
+export function cleanNote(note: unknown): string | null {
+  check(note === null || typeof note === "string");
+  const text = note?.trim() ?? "";
+  check(text.length <= NOTE_MAX);
+  return text === "" ? null : text;
+}

@@ -46,7 +46,7 @@ describe("migration 0006 (transfers)", () => {
 
     const after = all(db, CATEGORY_COLUMNS);
     expect(after.slice(0, categories.length)).toEqual(categories);
-    expect(all(db, "SELECT * FROM transactions ORDER BY id")).toEqual(transactions);
+    expect(all(db, "SELECT * FROM transactions ORDER BY id").map(withoutSource)).toEqual(transactions);
     expect(all(db, "SELECT id, name, set_category_id FROM rules ORDER BY id")).toEqual(rules);
     expect(all(db, "PRAGMA foreign_key_check")).toEqual([]);
     expect(db.prepare("SELECT COUNT(*) AS n FROM transactions WHERE category_id IS NOT NULL").get()).toEqual({ n: 4 });
@@ -93,3 +93,10 @@ describe("migration 0006 (transfers)", () => {
     });
   });
 });
+
+// 0010 (spec 20) adds `transactions.source` later; every column before it must hold.
+function withoutSource(row: unknown): unknown {
+  const rest = { ...(row as Record<string, unknown>) };
+  delete rest.source;
+  return rest;
+}

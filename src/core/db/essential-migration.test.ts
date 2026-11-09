@@ -113,7 +113,7 @@ describe("migration 0009 (essential categories)", () => {
     // Every category the user had is exactly as it was.
     const after = all(db, OLD_COLUMNS) as Row[];
     expect(after.slice(0, before.length)).toEqual(before);
-    expect(all(db, "SELECT * FROM transactions ORDER BY id")).toEqual(transactions);
+    expect(all(db, "SELECT * FROM transactions ORDER BY id").map(withoutSource)).toEqual(transactions);
     expect(all(db, "PRAGMA foreign_key_check")).toEqual([]);
 
     // Added: only Lifestyle's Vacation and Impulsive buying. Food has BARS, the
@@ -147,3 +147,10 @@ describe("migration 0009 (essential categories)", () => {
     expect(all(db, "SELECT * FROM categories ORDER BY id")).toEqual(once);
   });
 });
+
+// 0010 (spec 20) adds `transactions.source` later; every column before it must hold.
+function withoutSource(row: unknown): unknown {
+  const rest = { ...(row as Record<string, unknown>) };
+  delete rest.source;
+  return rest;
+}

@@ -5,6 +5,7 @@ import type {
   Account,
   AppInfo,
   CardMode,
+  CashWallet,
   AppSettings,
   Category,
   CategoryChange,
@@ -22,6 +23,7 @@ import type {
   IsoMonth,
   KnownPlaceAdded,
   KnownPlaces,
+  ManualTransactionInput,
   MoneyFlow,
   MonthSummary,
   ProviderId,
@@ -142,6 +144,13 @@ export interface IpcContract {
   "profiles:addDemo": { args: undefined; result: Profile };
   /** Throws the Demo data away and makes it fresh. */
   "profiles:resetDemo": { args: undefined; result: null };
+  // ---- spec 20: the cash wallet and rows typed by hand ----
+  /** The profile's cash wallet, or null before the first row is added. */
+  "cash:wallet": { args: undefined; result: CashWallet | null };
+  /** Adds a row to the cash wallet, making the wallet on first use. */
+  "transactions:addManual": { args: ManualTransactionInput; result: { id: number } };
+  /** Changes every field of a row typed by hand. Synced rows are refused. */
+  "transactions:editManual": { args: { id: number; input: ManualTransactionInput }; result: { updated: number } };
 }
 
 export interface IpcEvents {
@@ -203,6 +212,9 @@ export const CHANNELS = [
   "profiles:switch",
   "profiles:addDemo",
   "profiles:resetDemo",
+  "cash:wallet",
+  "transactions:addManual",
+  "transactions:editManual",
 ] as const satisfies readonly Channel[];
 
 export const EVENTS = ["sync:progress"] as const satisfies readonly EventName[];
