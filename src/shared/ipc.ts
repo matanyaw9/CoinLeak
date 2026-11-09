@@ -76,9 +76,10 @@ export interface IpcContract {
   "summary:groupFlow": { args: DateRange & { categoryId: number }; result: GroupFlow };
   /**
    * The calendar months the range covers (at least 3, never past this month).
-   * With `categoryId`, only that category's spending (null: uncategorized).
+   * With `categoryIds`, `byCategory` has one entry per id in that order, each
+   * with its subcategories (null: uncategorized), and `spending` is their sum.
    */
-  "summary:periodTrend": { args: DateRange & { categoryId?: number | null }; result: TrendPoint[] };
+  "summary:periodTrend": { args: DateRange & { categoryIds?: (number | null)[] }; result: TrendPoint[] };
   "summary:periodCurves": { args: DateRange & { categoryIds: (number | null)[] }; result: PeriodCurve[] };
   "sync:start": { args: { provider: ProviderId }; result: SyncResult };
   "sync:cancel": { args: undefined; result: null };

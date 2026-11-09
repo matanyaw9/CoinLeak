@@ -226,6 +226,8 @@ function generate(today: Date): DemoRow[] {
     add(day(2), { accountId: BANK, amount: -150000, description: "הפקדה לפיקדון", memo: "הוראת קבע", categoryId: 101 });
     if (i % 3 !== 2) add(day(11), { accountId: BANK, amount: -100000, description: "מיטב טרייד", memo: "קניית ני״ע", categoryId: 102 });
     if (i === 4) add(day(20), { accountId: BANK, amount: 400000, description: "משיכה מפיקדון", memo: null, categoryId: 101 });
+    // spec 16: one month (three back) a dental bill puts spending beyond income.
+    if (i === 8) add(day(16), { accountId: BANK, amount: -1200000, description: "מרפאת שיניים", memo: "טיפול שורש וכתר", categoryId: 51 });
 
     // Everyday card purchases.
     for (const spend of CARD_SPENDS) {
@@ -513,10 +515,8 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
   // spec 16: periods answer like core (demo-flow-period.ts); a month's flow is its range's.
   const periods = createDemoPeriods({ rows: () => rows, categories: () => catList, today: toIsoDate(today) });
   function moneyFlow(month: IsoMonth): MoneyFlow {
-    const { from, to, ...flow } = periods.flow({ from: `${month}-01`, to: `${month}-${String(daysInMonth(month)).padStart(2, "0")}` });
-    void from;
-    void to;
-    return { month, ...flow };
+    const flow = periods.flow({ from: `${month}-01`, to: `${month}-${String(daysInMonth(month)).padStart(2, "0")}` });
+    return { month, income: flow.income, spending: flow.spending, transfers: flow.transfers, shortfall: flow.shortfall, nodes: flow.nodes, links: flow.links };
   }
 
   function list(f: TransactionFilter): TransactionRow[] {
@@ -801,7 +801,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       }
       case "summary:periodTrend": {
         const a = args as Args<"summary:periodTrend">;
-        return isRange(a) ? ok(periods.trend(a, a.categoryId)) : fail("BAD_REQUEST");
+        return isRange(a) ? ok(periods.trend(a, a.categoryIds)) : fail("BAD_REQUEST");
       }
       case "summary:periodCurves": {
         const a = args as Args<"summary:periodCurves">;

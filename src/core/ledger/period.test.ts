@@ -190,7 +190,7 @@ describe("periodSummary", () => {
       { from: "1990-01-01", to: "2026-01-01" },
     ];
     for (const range of bad) expect(() => periodSummary(db, range as DateRange)).toThrow("BAD_REQUEST");
-    expect(() => periodTrend(db, { from: "2026-01-01", to: "2026-01-31", categoryId: -1 })).toThrow("BAD_REQUEST");
+    expect(() => periodTrend(db, { from: "2026-01-01", to: "2026-01-31", categoryIds: [-1] })).toThrow("BAD_REQUEST");
     expect(() => groupFlow(db, { from: "2026-01-01", to: "2026-01-31", categoryId: 0 })).toThrow("BAD_REQUEST");
   });
 });
@@ -314,11 +314,12 @@ describe("periodTrend", () => {
     expect(months({ from: "2025-04-01", to: "2026-03-31" })).toHaveLength(12);
   });
 
-  it("one category: each month equals that category's month total", () => {
+  it("per category: each month equals that category's month total", () => {
     const range = { from: "2025-12-01", to: "2026-03-31" };
-    for (const name of ["Food", "Home & Bills", "Restaurants"]) {
-      const id = categoryId(db, name);
-      const points = periodTrend(db, { ...range, categoryId: id }, opts);
+    const names = ["Food", "Home & Bills", "Restaurants"];
+    const ids = names.map((name) => categoryId(db, name));
+    for (const id of ids) {
+      const points = periodTrend(db, { ...range, categoryIds: [id] }, opts);
       for (const p of points) {
         const m = monthSummary(db, p.month, opts);
         const expected =
@@ -326,11 +327,32 @@ describe("periodTrend", () => {
           m.byCategory.find((x) => x.categoryId === id)?.amount ??
           0;
         expect(p.spending).toBe(expected);
-        expect(p.byCategory.reduce((a, c) => a + c.amount, 0)).toBe(expected);
+        expect(p.byCategory).toEqual([{ categoryId: id, amount: expected }]);
       }
     }
-    const food = periodTrend(db, { ...range, categoryId: categoryId(db, "Food") }, opts);
+    const food = periodTrend(db, { ...range, categoryIds: [categoryId(db, "Food")] }, opts);
     expect(food.map((p) => p.spending)).toEqual([5000, 0, 15000, 5500]);
-    expect(periodTrend(db, { ...range, categoryId: null }, opts).every((p) => p.spending === 0)).toBe(true);
+    expect(periodTrend(db, { ...range, categoryIds: [null] }, opts).every((p) => p.spending === 0)).toBe(true);
+  });
+
+  it("several categories: one series each, in the order asked, summed into spending", () => {
+    const range = { from: "2025-12-01", to: "2026-03-31" };
+    const food = categoryId(db, "Food");
+    const home = categoryId(db, "Home & Bills");
+    const points = periodTrend(db, { ...range, categoryIds: [home, food] }, opts);
+    expect(points.map((p) => p.byCategory.map((c) => c.categoryId))).toEqual(points.map(() => [home, food]));
+    expect(points.map((p) => p.byCategory.map((c) => c.amount))).toEqual([
+      [300000, 5000],
+      [0, 0],
+      [450000, 15000],
+      [0, 5500],
+    ]);
+    expect(points.map((p) => p.spending)).toEqual([305000, 0, 465000, 5500]);
+  });
+
+  it("refuses repeated or malformed category ids", () => {
+    const range = { from: "2026-03-01", to: "2026-03-31" };
+    expect(() => periodTrend(db, { ...range, categoryIds: [1, 1] }, opts)).toThrow();
+    expect(() => periodTrend(db, { ...range, categoryIds: [0] }, opts)).toThrow();
   });
 });

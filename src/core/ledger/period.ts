@@ -221,31 +221,51 @@ export function periodSummary(db: Db, range: DateRange, opts: { now?: Date } = {
   };
 }
 
-/** One month of the trend: all spending, or one category's (with its subcategories). */
-export function trendPoint(db: Db, month: IsoMonth, match?: Match): TrendPoint {
+/** One month of the trend: all spending, by category. */
+export function trendPoint(db: Db, month: IsoMonth): TrendPoint {
   const { from, until } = monthBounds(month);
   const t = totals(db, from, until);
-  const byCategory = spendingByCategory(db, from, until, match).map(({ categoryId, amount }) => ({ categoryId, amount }));
-  const spending = match === undefined ? t.spending : byCategory.reduce((a, c) => a + c.amount, 0);
+  const byCategory = spendingByCategory(db, from, until).map(({ categoryId, amount }) => ({ categoryId, amount }));
+  return { month, income: t.income, spending: t.spending, byCategory };
+}
+
+/**
+ * One month of the trend for chosen categories: one entry per id, in the
+ * order asked, each with its subcategories (null is uncategorized).
+ * `spending` is their sum, so the ids should not overlap.
+ */
+function chosenTrendPoint(db: Db, month: IsoMonth, categoryIds: (number | null)[]): TrendPoint {
+  const { from, until } = monthBounds(month);
+  const t = totals(db, from, until);
+  const byCategory = categoryIds.map((categoryId) => {
+    const rows = spendingByCategory(db, from, until, categoryId);
+    return { categoryId, amount: rows.reduce((sum, r) => sum + r.amount, 0) };
+  });
+  const spending = byCategory.reduce((sum, c) => sum + c.amount, 0);
   return { month, income: t.income, spending, byCategory };
 }
 
 /** The months the range covers, never past this month, padded back to at least three. */
 export function periodTrend(
   db: Db,
-  args: DateRange & { categoryId?: number | null },
+  args: DateRange & { categoryIds?: (number | null)[] },
   opts: { now?: Date } = {},
 ): TrendPoint[] {
   assertRange(args);
-  const { categoryId } = args;
-  check(categoryId === undefined || categoryId === null || isId(categoryId));
+  const { categoryIds } = args;
+  if (categoryIds !== undefined) {
+    check(Array.isArray(categoryIds) && categoryIds.length <= MAX_CURVES);
+    check(categoryIds.every((id) => id === null || isId(id)));
+    check(new Set(categoryIds).size === categoryIds.length);
+  }
   const thisMonth = israelMonth(opts.now ?? new Date());
   const first = args.from.slice(0, 7);
   let last = args.to.slice(0, 7);
   if (last > thisMonth) last = thisMonth < first ? first : thisMonth;
   const index = (m: IsoMonth) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7));
   const count = Math.max(MIN_TREND_MONTHS, index(last) - index(first) + 1);
-  return Array.from({ length: count }, (_, i) => trendPoint(db, addMonths(last, i - count + 1), categoryId));
+  const months = Array.from({ length: count }, (_, i) => addMonths(last, i - count + 1));
+  return months.map((m) => (categoryIds ? chosenTrendPoint(db, m, categoryIds) : trendPoint(db, m)));
 }
 
 /** Cumulative spending per bucket for each category, this period (to today) and the one before (full). */

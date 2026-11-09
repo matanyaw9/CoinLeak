@@ -21,11 +21,11 @@ export const useGroupFlow = (range: DateRange, categoryId: number | null) =>
     enabled: categoryId !== null,
   });
 
-/** `categoryId` undefined is all spending; null is uncategorized. */
-export const usePeriodTrend = (range: DateRange, categoryId: number | null | undefined) =>
+/** No ids is all spending by category; else one entry per id (null is uncategorized). */
+export const usePeriodTrend = (range: DateRange, categoryIds: (number | null)[]) =>
   useQuery({
-    queryKey: key("trend", { ...range, categoryId }),
-    queryFn: () => call("summary:periodTrend", categoryId === undefined ? range : { ...range, categoryId }),
+    queryKey: key("trend", { ...range, categoryIds }),
+    queryFn: () => call("summary:periodTrend", categoryIds.length === 0 ? range : { ...range, categoryIds }),
     placeholderData: (p) => p,
   });
 

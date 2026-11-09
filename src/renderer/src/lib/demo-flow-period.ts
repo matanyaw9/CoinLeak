@@ -185,7 +185,8 @@ export function createDemoPeriods(deps: { rows: () => PeriodRow[]; categories: (
     return { ...base, nodes: [...sources, { kind: "hub", categoryId, amount: sum(out) }, ...out], links };
   }
 
-  function trend(r: DateRange, match: Match): TrendPoint[] {
+  /** All spending by category, or with `categoryIds` one entry per id (subcategories included). */
+  function trend(r: DateRange, categoryIds?: (number | null)[]): TrendPoint[] {
     const thisMonth = monthOf(deps.today);
     const first = monthOf(r.from);
     let last = monthOf(r.to);
@@ -195,10 +196,13 @@ export function createDemoPeriods(deps: { rows: () => PeriodRow[]; categories: (
     return Array.from({ length: count }, (_, i) => {
       const month = shiftMonth(last, i - count + 1);
       const m = { from: `${month}-01`, to: addDays(`${shiftMonth(month, 1)}-01`, -1) };
-      const byCategory = byKey(spent(m, match), (id) => id, -1).map(({ categoryId, amount }) => ({ categoryId, amount }));
       const income = sum(inRange(m).filter((x) => x.flow === "income"));
-      const spending = match === undefined ? -sum(spent(m)) : sum(byCategory);
-      return { month, income, spending, byCategory };
+      if (!categoryIds) {
+        const byCategory = byKey(spent(m), (id) => id, -1).map(({ categoryId, amount }) => ({ categoryId, amount }));
+        return { month, income, spending: -sum(spent(m)), byCategory };
+      }
+      const byCategory = categoryIds.map((categoryId) => ({ categoryId, amount: -sum(spent(m, categoryId)) }));
+      return { month, income, spending: sum(byCategory), byCategory };
     });
   }
 
