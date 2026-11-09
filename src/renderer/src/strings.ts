@@ -964,7 +964,8 @@ export const s = {
         ? `Adds up: the one transaction since ${since} matches the bank's balance.`
         : `Adds up: the ${plural(n, "transaction", "transactions")} since ${since} match the bank's balance.`,
     nothingMoved: (since: string) => `Adds up: no transactions since ${since}, and the bank's balance did not move.`,
-    gap: (amount: string, since: string) => `${amount} the bank shows is not in CoinLeak's transactions since ${since}.`,
+    gap: (amount: string, since: string, more: boolean) =>
+      `Doesn't add up: the bank's balance is ${amount} ${more ? "higher" : "lower"} than CoinLeak's transactions since ${since} explain.`,
     showRows: "Show those transactions",
     why: "Why can this happen?",
     whyReasons: [

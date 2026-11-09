@@ -67,7 +67,7 @@ function GapLine({ check, since }: { check: BalanceCheck; since: string }) {
   };
   return (
     <div className="min-w-0 text-xs">
-      <p className="text-status-heads-up">{s.balance.gap(ils(Math.abs(check.gap)), since)}</p>
+      <p className="text-status-heads-up">{s.balance.gap(ils(Math.abs(check.gap)), since, check.gap > 0)}</p>
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
         <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={showRows}>
           {s.balance.showRows}
