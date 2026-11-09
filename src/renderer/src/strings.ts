@@ -955,6 +955,26 @@ export const s = {
     previewHigher: (n: number) =>
       `${plural(n, "of these is", "of these are")} decided by a higher rule, so this rule won't change ${n === 1 ? "it" : "them"}.`,
   },
+
+  // spec 24
+  balance: {
+    asOf: (when: string) => `as of ${when}`,
+    matches: (n: number, since: string) =>
+      n === 1
+        ? `Adds up: the one transaction since ${since} matches the bank's balance.`
+        : `Adds up: the ${plural(n, "transaction", "transactions")} since ${since} match the bank's balance.`,
+    nothingMoved: (since: string) => `Adds up: no transactions since ${since}, and the bank's balance did not move.`,
+    gap: (amount: string, since: string) => `${amount} the bank shows is not in CoinLeak's transactions since ${since}.`,
+    showRows: "Show those transactions",
+    why: "Why can this happen?",
+    whyReasons: [
+      "A transaction was still pending in CoinLeak when the bank already counted it.",
+      "A transaction was deleted from the Trash for good, so CoinLeak no longer has it.",
+      "The bank booked a transaction late, dated before the last sync.",
+    ],
+    whyNote: "CoinLeak never adds, hides or changes a transaction to make the numbers match.",
+    syncAgain: "Sync again to check the balance.",
+  },
 };
 
 export type Strings = typeof s;
