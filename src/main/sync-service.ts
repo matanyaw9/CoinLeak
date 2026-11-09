@@ -6,7 +6,9 @@ import { isEnabledProvider } from "@shared/providers";
 import type { ProviderId, ScrapedAccount, SyncProgress, SyncResult, SyncStage } from "@shared/types";
 import type { Db } from "@core/db";
 import type { IngestOptions } from "@core/ledger";
+import { getSetting } from "@core/settings";
 import type { SyncDownload, SyncOptions } from "./sync";
+import { startDateFor } from "./sync-range";
 
 export interface SyncServiceDeps {
   /** The open profile's database at the moment of saving (spec 19). */
@@ -37,7 +39,9 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
       current = controller;
       const stage = (s: SyncStage): void => deps.emit({ provider, stage: s });
       try {
-        const { accounts, since } = await deps.runSync(provider, { signal: controller.signal, onProgress: stage });
+        // How far back to go is the open profile's choice (spec 23).
+        const startDate = startDateFor(getSetting(deps.getDb(), "syncFrom"));
+        const { accounts, since } = await deps.runSync(provider, { signal: controller.signal, onProgress: stage, startDate });
         stage("saving");
         const judgePending = trustsPending(provider, accounts);
         const result = deps.ingest(deps.getDb(), accounts, { now: now(), provider, since, judgePending });
