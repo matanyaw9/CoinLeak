@@ -2,7 +2,7 @@
 // exist, the database file each one uses, and which one is open. Every
 // change reads the file, changes it, and writes it back whole (atomically).
 
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CodedError } from "@shared/errors";
 import type { Profile, ProfileList } from "@shared/types";
@@ -97,6 +97,21 @@ export function setCurrentProfile(dataDir: string, id: string): void {
 /** A SQLite database is up to three files: the file and its WAL and shared-memory files. */
 export function removeDatabaseFiles(path: string): void {
   for (const file of [path, `${path}-wal`, `${path}-shm`]) rmSync(file, { force: true });
+}
+
+/** Files CoinLeak makes in the data folder: the list (and its temp file) and each database's three files. */
+const OUR_FILE = /^(profiles\.json(\.tmp)?|[a-z0-9-]+\.db(-wal|-shm)?)$/;
+
+/**
+ * "Delete everything" (spec 23): every file CoinLeak made in the data folder,
+ * found by name so a broken profiles.json cannot hide a database. Files that
+ * are not ours stay. The next `readProfiles` starts over with "Me".
+ */
+export function deleteAllData(dataDir: string): void {
+  if (!existsSync(dataDir)) return;
+  for (const name of readdirSync(dataDir)) {
+    if (OUR_FILE.test(name)) rmSync(join(dataDir, name), { force: true });
+  }
 }
 
 function findProfile(list: ProfileList, id: unknown): Profile {
