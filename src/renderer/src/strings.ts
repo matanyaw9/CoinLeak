@@ -224,11 +224,9 @@ export const s = {
     intro: "Your categories, two levels deep. Amounts are for",
     spending: "Spending",
     income: "Income",
-    search: "Search categories",
     noSpend: "Nothing yet",
     emptyTitle: "No categories yet",
     emptyBody: "Categories arrive with your first sync.",
-    noMatch: "No category matches that search.",
   },
 
   accounts: {
@@ -299,7 +297,6 @@ export const s = {
     nav: "Rules",
     title: "Rules",
     intro: "Rules sort your transactions for you, so each shop only needs sorting once.",
-    order: "They run from top to bottom, and the first rule that fits wins.",
     yoursWin: "Anything you sorted by hand stays the way you left it.",
     newRule: "New rule",
     count: (n: number) => plural(n, "rule", "rules"),
