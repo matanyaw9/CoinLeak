@@ -1,4 +1,4 @@
-// Left sidebar: brand, the six screens, and a reminder that data is local.
+// Left sidebar: brand, the screens, and the open profile with its switcher.
 // Look adapted from Spent (github.com/Shaya16/Spent), src/components/layout/app-sidebar.tsx.
 
 import { NavLink } from "react-router";
@@ -6,18 +6,16 @@ import {
   ArrowLeftRight,
   House,
   Landmark,
-  Lock,
   Settings,
   Shapes,
   Trash2,
-  FlaskConical,
   WandSparkles,
   type LucideIcon,
 } from "lucide-react";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { DEMO } from "@/lib/api";
 import { Logo } from "./logo";
+import { ProfileSwitcher } from "./profile-switcher";
 
 const MAIN: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/", label: s.nav.home, icon: House },
@@ -68,23 +66,7 @@ export function AppSidebar() {
       </nav>
 
       <div className="mt-auto p-4">
-        {DEMO ? (
-          <div className="rounded-2xl border border-status-heads-up/30 bg-status-heads-up/10 px-3.5 py-3">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <FlaskConical className="size-4 text-status-heads-up" strokeWidth={1.75} />
-              {s.app.demo}
-            </div>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">{s.app.demoHint}</p>
-          </div>
-        ) : (
-          <div className="rounded-2xl bg-sidebar-accent/60 px-3.5 py-3">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Lock className="size-4 text-primary" strokeWidth={1.75} />
-              {s.app.localOnly}
-            </div>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">{s.app.localOnlyHint}</p>
-          </div>
-        )}
+        <ProfileSwitcher />
       </div>
     </aside>
   );

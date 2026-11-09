@@ -1,4 +1,4 @@
-// Settings: theme (kept in localStorage), where the data lives, and about.
+// Settings: theme (kept in localStorage), profiles, where the data lives, and about.
 
 import { Check, Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { s } from "@/strings";
@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAppInfo } from "@/lib/hooks";
 import { setTheme, THEMES, useTheme, type ThemeSetting } from "@/lib/theme";
 import { Page } from "@/components/layout/page";
+import { ProfilesSection } from "@/components/layout/profiles-section";
 import { Card, Label } from "@/components/common/card";
 import { Skeleton } from "@/components/ui/misc";
 
@@ -27,6 +28,8 @@ export function SettingsPage() {
             ))}
           </div>
         </Card>
+
+        <ProfilesSection />
 
         <Card className="p-7">
           <Label>{s.settings.data}</Label>
