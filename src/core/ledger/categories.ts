@@ -78,7 +78,8 @@ export function updateCategory(db: Db, id: number, patch: CategoryPatch): Catego
     // Only spending subcategories carry the flag; a move in or out sets or clears it.
     const flagged = current.kind === "expense" && parentId !== null;
     check(flagged || patch.essential === undefined);
-    const essential = flagged ? (patch.essential ?? (current.essential ?? 1) === 1) : null;
+    // Not flagged before (a group or top level) counts as essential.
+    const essential = flagged ? (patch.essential ?? current.essential !== 0) : null;
     if (moving && parentId !== null) {
       check(parentId !== id);
       const problem = parentProblem(db, parentId, current.kind);
