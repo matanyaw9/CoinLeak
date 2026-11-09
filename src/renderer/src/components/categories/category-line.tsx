@@ -13,6 +13,8 @@ import { useRuleEditor } from "@/components/rules/rule-editor-provider";
 import { Button } from "@/components/ui/button";
 import { CategoryBubble } from "@/components/common/chips";
 import { Money } from "@/components/common/money";
+import { Highlight } from "@/components/layout/find-box";
+import { hasText } from "@/components/layout/find-text";
 import type { KnownPlaces } from "./known-places";
 
 interface DragProps {
@@ -33,6 +35,7 @@ export function CategoryLine({
   category,
   stat,
   places,
+  query,
   dragging,
   dropTarget,
   over,
@@ -44,6 +47,8 @@ export function CategoryLine({
   category: Category;
   stat: { amount: Agorot; count: number } | undefined;
   places: KnownPlaces | undefined;
+  /** spec 21: the search, highlighted in the name and places. */
+  query: string;
   dragging: boolean;
   /** A top-level category the dragged one may drop into. */
   dropTarget: boolean;
@@ -74,7 +79,9 @@ export function CategoryLine({
           <CategoryBubble category={category} size={40} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="truncate text-[15px] font-medium">{category.name}</span>
+              <span dir="auto" className="truncate text-[15px] font-medium">
+                <Highlight text={category.name} query={query} />
+              </span>
               {category.essential === false && <ExtraBadge />}
             </div>
             <div className="text-xs text-muted-foreground">
@@ -91,7 +98,7 @@ export function CategoryLine({
         </Button>
         <ChevronRight className="size-4 text-muted-foreground/60" aria-hidden />
       </div>
-      {places && <PlacesLine places={places} />}
+      {places && <PlacesLine places={places} query={query} />}
     </div>
   );
 }
@@ -109,18 +116,20 @@ function ExtraBadge() {
 }
 
 /** Read-only: the names in the category's list rule. "Edit" opens that rule. */
-function PlacesLine({ places }: { places: KnownPlaces }) {
+function PlacesLine({ places, query }: { places: KnownPlaces; query: string }) {
   const rules = useRules();
   const { openEditor } = useRuleEditor();
   const rule = places.ruleId != null ? rules.data?.find((r) => r.id === places.ruleId) : undefined;
-  const shown = places.names.slice(0, SHOWN_PLACES);
+  // spec 21: places that match the search come first, so they show.
+  const names = query ? [...places.names].sort((a, b) => Number(hasText(b, query)) - Number(hasText(a, query))) : places.names;
+  const shown = names.slice(0, SHOWN_PLACES);
   const more = places.names.length - shown.length;
   return (
     <div className="-mt-1.5 flex flex-wrap items-center gap-1.5 ps-[74px] pe-5 pb-3.5 text-xs">
       <span className="me-1 text-muted-foreground">{s.catEdit.places}</span>
       {shown.map((n) => (
         <span key={n} dir="auto" className="rounded-full bg-secondary px-2 py-0.5 text-secondary-foreground">
-          {n}
+          <Highlight text={n} query={query} />
         </span>
       ))}
       {more > 0 && <span className="text-muted-foreground">{s.catEdit.placesMore(more)}</span>}

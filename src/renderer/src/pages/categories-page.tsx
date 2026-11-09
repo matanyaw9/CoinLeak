@@ -1,10 +1,11 @@
 // Categories: the two-level tree with emoji, color and this month's amount,
 // and the editor (spec 15): add, rename, recolor, move by drag or button,
-// delete, and each category's known places from its list rule.
+// delete, and each category's known places from its list rule. Spec 21:
+// Ctrl+F searches names and known places, highlighting what matched.
 // Look adapted from Spent (github.com/Shaya16/Spent), settings categories screen.
 
 import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { FolderPlus, Plus, Search, Shapes } from "lucide-react";
+import { FolderPlus, Plus, Shapes } from "lucide-react";
 import type { Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
 import { useCategories, useMonthSummary } from "@/lib/hooks";
@@ -14,7 +15,7 @@ import { useShot } from "@/lib/shot";
 import { cn } from "@/lib/utils";
 import { colorOf, indexCategories } from "@/lib/categories";
 import { Page } from "@/components/layout/page";
-import { Input, Skeleton } from "@/components/ui/misc";
+import { Skeleton } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/common/segmented";
 import { EmptyState, QueryError } from "@/components/common/empty-state";
@@ -26,6 +27,8 @@ import { CategoryLine, GroupActions } from "@/components/categories/category-lin
 import { DeleteDialog } from "@/components/categories/delete-dialog";
 import { MoveDialog, useMoveCategory } from "@/components/categories/move-dialog";
 import { useKnownPlaces } from "@/components/categories/known-places";
+import { hitsElsewhere, searchCategories } from "@/components/categories/category-search";
+import { FindBox, Highlight, NoMatches } from "@/components/layout/find-box";
 
 type OpenRequest =
   | { name: "editor"; request: EditorRequest }
@@ -47,7 +50,8 @@ export function CategoriesPage() {
   const [dragging, setDragging] = useState<Category | null>(null);
   const [over, setOver] = useState<number | "top" | null>(null);
   const mover = useMoveCategory();
-  const q = search.trim().toLowerCase();
+  const q = search.trim();
+  const placeNames = (id: number) => places.data?.get(id)?.names;
 
   const show = (next: OpenRequest) => {
     setDialog({ ...next, key: (dialog?.key ?? 0) + 1 });
@@ -56,16 +60,11 @@ export function CategoriesPage() {
   const edit = (category: Category) => show({ name: "editor", request: { mode: "edit", category } });
   const add = (parentId: number | null, meta: boolean) => show({ name: "editor", request: { mode: "new", kind, parentId, meta } });
 
-  useDemoShot(all, setKind, show, setDragging, setOver);
+  useDemoShot(all, setKind, show, setDragging, setOver, setSearch);
 
-  const groups = index.roots
-    .filter((r) => r.kind === kind)
-    .map((root) => {
-      const kids = index.children.get(root.id) ?? [];
-      const rootHit = root.name.toLowerCase().includes(q);
-      return { root, kids: q && !rootHit ? kids.filter((c) => c.name.toLowerCase().includes(q)) : kids, rootHit };
-    })
-    .filter((g) => !q || g.rootHit || g.kids.length > 0);
+  // spec 21: groups with no match collapse away.
+  const groups = searchCategories(index, kind, q, placeNames);
+  const elsewhere = q && groups.length === 0 ? hitsElsewhere(index, kind, q, placeNames) : [];
   const loose = groups.filter((g) => (index.children.get(g.root.id) ?? []).length === 0);
   const trees = groups.filter((g) => (index.children.get(g.root.id) ?? []).length > 0);
 
@@ -115,6 +114,7 @@ export function CategoriesPage() {
       category={c}
       stat={summary.data?.byCategory.find((b) => b.categoryId === c.id)}
       places={places.data?.get(c.id)}
+      query={q}
       dragging={dragging?.id === c.id}
       dropTarget={c.parentId === null && canDrop(c)}
       over={over === c.id}
@@ -135,20 +135,9 @@ export function CategoriesPage() {
           <Segmented
             value={kind}
             onChange={setKind}
-            options={KINDS.map((k) => ({
-              value: k,
-              label: k === "expense" ? s.categories.spending : k === "income" ? s.categories.income : kindLabel(k),
-            }))}
+            options={KINDS.map((k) => ({ value: k, label: kindName(k) }))}
           />
-          <label className="relative min-w-48 flex-1">
-            <Search className="pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={s.categories.search}
-              className="h-9 rounded-full ps-10"
-            />
-          </label>
+          <FindBox value={search} onChange={setSearch} placeholder={s.find.categoriesPlaceholder} className="min-w-48 flex-1" />
           <Button variant="outline" onClick={() => add(null, true)}>
             <FolderPlus />
             {s.catEdit.addMeta}
@@ -172,7 +161,13 @@ export function CategoriesPage() {
               <EmptyState icon={Shapes} title={s.categories.emptyTitle} body={s.categories.emptyBody} />
             </Card>
           ) : groups.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">{s.categories.noMatch}</p>
+            <NoMatches query={q} onClear={() => setSearch("")}>
+              {elsewhere.map((e) => (
+                <Button key={e.kind} variant="ghost" className="rounded-full" onClick={() => setKind(e.kind)}>
+                  {s.find.elsewhere(e.count, kindName(e.kind))}
+                </Button>
+              ))}
+            </NoMatches>
           ) : (
             <>
               {trees.map(({ root, kids }) => (
@@ -187,7 +182,9 @@ export function CategoriesPage() {
                 >
                   <div className="group/head mb-2.5 flex min-h-7 items-center gap-2 px-1">
                     <ColorDot color={colorOf(root)} className="size-2" />
-                    <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">{root.name}</span>
+                    <span dir="auto" className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                      <Highlight text={root.name} query={q} />
+                    </span>
                     <span className="text-[11px] text-muted-foreground/70">{root.emoji}</span>
                     {over === root.id && <span className="text-xs text-primary">{s.catEdit.dropHere}</span>}
                     <GroupActions group={root} onEdit={() => edit(root)} onAdd={() => add(root.id, false)} />
@@ -232,6 +229,11 @@ export function CategoriesPage() {
   );
 }
 
+/** The name each kind's tab shows. */
+function kindName(k: CategoryKind): string {
+  return k === "expense" ? s.categories.spending : k === "income" ? s.categories.income : kindLabel(k);
+}
+
 function List({ children }: { children: ReactNode }) {
   return <div className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card">{children}</div>;
 }
@@ -240,6 +242,7 @@ function List({ children }: { children: ReactNode }) {
  * Screenshot aid: `?shot=edit-Groceries`, `?shot=move-Bars`, `?shot=delete-Bars`
  * or `?shot=new-group` opens that dialog; `?shot=drag-Bars-Lifestyle` shows
  * Bars being dragged over the Lifestyle group (categories found by name).
+ * Spec 21: `?shot=find-<text>` types a search.
  */
 function useDemoShot(
   all: Category[],
@@ -247,12 +250,17 @@ function useDemoShot(
   show: (o: OpenRequest) => void,
   setDragging: (c: Category | null) => void,
   setOver: (id: number | null) => void,
+  setSearch: (text: string) => void,
 ) {
   const shot = useShot();
   const ready = all.length > 0;
   useEffect(() => {
     if (!shot || !ready) return;
     const id = setTimeout(() => {
+      if (shot.startsWith("find-")) {
+        setSearch(shot.slice("find-".length));
+        return;
+      }
       const [what, a, b] = shot.split("-");
       const c = all.find((x) => x.name === a);
       if (shot === "new-group") show({ name: "editor", request: { mode: "new", kind: "expense", parentId: null, meta: true } });

@@ -3,12 +3,13 @@
 // reapplies all rules to all rows in the same transaction, so stored rows
 // always agree with the list.
 
-import type { Rule, RuleInput, RulePreview, RuleSaved, RulesApplied } from "@shared/types";
+import type { Rule, RuleInput, RulePreview, RulePreviewArgs, RuleSaved, RulesApplied } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { listTransactions } from "../ledger/queries";
 import { assertIds, check, isId } from "../ledger/validate";
 import { runRules } from "./engine";
 import { compileMatcher, prepareRow } from "./match";
+import { decidedHigher, ruleOverlaps } from "./order";
 import { insertRule, loadRule, loadRules, nextPosition, renumber, writeRule } from "./store";
 import { cleanConditions, cleanRuleInput } from "./validate";
 
@@ -26,8 +27,14 @@ export interface SaveRequest {
   alsoChange?: unknown;
 }
 
+/** Every rule in order, each with what higher rules decide among the rows it fits (spec 21). */
 export function listRules(db: Db): Rule[] {
-  return loadRules(db);
+  const rules = loadRules(db);
+  const overlaps = ruleOverlaps(db, rules);
+  return rules.map((r) => {
+    const found = overlaps.get(r.id);
+    return found ? { ...r, overlaps: found } : r;
+  });
 }
 
 /** Creates or updates a rule, reapplies all rules, and says what that did. */
@@ -100,13 +107,30 @@ export function applyAllRules(db: Db, now = new Date()): RulesApplied {
  * category, `handSet` lists the matching rows the user sorted elsewhere.
  */
 export function previewRule(db: Db, input: unknown): RulePreview {
-  const matches = compileMatcher(cleanConditions(db, input));
-  const setCategoryId = (input as Partial<RuleInput>).setCategoryId ?? null;
+  const conditions = cleanConditions(db, input);
+  const matches = compileMatcher(conditions);
+  const raw = input as Partial<RulePreviewArgs>;
+  const setCategoryId = raw.setCategoryId ?? null;
   check(setCategoryId === null || isId(setCategoryId));
+  const setExcluded = typeof raw.setExcluded === "boolean" ? raw.setExcluded : null;
+  check(raw.ruleId === undefined || isId(raw.ruleId));
   const rows = listTransactions(db).filter((t) => matches(prepareRow(t)));
   const handSet =
     setCategoryId === null ? [] : rows.filter((t) => t.categorySource === "user" && t.categoryId !== setCategoryId);
-  return { matches: rows.length, sample: rows.slice(0, PREVIEW_SAMPLE), handSet };
+  const higher = rulesAbove(db, raw.ruleId);
+  return {
+    matches: rows.length,
+    sample: rows.slice(0, PREVIEW_SAMPLE),
+    handSet,
+    decidedHigher: decidedHigher(db, { ...conditions, setCategoryId, setExcluded }, higher),
+  };
+}
+
+/** The rules checked before rule `id`; every rule when `id` is absent (a new rule goes last). */
+function rulesAbove(db: Db, id: number | undefined): Rule[] {
+  const rules = loadRules(db);
+  const at = rules.findIndex((r) => r.id === id);
+  return id === undefined || at === -1 ? rules : rules.slice(0, at);
 }
 
 /**

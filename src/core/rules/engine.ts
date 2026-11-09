@@ -32,7 +32,7 @@ type ExcludedSource = "user" | "rule";
 /** What the engine needs from a rule; `id` may be a stand-in for a rule not saved yet. */
 export type RuleLike = Pick<Rule, "id" | "enabled" | "join" | "conditions" | "setCategoryId" | "setExcluded">;
 
-interface CompiledRule {
+export interface CompiledRule {
   id: number;
   matches: Matcher;
   setCategoryId: number | null;
@@ -119,7 +119,7 @@ export function wouldCategorize(db: Db, rules: RuleLike[]): Map<number, StoredRo
   return out;
 }
 
-function compileRules(rules: RuleLike[]): CompiledRule[] {
+export function compileRules(rules: RuleLike[]): CompiledRule[] {
   return rules
     .filter((r) => r.enabled)
     .map((r) => ({
@@ -130,10 +130,15 @@ function compileRules(rules: RuleLike[]): CompiledRule[] {
     }));
 }
 
-function decide(row: StoredRow, rules: CompiledRule[]): Decision {
-  const userCategory = row.category_source === "user";
+/** Which of the row's rule fields the user set, so no rule may change them. */
+export function userSet(row: StoredRow): { category: boolean; excluded: boolean } {
   // An exclusion with no source predates rules, so it is the user's.
-  const userExcluded = row.excluded_source === "user" || (row.excluded === 1 && row.excluded_source === null);
+  const excluded = row.excluded_source === "user" || (row.excluded === 1 && row.excluded_source === null);
+  return { category: row.category_source === "user", excluded };
+}
+
+function decide(row: StoredRow, rules: CompiledRule[]): Decision {
+  const { category: userCategory, excluded: userExcluded } = userSet(row);
   const next: RuleFields = { ...pickFields(row), rule_id: null };
   if (userCategory && userExcluded) return { next, categoryRule: null, excludedRule: null };
 

@@ -30,6 +30,7 @@ import type {
   Rule,
   RuleInput,
   RulePreview,
+  RulePreviewArgs,
   SettingEntry,
   SettingKey,
   RuleSaved,
@@ -103,7 +104,7 @@ export interface IpcContract {
   /** `ids` is every rule id in the new order. */
   "rules:reorder": { args: { ids: number[] }; result: null };
   /** Checks the conditions against today's rows without saving anything. */
-  "rules:preview": { args: RuleInput; result: RulePreview };
+  "rules:preview": { args: RulePreviewArgs; result: RulePreview };
   /** A draft rule from the rows the user selected. */
   "rules:suggest": { args: { ids: number[] }; result: RuleInput };
   /** Categories editor (spec 15). Refusals come back as a fixed problem code. */

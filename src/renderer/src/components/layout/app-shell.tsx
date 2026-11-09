@@ -3,7 +3,8 @@
 
 import { useEffect, useRef } from "react";
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
-import { TRANSACTIONS_PATH, findAction, isFindKey, isMac, requestFind } from "@/components/transactions/find";
+import { TRANSACTIONS_PATH, isFindKey, isMac, requestFind } from "@/components/transactions/find";
+import { findTarget } from "./find-box";
 import { AppSidebar } from "./app-sidebar";
 
 export function AppShell() {
@@ -23,7 +24,7 @@ export function AppShell() {
     return () => clearTimeout(id);
   }, [shotScroll]);
 
-  // spec 17: Ctrl+F (Cmd+F on Mac) goes to the Transactions search box.
+  // spec 17, 21: Ctrl+F (Cmd+F on Mac) focuses this page's search box, or Transactions' when it has none.
   const navigate = useNavigate();
   useEffect(() => {
     const mac = isMac();
@@ -31,7 +32,7 @@ export function AppShell() {
       if (!isFindKey(e, mac)) return;
       e.preventDefault();
       requestFind();
-      if (findAction(pathname) === "navigate") void navigate(TRANSACTIONS_PATH);
+      if (findTarget(pathname) === "transactions") void navigate(TRANSACTIONS_PATH);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
