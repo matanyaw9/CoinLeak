@@ -830,6 +830,32 @@ export const s = {
     switchTo: "Switch profile",
     manage: "Manage profiles",
   },
+
+  // spec 21
+  find: {
+    clear: "Clear search",
+    noMatchTitle: "No matches",
+    noMatchBody: (query: string) => `Nothing here matches “${query}”.`,
+    elsewhere: (n: number, where: string) => `${plural(n, "match", "matches")} in ${where}`,
+    categoriesPlaceholder: "Search categories and places",
+    rulesPlaceholder: "Search rules",
+    rulesShown: (n: number, total: number) => `${n} of ${total} rules`,
+    dragOff: "Reordering is off while you search. Clear the search to drag rules.",
+    foundIn: "Found:",
+  },
+  ruleOrder: {
+    header: "Checked from the top. When two rules fit a transaction, the higher one wins.",
+    place: (n: number) => `Rule ${n}`,
+    alsoFits: (n: number, winner: number | null) =>
+      `Also fits ${plural(n, "transaction", "transactions")} that ${winner === null ? "higher rules decide" : `rule ${winner} decides`}`,
+    alsoFitsExclude: (n: number, winner: number | null) =>
+      `Also fits ${plural(n, "transaction", "transactions")} whose counting ${winner === null ? "higher rules decide" : `rule ${winner} decides`}`,
+    moved: (place: number) => `Rule moved to position ${place}`,
+    runsBefore: (name: string) => `It now runs before ${name}.`,
+    runsLast: "It now runs last.",
+    previewHigher: (n: number) =>
+      `${plural(n, "of these is", "of these are")} decided by a higher rule, so this rule won't change ${n === 1 ? "it" : "them"}.`,
+  },
 };
 
 export type Strings = typeof s;
