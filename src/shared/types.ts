@@ -257,7 +257,28 @@ export interface Rule extends RuleInput {
   id: number;
   /** Order of evaluation, 1 first. */
   position: number;
+  /**
+   * spec 21, only on `rules:list`: rows this rule fits whose category or
+   * exclusion a higher rule decides, one entry per action that has any.
+   * Absent when there are none.
+   */
+  overlaps?: RuleOverlap[];
 }
+
+/** First match wins per action, so a rule can lose its category rows but not its exclude rows. */
+export interface RuleOverlap {
+  action: "category" | "exclude";
+  /** Rows this rule fits where a higher rule sets this action. */
+  count: number;
+  /** The higher rule that decides all of them, or null when several do. */
+  winnerId: number | null;
+}
+
+/** What `rules:preview` takes: the rule as typed, and the saved rule it edits, if any. */
+export type RulePreviewArgs = RuleInput & {
+  /** spec 21: rules above this one count as higher. Absent for a new rule, which goes last. */
+  ruleId?: number;
+};
 
 export interface RulePreview {
   /** Rows whose text, account, amount and direction match today. */
@@ -270,6 +291,8 @@ export interface RulePreview {
    * sets no category. The rule leaves them alone unless the save names them.
    */
   handSet: TransactionRow[];
+  /** spec 21: matching rows where a higher rule decides what this rule would set. */
+  decidedHigher?: number;
 }
 
 // ---- Rules v2 (spec 13) ----
