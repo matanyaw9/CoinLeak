@@ -1,5 +1,5 @@
 // The category editor dialog: name, emoji, color, the group it sits in (or
-// the kind, for a new group), and Delete. Core decides; a refusal shows its
+// the kind, for a new group), essential or extra, and Delete. Core decides; a refusal shows its
 // friendly text in place, never a raw error.
 
 import { useState, type ReactNode } from "react";
@@ -51,12 +51,15 @@ export function CategoryEditor({
   const [color, setColor] = useState(editing?.color ?? SWATCHES[0] ?? null);
   const [kind, setKind] = useState<CategoryKind>(editing?.kind ?? (request.mode === "new" ? request.kind : "expense"));
   const [parentId, setParentId] = useState<number | null>(editing ? editing.parentId : request.mode === "new" ? request.parentId : null);
+  const [essential, setEssential] = useState(editing?.essential ?? true);
   const [problem, setProblem] = useState<string | null>(null);
 
   const isGroup = editing ? editing.parentId === null : request.mode === "new" && request.meta;
   const hasChildren = editing ? categories.some((c) => c.parentId === editing.id) : false;
   // A group with categories in it stays a group; a new group picks its kind instead of a parent.
   const showParent = !(request.mode === "new" && request.meta) && !hasChildren;
+  // Essential or extra is only for spending categories inside a group (spec 18).
+  const showEssential = kind === "expense" && showParent && parentId !== null;
   const groups = categories.filter((c) => c.parentId === null && c.kind === kind && c.id !== editing?.id);
   const busy = actions.create.isPending || actions.update.isPending;
   const title = editing
@@ -83,10 +86,12 @@ export function CategoryEditor({
         emoji: trimmedEmoji,
         color,
         ...(showParent && parentId !== editing.parentId ? { parentId } : {}),
+        ...(showEssential ? { essential } : {}),
       };
       actions.update.mutate({ id: editing.id, patch }, { onSuccess: done });
     } else {
-      actions.create.mutate({ name, kind, parentId: showParent ? parentId : null, emoji: trimmedEmoji, color }, { onSuccess: done });
+      const input = { name, kind, parentId: showParent ? parentId : null, emoji: trimmedEmoji, color };
+      actions.create.mutate(showEssential ? { ...input, essential } : input, { onSuccess: done });
     }
   };
 
@@ -186,6 +191,19 @@ export function CategoryEditor({
                   ...groups.map((g) => ({ value: g.id, label: `${g.emoji ?? ""} ${g.name}`.trim() })),
                 ]}
                 onChange={setParentId}
+              />
+            </Field>
+          )}
+
+          {showEssential && (
+            <Field label={s.essential.label} hint={s.essential.hint}>
+              <Choices
+                value={essential ? "essential" : "extra"}
+                options={[
+                  { value: "essential", label: s.essential.essential },
+                  { value: "extra", label: s.essential.extra },
+                ]}
+                onChange={(v) => setEssential(v === "essential")}
               />
             </Field>
           )}

@@ -73,7 +73,10 @@ export function CategoryLine({
         >
           <CategoryBubble category={category} size={40} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-medium">{category.name}</div>
+            <div className="flex items-center gap-2">
+              <span className="truncate text-[15px] font-medium">{category.name}</span>
+              {category.essential === false && <ExtraBadge />}
+            </div>
             <div className="text-xs text-muted-foreground">
               {over ? s.catEdit.dropHere : stat ? s.common.transactions(stat.count) : s.categories.noSpend}
             </div>
@@ -90,6 +93,18 @@ export function CategoryLine({
       </div>
       {places && <PlacesLine places={places} />}
     </div>
+  );
+}
+
+/** spec 18: a small tag on extra spending, where a month can be cut. */
+function ExtraBadge() {
+  return (
+    <span
+      title={s.essential.badgeTitle}
+      className="shrink-0 rounded-full border border-border px-1.5 py-px text-[10px] font-medium tracking-wide text-muted-foreground uppercase"
+    >
+      {s.essential.badge}
+    </span>
   );
 }
 
