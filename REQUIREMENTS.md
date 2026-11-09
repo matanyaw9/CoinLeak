@@ -41,7 +41,7 @@ Change a decision only by editing this table and the affected specs together.
 |-----|----------|
 | D1  | New independent repo. Spent and Pocket are sources of ideas and code, credited where code is copied. |
 | D2  | TypeScript everywhere, strict mode. One language for scraping, logic, database and UI. |
-| D3  | Electron desktop app. No local web server, no open port. The window talks to the app over Electron IPC through a fixed list of typed channels (`src/shared/ipc.ts`). |
+| D3  | Electron desktop app. No local web server, no open port. The window talks to the app over Electron IPC through a fixed list of typed channels (`src/shared/ipc.ts`). The installed app loads its page from files through its own `app:` protocol. Only `npm run dev` starts Vite's live-reload server on localhost:5173 (this computer only); it serves page code, never data, and a normal browser on it gets no data because only the Electron window has the IPC bridge. |
 | D4  | Windows and Linux are the target platforms. macOS may work but is not tested. |
 | D5  | Data lives in one SQLite file the app owns, in the OS user data folder, via Node's built-in `node:sqlite`. No native modules. File is private to the user (0600). |
 | D6  | Transactions are downloaded with `israeli-bank-scrapers`, pinned to an exact reviewed version. First banks: Discount (bank) and Cal (cards). More later. |
