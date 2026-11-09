@@ -120,8 +120,15 @@ export function periodRange(choice: PeriodChoice, today: IsoDate): { from: IsoDa
     case "year":
       return { from: `${choice.year}-01-01`, to: `${choice.year}-12-31` };
     case "custom":
-      return choice.custom.from <= choice.custom.to ? choice.custom : { from: choice.custom.to, to: choice.custom.from };
+      return choice.custom;
   }
+}
+
+/** Why custom days cannot be shown, or null when they can. Never swaps them. */
+export function customDaysProblem(from: string, to: string): "missing" | "fromAfterTo" | null {
+  if (!from || !to) return "missing";
+  if (from > to) return "fromAfterTo";
+  return null;
 }
 
 /** Arrows step a month or a year; other periods have none. */

@@ -10,6 +10,7 @@ import { s } from "@/strings";
 import { usePeriod } from "@/lib/month-context";
 import {
   canStep,
+  customDaysProblem,
   canStepNext,
   monthKeyDelta,
   periodShowsToday,
@@ -29,7 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 export function MonthPicker() {
   const { choice, range, today, current, setChoice } = usePeriod();
   const shot = useShot();
-  const [open, setOpen] = useState(shot === "period-custom");
+  const [open, setOpen] = useState(shot === "period-custom" || shot === "custom-wrong");
   const words = periodWords(choice, range, today);
 
   // Demo screenshots: a past month for the Today button, or another period.
@@ -39,7 +40,7 @@ export function MonthPicker() {
     shotDone.current = true;
     if (shot === "past-month") setChoice({ ...choice, kind: "month", month: shiftMonth(current, -2) });
     if (shot === "period-12") setChoice({ ...choice, kind: "last12" });
-    if (shot === "period-custom") setChoice({ ...choice, kind: "custom" });
+    if (shot === "period-custom" || shot === "custom-wrong") setChoice({ ...choice, kind: "custom" });
     if (shot === "overspent") setChoice({ ...choice, kind: "month", month: shiftMonth(current, -3) });
   }, [shot, current, choice, setChoice]);
 
@@ -156,17 +157,18 @@ function CustomDays({
   today: IsoDate;
   onApply: (range: { from: IsoDate; to: IsoDate }) => void;
 }) {
-  const [a, setA] = useState(from);
-  const [b, setB] = useState(to);
-  const valid = Boolean(a && b) && a <= b;
-  const field = (label: string, value: string, set: (v: string) => void, min?: string) => (
+  const shot = useShot();
+  const [a, setA] = useState(shot === "custom-wrong" ? to : from);
+  const [b, setB] = useState(shot === "custom-wrong" ? from : to);
+  const problem = customDaysProblem(a, b);
+  const field = (label: string, value: string, set: (v: string) => void) => (
     <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
       {label}
       <input
         type="date"
         value={value}
-        min={min}
         max={today}
+        aria-invalid={problem === "fromAfterTo"}
         onChange={(e) => set(e.target.value)}
         className="h-8 rounded-lg border border-input bg-card px-2 text-sm text-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/50 dark:scheme-dark"
       />
@@ -176,10 +178,16 @@ function CustomDays({
     <div className="mt-1.5 border-t border-border px-1.5 pt-2.5 pb-1">
       <div className="flex gap-2">
         {field(s.period.from, a, setA)}
-        {field(s.period.to, b, setB, a)}
+        {field(s.period.to, b, setB)}
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">{s.period.customHint}</p>
-      <Button className="mt-2.5 h-8 w-full rounded-lg" disabled={!valid} onClick={() => onApply({ from: a, to: b })}>
+      {problem ? (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {problem === "fromAfterTo" ? s.period.fromAfterTo : s.period.missingDay}
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">{s.period.customHint}</p>
+      )}
+      <Button className="mt-2.5 h-8 w-full rounded-lg" disabled={problem !== null} onClick={() => onApply({ from: a, to: b })}>
         {s.period.apply}
       </Button>
     </div>
