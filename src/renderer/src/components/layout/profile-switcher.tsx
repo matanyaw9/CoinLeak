@@ -42,7 +42,7 @@ export function ProfileSwitcher() {
             ) : (
               <Lock className="size-4 shrink-0 text-primary" strokeWidth={1.75} />
             )}
-            <span className="truncate">{current.demo ? s.profiles.demoName : current.name}</span>
+            <span className="min-w-0 leading-snug break-words">{current.demo ? s.profiles.demoName : current.name}</span>
           </div>
           <p className="mt-1 text-xs leading-snug text-muted-foreground">
             {current.demo ? s.profiles.demoHint : s.app.localOnlyHint}
