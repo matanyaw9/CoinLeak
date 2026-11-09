@@ -301,13 +301,7 @@ export function TransactionsPage() {
               </button>
             </Hint>
           )}
-          <Hint label={s.cash.addHint}>
-            <Button variant="outline" size="sm" className="ms-auto h-8 rounded-full" onClick={() => setCashForm({ open: true, row: null })}>
-              <Plus />
-              {s.cash.add}
-            </Button>
-          </Hint>
-          <label className="relative w-72">
+          <label className="relative ms-auto w-72">
             <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               ref={searchBox}
@@ -320,6 +314,29 @@ export function TransactionsPage() {
           </label>
         </div>
         <FilterChips chips={chips} view={view} onChange={setView} />
+        {/* spec 20: select every row shown, and add a cash row. */}
+        {tx.data && (
+          <div className="flex h-12 items-center gap-1 border-t border-border pe-4">
+            {rows.length > 0 && (
+              <>
+                <SelectBox
+                  state={checkState(allIds, selected)}
+                  label={checkState(allIds, selected) === "all" ? s.selectAll.clear : s.selectAll.allShown(allIds.length)}
+                  onToggle={() => toggleMany(allIds)}
+                />
+                <span className="text-[13px] text-muted-foreground">
+                  {selected.size > 0 ? s.transactions.selected(selected.size) : s.selectAll.all}
+                </span>
+              </>
+            )}
+            <Hint label={s.cash.addHint}>
+              <Button variant="ghost" size="sm" className="ms-auto rounded-full" onClick={() => setCashForm({ open: true, row: null })}>
+                <Plus />
+                {s.cash.add}
+              </Button>
+            </Hint>
+          </div>
+        )}
 
         {tx.isError ? (
           <QueryError error={tx.error} className="border-t border-border" />
@@ -357,17 +374,6 @@ export function TransactionsPage() {
           </div>
         ) : (
           <div className={cn("pb-2 transition-opacity", tx.isPlaceholderData && "opacity-60")}>
-            <div className="flex items-center gap-1 border-t border-border pe-6">
-              <SelectBox
-                state={checkState(allIds, selected)}
-                label={checkState(allIds, selected) === "all" ? s.selectAll.clear : s.selectAll.allShown(allIds.length)}
-                onToggle={() => toggleMany(allIds)}
-                className="h-11"
-              />
-              <span className="text-[13px] text-muted-foreground">
-                {selected.size > 0 ? s.transactions.selected(selected.size) : s.selectAll.all}
-              </span>
-            </div>
             {groups.map((g) => (
               <Fragment key={g.date}>
                 {byDay && <div className="group/day flex items-center justify-between border-t border-border bg-secondary/45 pe-6">
@@ -481,7 +487,7 @@ function SelectBox({
         aria-label={label}
         onClick={onToggle}
         className={cn(
-          "size-5 rounded-[6px] border-[1.5px] transition-opacity [&_svg]:size-3.5",
+          "size-5 rounded-[6px] border-[1.5px] [&_svg]:size-3.5",
           quiet && state === "none" && "opacity-0 group-hover/day:opacity-100 focus-visible:opacity-100",
         )}
       />
