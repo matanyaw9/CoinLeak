@@ -237,7 +237,7 @@ describe("demo list order and filters (spec 17)", () => {
     expect(pending.every((r) => r.status === "pending")).toBe(true);
     const settled = await ask(demo, "transactions:list", { pending: false });
     expect(settled.some((r) => r.status === "pending")).toBe(false);
-    const word = pending[0]!.description.trim().split(" ")[0]!;
+    const word = pending[0]?.description.trim().split(" ")[0] ?? "";
     const both = await ask(demo, "transactions:list", { pending: true, search: word });
     expect(both.length).toBeGreaterThan(0);
     expect(both.every((r) => r.status === "pending" && r.description.includes(word))).toBe(true);

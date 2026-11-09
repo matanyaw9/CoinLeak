@@ -304,7 +304,7 @@ describe("listTransactions", () => {
       "Shop 10",
       "zeta",
     ]);
-    expect(rows[3]!.id).toBeGreaterThan(rows[4]!.id);
+    expect(rows[3]?.id ?? 0).toBeGreaterThan(rows[4]?.id ?? 0);
   });
 
   it("filters pending rows or settled rows", () => {
