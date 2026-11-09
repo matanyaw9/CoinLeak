@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodedError } from "@shared/errors";
 import type { SettingEntry } from "@shared/types";
 import { newDb } from "./testing/ledger";
@@ -6,7 +6,7 @@ import { SETTING_KEYS, getSetting, setSetting } from "./settings";
 
 describe("settings", () => {
   it("knows a fixed list of keys", () => {
-    expect(SETTING_KEYS).toEqual(["addedProviders"]);
+    expect(SETTING_KEYS).toEqual(["addedProviders", "syncFrom"]);
   });
 
   it("returns the default until set, then the saved value", () => {
@@ -41,5 +41,32 @@ describe("settings", () => {
     expect(getSetting(db, "addedProviders")).toEqual([]);
     db.prepare("UPDATE settings SET value = ? WHERE key = 'addedProviders'").run('["gone"]');
     expect(getSetting(db, "addedProviders")).toEqual([]);
+  });
+});
+
+describe("syncFrom (spec 23)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("defaults to as far back as each bank allows", () => {
+    expect(getSetting(newDb(), "syncFrom")).toBe("max");
+  });
+
+  it("keeps a real day from 2000 to today", () => {
+    vi.useFakeTimers({ now: new Date(2026, 10, 9, 12) });
+    const db = newDb();
+    for (const value of ["2026-01-01", "2000-01-01", "2026-11-09", "2024-02-29", "max"]) {
+      setSetting(db, { key: "syncFrom", value });
+      expect(getSetting(db, "syncFrom")).toBe(value);
+    }
+  });
+
+  it("refuses a day in the future, before 2000, or not a real day", () => {
+    vi.useFakeTimers({ now: new Date(2026, 10, 9, 12) });
+    const db = newDb();
+    const bad: unknown[] = ["2026-11-10", "2099-01-01", "1999-12-31", "2025-02-29", "2026-13-01", "2026-1-1", "", "all", 2026, null];
+    for (const value of bad) {
+      expect(() => setSetting(db, { key: "syncFrom", value } as SettingEntry)).toThrow(CodedError);
+    }
+    expect(getSetting(db, "syncFrom")).toBe("max");
   });
 });

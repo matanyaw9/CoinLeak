@@ -18,7 +18,28 @@ const SPECS: { [K in SettingKey]: SettingSpec<K> } = {
     valid: (v): v is AppSettings["addedProviders"] =>
       Array.isArray(v) && v.every(isEnabledProvider) && new Set(v).size === v.length,
   },
+  syncFrom: {
+    fallback: "max",
+    valid: (v): v is AppSettings["syncFrom"] => v === "max" || isSyncStartDay(v),
+  },
 };
+
+const FIRST_SYNC_DAY = "2000-01-01";
+
+/** A real calendar day from 2000 up to today on this computer's clock. */
+function isSyncStartDay(v: unknown): v is string {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const [y, m, d] = v.split("-").map(Number) as [number, number, number];
+  const day = new Date(Date.UTC(y, m - 1, d));
+  if (day.getUTCFullYear() !== y || day.getUTCMonth() !== m - 1 || day.getUTCDate() !== d) return false;
+  return v >= FIRST_SYNC_DAY && v <= localToday();
+}
+
+function localToday(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
 
 export const SETTING_KEYS = Object.keys(SPECS) as SettingKey[];
 
