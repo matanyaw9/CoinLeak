@@ -178,6 +178,17 @@ export interface TrendPoint {
   income: Agorot;
   spending: Agorot;
   byCategory: { categoryId: number | null; amount: Agorot }[];
+  /** All spending split by the categories' essential tag (spec 22). Only on
+   *  unfiltered points; the three add up to `spending`. */
+  split?: EssentialSplit;
+}
+
+/** Spending by the essential tag: untagged is uncategorized rows and rows on
+ *  a category with no tag (a group itself, or an income category). */
+export interface EssentialSplit {
+  essential: Agorot;
+  extra: Agorot;
+  untagged: Agorot;
 }
 
 /** Cumulative spending per day for one category (its subcategories included;
@@ -497,6 +508,30 @@ export interface PeriodSummary extends DateRange {
   /** True when today falls inside the range. */
   inProgress: boolean;
   previous: PreviousPeriod;
+  /** Spending in the range that is neither essential nor extra, whatever the filter (spec 22). */
+  untagged: Agorot;
+}
+
+/**
+ * Essentials or extras only (spec 22): true essential spending, false extra.
+ * Left out means all spending. Income lines never change with it.
+ */
+export interface EssentialFilter {
+  essential?: boolean;
+}
+
+/** Money left this calendar month in Israel time, whatever period Home shows (spec 22). */
+export interface ThisMonth {
+  month: IsoMonth;
+  today: IsoDate;
+  income: Agorot;
+  spending: Agorot;
+  /** Income minus spending; negative when spending outran income. */
+  left: Agorot;
+  /** From today to the month's last day, today included. */
+  daysLeft: number;
+  /** `left / daysLeft` rounded down to whole shekels; null when nothing is left. */
+  perDay: Agorot | null;
 }
 
 /** `MoneyFlow` for any range. */

@@ -5,7 +5,16 @@ import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testin
 import { categoryCurves } from "./curves";
 import { ingest } from "./ingest";
 import { groupFlow, monthFlow, periodFlow } from "./money-flow";
-import { bucketFor, bucketsOf, monthRange, periodCurves, periodSummary, periodTrend, previousRange } from "./period";
+import {
+  bucketFor,
+  bucketsOf,
+  monthRange,
+  periodCurves,
+  periodSummary,
+  periodTrend,
+  previousRange,
+  thisMonth,
+} from "./period";
 import { monthSummary, trashTransactions, trend, updateTransactions } from "./queries";
 
 // A hand-built ledger over four months. Totals below are worked out by hand.
@@ -138,8 +147,9 @@ describe("periodSummary", () => {
         byMonth.map((c) => c.previousByDay.map((x) => x.amount)),
       );
 
-      const point = periodTrend(db, range, opts).at(-1);
+      const { split, ...point } = periodTrend(db, range, opts).at(-1) ?? {};
       expect(point).toEqual(trend(db, 4, opts).find((t) => t.month === month));
+      expect(split).toBeDefined();
     }
   });
 
@@ -354,5 +364,205 @@ describe("periodTrend", () => {
     const range = { from: "2026-03-01", to: "2026-03-31" };
     expect(() => periodTrend(db, { ...range, categoryIds: [1, 1] }, opts)).toThrow();
     expect(() => periodTrend(db, { ...range, categoryIds: [0] }, opts)).toThrow();
+  });
+});
+
+// ---- Spec 22: essentials and extras, money left this month ----
+
+/**
+ * The ledger above plus three March rows: one uncategorized, one set on the
+ * Food group itself (no tag), and a move to savings (a transfer).
+ *
+ *            essential    extra   untagged
+ *   Dec        300,000    5,000          0
+ *   Feb        456,000    9,000          0
+ *   Mar          3,000    2,500      3,500
+ */
+function taggedLedger(): Db {
+  const db = ledger();
+  ingest(
+    db,
+    [
+      bank([
+        txn({ date: "2026-03-05", amount: -2000, description: "קיוסק" }),
+        txn({ date: "2026-03-06", amount: -1500, description: "שוק" }),
+        txn({ date: "2026-03-07", amount: -100000, description: "הפקדה מרץ" }),
+      ]),
+    ],
+    { now: NOW },
+  );
+  updateTransactions(db, [idOf(db, "שוק")], { categoryId: categoryId(db, "Food") });
+  updateTransactions(db, [idOf(db, "הפקדה מרץ")], { categoryId: categoryId(db, "Savings") });
+  return db;
+}
+
+describe("essentials and extras (spec 22)", () => {
+  let db: Db;
+  beforeAll(() => {
+    db = taggedLedger();
+  });
+  const ranges: DateRange[] = [
+    ...MONTHS.map(monthRange),
+    { from: "2026-03-14", to: "2026-03-20" },
+    { from: "2025-12-20", to: "2026-01-10" },
+    { from: "2025-04-01", to: "2026-03-31" },
+  ];
+
+  it("splits March by the category's tag; groups and uncategorized are neither", () => {
+    const march = monthRange("2026-03");
+    const all = periodSummary(db, march, opts);
+    expect(all).toMatchObject({ income: 1000000, spending: 9000, transfers: 100000, untagged: 3500 });
+    expect(periodSummary(db, { ...march, essential: true }, opts)).toMatchObject({
+      income: 1000000,
+      spending: 3000,
+      transfers: 100000,
+      untagged: 3500,
+    });
+    expect(periodSummary(db, { ...march, essential: false }, opts).spending).toBe(2500);
+    expect(periodSummary(db, { ...monthRange("2026-02"), essential: true }, opts).spending).toBe(456000);
+    expect(periodSummary(db, { ...monthRange("2025-12"), essential: false }, opts).spending).toBe(5000);
+  });
+
+  it("essentials plus extras plus untagged is all spending, for every number of the summary", () => {
+    const sum = (xs: { amount: number }[]) => xs.reduce((a, x) => a + x.amount, 0);
+    for (const range of ranges) {
+      const all = periodSummary(db, range, opts);
+      const ess = periodSummary(db, { ...range, essential: true }, opts);
+      const ext = periodSummary(db, { ...range, essential: false }, opts);
+      expect(ess.spending + ext.spending + all.untagged).toBe(all.spending);
+      expect(sum(ess.byCategory) + sum(ext.byCategory) + all.untagged).toBe(all.spending);
+      expect(sum(ess.byParent) + sum(ext.byParent) + all.untagged).toBe(all.spending);
+      expect((ess.series.at(-1)?.amount ?? 0) + (ext.series.at(-1)?.amount ?? 0) + all.untagged).toBe(
+        all.series.at(-1)?.amount ?? 0,
+      );
+      expect(ess.previous.spending + ext.previous.spending).toBeLessThanOrEqual(all.previous.spending);
+      expect(ess.previous.sameTime + ext.previous.sameTime).toBeLessThanOrEqual(all.previous.sameTime);
+      // Income, transfers and the review count never change with the filter.
+      for (const x of [ess, ext]) {
+        expect([x.income, x.transfers, x.needsReview, x.untagged, x.bucket]).toEqual([
+          all.income,
+          all.transfers,
+          all.needsReview,
+          all.untagged,
+          all.bucket,
+        ]);
+      }
+    }
+  });
+
+  it("the trend: all spending comes split by tag; a filter keeps one tag", () => {
+    const range = { from: "2025-12-01", to: "2026-03-31" };
+    const all = periodTrend(db, range, opts);
+    const ess = periodTrend(db, { ...range, essential: true }, opts);
+    const ext = periodTrend(db, { ...range, essential: false }, opts);
+    expect(all.map((p) => p.split)).toEqual([
+      { essential: 300000, extra: 5000, untagged: 0 },
+      { essential: 0, extra: 0, untagged: 0 },
+      { essential: 456000, extra: 9000, untagged: 0 },
+      { essential: 3000, extra: 2500, untagged: 3500 },
+    ]);
+    all.forEach((p, i) => {
+      const split = p.split ?? { essential: NaN, extra: NaN, untagged: NaN };
+      expect(split.essential + split.extra + split.untagged).toBe(p.spending);
+      expect(ess[i]).toMatchObject({ month: p.month, income: p.income, spending: split.essential });
+      expect(ext[i]).toMatchObject({ month: p.month, income: p.income, spending: split.extra });
+      expect(ess[i]?.split).toBeUndefined();
+    });
+    // Chosen categories and a tag: Food's extras are the restaurants and coffee only.
+    const food = categoryId(db, "Food");
+    const foodExtras = periodTrend(db, { ...range, essential: false, categoryIds: [food] }, opts);
+    expect(foodExtras.map((p) => p.spending)).toEqual([5000, 0, 9000, 2500]);
+    const foodEssentials = periodTrend(db, { ...range, essential: true, categoryIds: [food] }, opts);
+    expect(foodEssentials.map((p) => p.spending)).toEqual([0, 0, 6000, 3000]);
+  });
+
+  it("category curves keep one tag; Food's own untagged row shows only under all", () => {
+    const food = categoryId(db, "Food");
+    const march = { ...monthRange("2026-03"), categoryIds: [food] };
+    const last = (essential?: boolean) =>
+      periodCurves(db, essential === undefined ? march : { ...march, essential }, opts)[0]?.series.at(-1)?.amount;
+    expect([last(), last(true), last(false)]).toEqual([7000, 3000, 2500]);
+    const [curve] = periodCurves(db, { ...march, essential: true }, opts);
+    expect(curve?.previous.at(-1)?.amount).toBe(6000);
+  });
+
+  it("refuses a malformed filter", () => {
+    const bad = { ...monthRange("2026-03"), essential: "yes" as unknown as boolean };
+    expect(() => periodSummary(db, bad)).toThrow("BAD_REQUEST");
+    expect(() => periodTrend(db, bad)).toThrow("BAD_REQUEST");
+    expect(() => periodCurves(db, { ...bad, categoryIds: [] })).toThrow("BAD_REQUEST");
+  });
+});
+
+describe("money left this month (spec 22)", () => {
+  let db: Db;
+  beforeAll(() => {
+    db = taggedLedger();
+  });
+  const at = (iso: string) => thisMonth(db, { now: new Date(iso) });
+
+  // March: income 1,000,000; spending 9,000 (the card bill is internal, the
+  // savings move a transfer, the gift excluded, the clothes trashed).
+  it("counts income and spending only, over the whole month", () => {
+    expect(at("2026-03-20T09:00:00Z")).toEqual({
+      month: "2026-03",
+      today: "2026-03-20",
+      income: 1000000,
+      spending: 9000,
+      left: 991000,
+      daysLeft: 12,
+      perDay: 82500,
+    });
+  });
+
+  it("the first and the last day of the month", () => {
+    expect(at("2026-03-01T10:00:00Z")).toMatchObject({ daysLeft: 31, left: 991000, perDay: 31900 });
+    expect(at("2026-03-31T10:00:00Z")).toMatchObject({ daysLeft: 1, left: 991000, perDay: 991000 });
+  });
+
+  it("follows Israel time at midnight", () => {
+    // 23:30 on 19 March in Israel (UTC+2): still the 19th.
+    expect(at("2026-03-19T21:30:00Z")).toMatchObject({ today: "2026-03-19", daysLeft: 13 });
+    // 00:30 on 1 March in Israel, still February in UTC.
+    expect(at("2026-02-28T22:30:00Z")).toMatchObject({ month: "2026-03", today: "2026-03-01", daysLeft: 31 });
+    // 01:30 on 1 April in Israel (UTC+3 by then): a new month with nothing in it yet.
+    expect(at("2026-03-31T22:30:00Z")).toEqual({
+      month: "2026-04",
+      today: "2026-04-01",
+      income: 0,
+      spending: 0,
+      left: 0,
+      daysLeft: 30,
+      perDay: null,
+    });
+  });
+
+  it("overspent: a negative left and no per-day number", () => {
+    expect(at("2026-02-10T09:00:00Z")).toMatchObject({
+      income: 400000,
+      spending: 465000,
+      left: -65000,
+      daysLeft: 19,
+      perDay: null,
+    });
+  });
+
+  it("no income yet this month", () => {
+    const fresh = newDb();
+    ingest(fresh, [bank([txn({ date: "2026-04-02", amount: -10000, description: "סופר" })])], { now: NOW });
+    expect(thisMonth(fresh, { now: new Date("2026-04-10T09:00:00Z") })).toMatchObject({
+      income: 0,
+      spending: 10000,
+      left: -10000,
+      daysLeft: 21,
+      perDay: null,
+    });
+  });
+
+  it("rounds down to whole shekels", () => {
+    const fresh = newDb();
+    ingest(fresh, [bank([txn({ date: "2026-04-01", amount: 100099, description: "משכורת" })])], { now: NOW });
+    // 1,000.99 over 30 days is 33.37 a day: 33.
+    expect(thisMonth(fresh, { now: new Date("2026-04-01T09:00:00Z") }).perDay).toBe(3300);
   });
 });
