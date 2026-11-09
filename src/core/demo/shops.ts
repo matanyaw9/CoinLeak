@@ -4,10 +4,12 @@
 
 import type { ScrapedAccount } from "@shared/types";
 
-export type DemoAccount = "bank" | "everyday" | "online" | "old";
+export type DemoAccount = "bank" | "joint" | "everyday" | "online" | "old";
 
 export const ACCOUNTS: Record<DemoAccount, Omit<ScrapedAccount, "transactions">> = {
   bank: { provider: "discount", accountNumber: "0000-123456", balance: 2_345_600 },
+  // A second bank account, quiet: interest and fees. Its balance check shows a gap (spec 24).
+  joint: { provider: "discount", accountNumber: "0000-778899", balance: 812_340 },
   everyday: { provider: "visaCal", accountNumber: "4821", balance: null },
   online: { provider: "visaCal", accountNumber: "7390", balance: null },
   // A card the user stopped syncing: its rows stay, it shows under Removed.
