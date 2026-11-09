@@ -1,9 +1,9 @@
 // Rules: the ordered list, each rule as one plain sentence, with a switch,
-// edit, delete with Undo, and reordering by drag or the up and down arrows.
+// edit, delete with Undo, and reordering by drag (scrolling near the edges) or arrows.
 // A friendly empty state explains what a rule is. Spec 13: Apply now, and
 // the starter lists offer.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, EyeOff, GripVertical, ListPlus, Pencil, Plus, RefreshCw, Trash, WandSparkles } from "lucide-react";
 import type { Rule } from "@shared/types";
@@ -27,6 +27,7 @@ import { CategoryBubble, IconBubble } from "@/components/common/chips";
 import { RuleSentence, useSentenceContext } from "@/components/rules/rule-sentence";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
 import { StarterListsDialog } from "@/components/rules/starter-lists";
+import { useDragAutoScroll } from "./rules-drag-scroll";
 
 /** Names shown per list in a rule's sentence before "or N more". */
 const SENTENCE_VALUES = 6;
@@ -47,6 +48,8 @@ export function RulesPage() {
   // While dragging, the list follows the pointer; after a drop it holds the
   // new order until the app's answer replaces the list.
   const [drag, setDrag] = useState<Drag | null>(null);
+  const listRef = useRef<HTMLOListElement>(null);
+  useDragAutoScroll(drag !== null, listRef);
   const [held, setHeld] = useState<{ ids: number[]; base: Rule[] | undefined } | null>(null);
   const [armed, setArmed] = useState<number | null>(null);
   const [startersOpen, setStartersOpen] = useState(false);
@@ -139,6 +142,7 @@ export function RulesPage() {
             </Card>
           ) : (
             <ol
+              ref={listRef}
               className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card"
               onDragOver={(e) => drag && e.preventDefault()}
               onDrop={(e) => {
