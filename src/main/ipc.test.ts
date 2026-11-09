@@ -48,6 +48,7 @@ describe("registerIpc", () => {
       openCurrentDb: () => undefined,
       closeDb: () => undefined,
       reloadWindow: () => undefined,
+      clearWindowStorage: () => Promise.resolve(),
     });
     expect(Object.keys(handlers).sort()).toEqual([...CHANNELS].sort());
   });

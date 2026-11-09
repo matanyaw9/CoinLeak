@@ -135,7 +135,7 @@ describe("delete data (spec 23)", () => {
     await ask("settings:set", { key: "syncFrom", value: "2026-01-01" });
 
     await ask("profiles:wipeCurrent", undefined);
-    expect(await ask("transactions:list", {})).toHaveLength(0);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(0);
     expect(await ask("accounts:list", undefined)).toHaveLength(0);
     expect(await ask("settings:get", { key: "syncFrom" })).toBe("max");
     expect((await ask("profiles:list", undefined)).profiles).toEqual([{ id: "me", name: "Me", file: "coinleak.db", demo: false }]);
@@ -152,22 +152,22 @@ describe("delete data (spec 23)", () => {
     ingest(getDb(), [bank([txn({ date: "2026-03-03", amount: -700, description: "קפה" })])], { now: NOW });
 
     await ask("profiles:wipeCurrent", undefined);
-    expect(await ask("transactions:list", {})).toHaveLength(0);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(0);
     await ask("profiles:switch", { id: work.id });
-    expect(await ask("transactions:list", {})).toHaveLength(1);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(1);
   });
 
   it("on the Demo profile, resets the made-up data instead", async () => {
     const ask = setup();
     const demo = await ask("profiles:addDemo", undefined);
     await ask("profiles:switch", { id: demo.id });
-    const before = await ask("transactions:list", {});
+    const before = (await ask("transactions:list", {})).rows;
     await ask("transactions:trash", { ids: before.map((t) => t.id) });
     await ask("transactions:emptyTrash", undefined);
-    expect(await ask("transactions:list", {})).toHaveLength(0);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(0);
 
     await ask("profiles:wipeCurrent", undefined);
-    expect(await ask("transactions:list", {})).toHaveLength(before.length);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(before.length);
   });
 
   it("deletes everything: no profile database and no profile list left; it starts with one empty Me", async () => {
@@ -186,7 +186,7 @@ describe("delete data (spec 23)", () => {
       current: "me",
       profiles: [{ id: "me", name: "Me", file: "coinleak.db", demo: false }],
     });
-    expect(await ask("transactions:list", {})).toHaveLength(0);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(0);
     expect(reloadWindow).toHaveBeenCalledTimes(2);
   });
 
@@ -205,7 +205,7 @@ describe("delete data (spec 23)", () => {
     syncing = true;
     expect(await code(ask("profiles:wipeCurrent", undefined))).toBe("SYNC_IN_PROGRESS");
     expect(await code(ask("profiles:wipeAll", undefined))).toBe("SYNC_IN_PROGRESS");
-    expect(await ask("transactions:list", {})).toHaveLength(1);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(1);
     expect(clearWindowStorage).not.toHaveBeenCalled();
   });
 });
