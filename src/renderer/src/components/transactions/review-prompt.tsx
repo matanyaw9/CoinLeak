@@ -89,18 +89,25 @@ export function InternalMenu({
   onAnswer: (internal: InternalChoice) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // spec 20: a cash withdrawal moved into the wallet says so, in its own words.
+  const cash = row.movedToCash === true;
+  const actions = cardBillActions(row).map((a) =>
+    cash ? { ...a, hint: a.internal === false ? s.cash.countItHint : s.cash.letDecideHint } : a,
+  );
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger className="inline-flex h-8 max-w-full items-center rounded-full px-3 text-sm text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50">
-        <span className="truncate">{s.transactions.reason.internalColumn}</span>
+        <span className="truncate">{cash ? s.cash.movedColumn : s.transactions.reason.internalColumn}</span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-0">
         <div className="px-4 pt-4 pb-3">
-          <p className="text-sm font-medium">{s.review.internalTitle}</p>
-          <p className="mt-1 text-xs leading-relaxed text-pretty text-muted-foreground">{s.transactions.reason.internalHint}</p>
+          <p className="text-sm font-medium">{cash ? s.cash.movedTitle : s.review.internalTitle}</p>
+          <p className="mt-1 text-xs leading-relaxed text-pretty text-muted-foreground">
+            {cash ? s.cash.movedHint : s.transactions.reason.internalHint}
+          </p>
         </div>
         <div className="border-t border-border p-1.5">
-          {cardBillActions(row).map((a) => (
+          {actions.map((a) => (
             <button
               key={String(a.internal)}
               type="button"

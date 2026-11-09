@@ -2,6 +2,7 @@
 // its name and tag, each money account's last sync, a card mode switch per
 // card, and a Sync button that shows each stage as it happens. Accounts can be
 // removed from syncing (spec 15): they move to a Removed group, rows intact.
+// Spec 20: the cash wallet, which never syncs, under the providers.
 // Look adapted from Spent (github.com/Shaya16/Spent), settings bank accounts screen.
 
 import { useEffect, useState } from "react";
@@ -25,6 +26,7 @@ import { ProviderSyncRow } from "@/components/sync/sync-parts";
 import { removedAccounts, syncingAccounts, visibleProviders } from "@/components/accounts/provider-groups";
 import { RemoveSyncDialog, RemovedGroup, type RemoveTarget } from "@/components/accounts/remove-sync";
 import { syncedText } from "@/components/accounts/sync-time";
+import { CashWalletCard } from "@/components/accounts/cash-wallet-card";
 
 const MODES: CardMode[] = ["credit", "debit"];
 
@@ -91,6 +93,7 @@ export function AccountsPage() {
               />
             ))
           )}
+          <CashWalletCard />
           <div id="removed-accounts">
             <RemovedGroup accounts={removedAccounts(list)} />
           </div>
