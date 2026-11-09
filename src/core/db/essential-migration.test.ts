@@ -150,6 +150,7 @@ describe("migration 0009 (essential categories)", () => {
 
 // 0010 (spec 20) adds `transactions.source` later; every column before it must hold.
 function withoutSource(row: unknown): unknown {
-  const { source: _source, ...rest } = row as Record<string, unknown>;
+  const rest = { ...(row as Record<string, unknown>) };
+  delete rest.source;
   return rest;
 }
