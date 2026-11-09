@@ -623,9 +623,12 @@ export const s = {
       suggestedHint: "From the transactions you picked. Add any that help.",
     },
     handSet: {
-      question: (n: number) =>
-        n === 1 ? "Also change 1 transaction you categorized by hand?" : `Also change ${n} transactions you categorized by hand?`,
-      hint: "You put them in another category. Left unticked, they stay as you set them.",
+      // F45: saving always hands these rows to the rule; the list says so first.
+      willChange: (n: number) =>
+        n === 1
+          ? "This rule will also change 1 transaction you categorized by hand"
+          : `This rule will also change ${n} transactions you categorized by hand`,
+      hint: "You put them in another category. Saving moves them to this rule's category.",
       more: (n: number) => `and ${n} more`,
     },
     saved: (name: string) => `Saved “${name}”`,
@@ -689,7 +692,7 @@ export const s = {
     working: (provider: string) => `Syncing ${provider}`,
     keepOpen: "Keep the bank window open. CoinLeak is downloading; this can take a minute or two.",
     elapsed: (time: string) => `Running for ${time}`,
-    button: (stage: string, time: string) => `${stage} ${time}`,
+    button: (provider: string, stage: string) => `${provider}: ${stage}`,
   },
 };
 

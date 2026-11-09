@@ -1,5 +1,5 @@
 // The rule editor dialog: name, the "If" conditions (all or any), what to
-// do, the rows sorted by hand it would take over only if ticked, and an
+// do, the rows sorted by hand it will take over on save (F45), and an
 // Advanced corner, with a live preview beside it that asks the app what the
 // rule fits today. Saving creates or updates and says how many it sorted.
 
@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CategoryField, OptionRow, Problem, Section } from "./rule-fields";
-import { HandSetPrompt } from "./hand-set";
+import { HandSetList, handSetIds } from "./hand-set";
 import { RuleConditions } from "./rule-conditions";
 import { RulePreview } from "./rule-preview";
 import { RuleSentence, useSentenceContext } from "./rule-sentence";
@@ -49,8 +49,6 @@ export function RuleEditor({
     form.exclusion === "count" || form.conditions.some((c) => c.kind === "text" && c.mode === "regex"),
   );
   const [tried, setTried] = useState(false);
-  // Unticked by default: rows the user sorted by hand stay theirs.
-  const [alsoChange, setAlsoChange] = useState(false);
   const set = (patch: Partial<RuleForm>) => setForm((f) => ({ ...f, ...patch }));
 
   const categories = useCategories();
@@ -72,9 +70,9 @@ export function RuleEditor({
   const save = () => {
     setTried(true);
     if (!check.rule) return;
-    const ids = alsoChange ? handSet.map((r) => r.id) : [];
+    // F45: the listed hand-set rows always go to the rule on save.
     actions
-      .save(editing?.id ?? null, check.rule, ids)
+      .save(editing?.id ?? null, check.rule, handSetIds(handSet))
       .then(() => onOpenChange(false))
       .catch(() => undefined);
   };
@@ -140,9 +138,7 @@ export function RuleEditor({
               {tried && check.problems.action && <Problem>{check.problems.action}</Problem>}
             </Section>
 
-            {handSet.length > 0 && (
-              <HandSetPrompt rows={handSet} ticked={alsoChange} onTick={setAlsoChange} index={index} />
-            )}
+            <HandSetList rows={handSet} index={index} />
 
             <section>
               <button
