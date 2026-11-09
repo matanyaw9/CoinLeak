@@ -497,7 +497,12 @@ export interface AppSettings {
   addedProviders: ProviderId[];
   /** How far back a sync downloads (spec 23). */
   syncFrom: SyncFrom;
+  /** Home's All / Essentials / Extras choice, kept per profile (spec 25). */
+  homeSpendingFilter: HomeSpendingFilter;
 }
+
+/** What Home's spending charts show: all spending, essentials or extras. */
+export type HomeSpendingFilter = "all" | "essential" | "extra";
 
 export type SettingKey = keyof AppSettings;
 export type SettingEntry = { [K in SettingKey]: { key: K; value: AppSettings[K] } }[SettingKey];

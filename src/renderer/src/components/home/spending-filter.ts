@@ -1,21 +1,33 @@
-// Home's All / Essentials / Extras choice (spec 22). Kept in memory for the
-// window's life; switching profile reloads the window, so each profile
-// starts at All. Core does the filtering: this only turns the choice into
-// the channels' optional `essential` arg.
+// Home's All / Essentials / Extras choice (spec 22), remembered per profile
+// in the `homeSpendingFilter` setting (spec 25). Core does the filtering:
+// this only keeps the choice and turns it into the channels' `essential` arg.
 
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { HomeSpendingFilter } from "@shared/types";
+import { call } from "@/lib/api";
+import { queryKey } from "@/lib/query-keys";
 
-export type SpendingFilter = "all" | "essential" | "extra";
+export type SpendingFilter = HomeSpendingFilter;
 
-let remembered: SpendingFilter = "all";
+const KEY = queryKey("settings:get", { key: "homeSpendingFilter" });
 
+/** `initial` (demo screenshots) wins over the saved choice and is not saved. */
 export function useSpendingFilter(initial?: SpendingFilter): [SpendingFilter, (f: SpendingFilter) => void] {
-  const [filter, setFilter] = useState<SpendingFilter>(initial ?? remembered);
+  const client = useQueryClient();
+  const [picked, setPicked] = useState<SpendingFilter | undefined>(initial);
+  const saved = useQuery({
+    queryKey: KEY,
+    queryFn: async () => (await call("settings:get", { key: "homeSpendingFilter" })) as SpendingFilter,
+    staleTime: Infinity,
+  });
   const set = (f: SpendingFilter) => {
-    remembered = f;
-    setFilter(f);
+    setPicked(f);
+    client.setQueryData(KEY, f);
+    // Remembering is a convenience: if saving fails, the choice still shows now.
+    call("settings:set", { key: "homeSpendingFilter", value: f }).catch(() => undefined);
   };
-  return [filter, set];
+  return [picked ?? saved.data ?? "all", set];
 }
 
 /** The `essential` arg for the period channels: left out under All. */
