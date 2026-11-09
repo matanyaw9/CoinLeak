@@ -41,7 +41,7 @@ export function MonthPicker() {
     if (shot === "past-month") setChoice({ ...choice, kind: "month", month: shiftMonth(current, -2) });
     if (shot === "period-12") setChoice({ ...choice, kind: "last12" });
     if (shot === "period-custom" || shot === "custom-wrong") setChoice({ ...choice, kind: "custom" });
-    if (shot === "overspent") setChoice({ ...choice, kind: "month", month: shiftMonth(current, -3) });
+    if (shot === "overspent" || shot === "overspent-flow") setChoice({ ...choice, kind: "month", month: shiftMonth(current, -3) });
   }, [shot, current, choice, setChoice]);
 
   useEffect(() => {

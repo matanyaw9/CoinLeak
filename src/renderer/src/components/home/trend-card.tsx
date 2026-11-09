@@ -3,7 +3,7 @@
 // or by clicking a bar segment or legend name) shows only theirs, stacked,
 // with a clear way back. Core sends one series per ticked category.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarShapeProps } from "recharts";
 import { ArrowLeft } from "lucide-react";
 import type { DateRange, IsoMonth, TrendPoint } from "@shared/types";
@@ -36,8 +36,13 @@ export function TrendCard({
   onOpen: (slice: Slice, month: IsoMonth) => void;
 }) {
   const shot = useShot();
-  const [ticks, setTicks] = useState<TrendTicks>(() => (shot === "trend-some" ? firstGroups(index, 2) : []));
+  const [ticks, setTicks] = useState<TrendTicks>(() => (shot === "trend-some" || shot === "trend-picker" ? firstGroups(index, 2) : []));
   const [hover, setHover] = useState<number | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  // Demo screenshots: `?shot=trend...` scroll here.
+  useEffect(() => {
+    if (shot?.startsWith("trend")) box.current?.scrollIntoView({ block: "center" });
+  }, [shot]);
   const trend = usePeriodTrend(range, ticks);
   const points = trend.data ?? [];
   const inPeriod = (m: IsoMonth) => m >= monthOf(range.from) && m <= monthOf(range.to);
@@ -58,139 +63,141 @@ export function TrendCard({
   };
 
   return (
-    <Card>
-      <CardHeader
-        label={s.periodHome.trendTitle}
-        action={
-          <span className="flex items-center gap-2">
-            {filtered && (
-              <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.periodHome.trendBackHint} onClick={() => setTicks([])}>
-                <ArrowLeft />
-                {s.periodHome.trendBack}
-              </Button>
+    <div ref={box}>
+      <Card>
+        <CardHeader
+          label={s.periodHome.trendTitle}
+          action={
+            <span className="flex items-center gap-2">
+              {filtered && (
+                <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.periodHome.trendBackHint} onClick={() => setTicks([])}>
+                  <ArrowLeft />
+                  {s.periodHome.trendBack}
+                </Button>
+              )}
+              <TrendCategoryPicker
+                index={index}
+                ticks={ticks}
+                onToggle={toggle}
+                onClear={() => setTicks([])}
+                defaultOpen={shot === "trend-picker"}
+              />
+            </span>
+          }
+        />
+        {!trend.data ? (
+          <div className="h-[330px]" />
+        ) : !hasData ? (
+          <EmptyState compact title={filtered ? s.periodHome.trendEmptyOne : s.home.trendEmpty} />
+        ) : (
+          <>
+            {focus && (
+              <div className="mb-4 flex items-baseline gap-2.5">
+                <Money amount={focus.total} decimals={false} className="text-[28px] leading-none tracking-tight" />
+                <span className="text-sm text-muted-foreground">{formatMonth(focus.month)}</span>
+              </div>
             )}
-            <TrendCategoryPicker
-              index={index}
-              ticks={ticks}
-              onToggle={toggle}
-              onClear={() => setTicks([])}
-              defaultOpen={shot === "trend-picker"}
-            />
-          </span>
-        }
-      />
-      {!trend.data ? (
-        <div className="h-[330px]" />
-      ) : !hasData ? (
-        <EmptyState compact title={filtered ? s.periodHome.trendEmptyOne : s.home.trendEmpty} />
-      ) : (
-        <>
-          {focus && (
-            <div className="mb-4 flex items-baseline gap-2.5">
-              <Money amount={focus.total} decimals={false} className="text-[28px] leading-none tracking-tight" />
-              <span className="text-sm text-muted-foreground">{formatMonth(focus.month)}</span>
+            <div className="-mx-2 h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={data}
+                  margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
+                  barCategoryGap="28%"
+                  maxBarSize={72}
+                  onMouseMove={(st) => setHover(typeof st.activeTooltipIndex === "number" ? st.activeTooltipIndex : null)}
+                  onMouseLeave={() => setHover(null)}
+                >
+                  <CartesianGrid vertical={false} stroke="var(--border)" />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={10}
+                    interval="preserveStartEnd"
+                    tick={(p: { x?: number | string; y?: number | string; payload?: { value?: string }; index?: number }) => {
+                      const selected = inPeriod(data[p.index ?? -1]?.month ?? "");
+                      return (
+                        <text
+                          x={p.x}
+                          y={p.y}
+                          dy={12}
+                          textAnchor="middle"
+                          fontSize={12}
+                          fontWeight={selected ? 600 : 400}
+                          fill={selected ? "var(--foreground)" : "var(--muted-foreground)"}
+                        >
+                          {p.payload?.value}
+                        </text>
+                      );
+                    }}
+                  />
+                  <YAxis hide />
+                  <Tooltip
+                    cursor={{ fill: "var(--accent)", opacity: 0.5, radius: 10 } as object}
+                    content={({ active, payload }) => {
+                      const row = payload?.[0]?.payload as Row | undefined;
+                      if (!active || !row) return null;
+                      const rows = series
+                        .map((x) => ({ x, amount: Number(row[x.key] ?? 0) }))
+                        .filter((r) => r.amount > 0)
+                        .sort((a, b) => b.amount - a.amount)
+                        .map(({ x, amount }) => ({ key: x.key, label: x.name, amount, color: x.color, note: percent(amount, row.total) }));
+                      return (
+                        <ChartTooltip
+                          title={formatMonth(row.month)}
+                          rows={rows}
+                          hint={filtered ? s.periodHome.trendFilterHint : s.periodHome.trendPickHint}
+                        />
+                      );
+                    }}
+                  />
+                  {series.map((x) => (
+                    <Bar
+                      key={x.key}
+                      dataKey={x.key}
+                      stackId="spend"
+                      fill={x.color}
+                      shape={(props: BarShapeProps) => (
+                        <Rectangle {...props} radius={(props.payload as Row | undefined)?.top === x.key ? [6, 6, 0, 0] : 0} />
+                      )}
+                      {...chartAnimation()}
+                      className="cursor-pointer"
+                      onClick={(entry: { payload?: Row }) => clickSegment(x, entry.payload?.month)}
+                    >
+                      {data.map((d) => (
+                        <Cell
+                          key={d.month}
+                          opacity={hover != null ? (data[hover]?.month === d.month ? 1 : 0.4) : inPeriod(d.month) ? 1 : 0.55}
+                          className="transition-opacity"
+                        />
+                      ))}
+                    </Bar>
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          )}
-          <div className="-mx-2 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={data}
-                margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
-                barCategoryGap="28%"
-                maxBarSize={72}
-                onMouseMove={(st) => setHover(typeof st.activeTooltipIndex === "number" ? st.activeTooltipIndex : null)}
-                onMouseLeave={() => setHover(null)}
-              >
-                <CartesianGrid vertical={false} stroke="var(--border)" />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={10}
-                  interval="preserveStartEnd"
-                  tick={(p: { x?: number | string; y?: number | string; payload?: { value?: string }; index?: number }) => {
-                    const selected = inPeriod(data[p.index ?? -1]?.month ?? "");
-                    return (
-                      <text
-                        x={p.x}
-                        y={p.y}
-                        dy={12}
-                        textAnchor="middle"
-                        fontSize={12}
-                        fontWeight={selected ? 600 : 400}
-                        fill={selected ? "var(--foreground)" : "var(--muted-foreground)"}
-                      >
-                        {p.payload?.value}
-                      </text>
-                    );
-                  }}
-                />
-                <YAxis hide />
-                <Tooltip
-                  cursor={{ fill: "var(--accent)", opacity: 0.5, radius: 10 } as object}
-                  content={({ active, payload }) => {
-                    const row = payload?.[0]?.payload as Row | undefined;
-                    if (!active || !row) return null;
-                    const rows = series
-                      .map((x) => ({ x, amount: Number(row[x.key] ?? 0) }))
-                      .filter((r) => r.amount > 0)
-                      .sort((a, b) => b.amount - a.amount)
-                      .map(({ x, amount }) => ({ key: x.key, label: x.name, amount, color: x.color, note: percent(amount, row.total) }));
-                    return (
-                      <ChartTooltip
-                        title={formatMonth(row.month)}
-                        rows={rows}
-                        hint={filtered ? s.periodHome.trendFilterHint : s.periodHome.trendPickHint}
-                      />
-                    );
-                  }}
-                />
-                {series.map((x) => (
-                  <Bar
-                    key={x.key}
-                    dataKey={x.key}
-                    stackId="spend"
-                    fill={x.color}
-                    shape={(props: BarShapeProps) => (
-                      <Rectangle {...props} radius={(props.payload as Row | undefined)?.top === x.key ? [6, 6, 0, 0] : 0} />
-                    )}
-                    {...chartAnimation()}
-                    className="cursor-pointer"
-                    onClick={(entry: { payload?: Row }) => clickSegment(x, entry.payload?.month)}
-                  >
-                    {data.map((d) => (
-                      <Cell
-                        key={d.month}
-                        opacity={hover != null ? (data[hover]?.month === d.month ? 1 : 0.4) : inPeriod(d.month) ? 1 : 0.55}
-                        className="transition-opacity"
-                      />
-                    ))}
-                  </Bar>
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            {series.map((x) => (
-              <button
-                key={x.key}
-                type="button"
-                disabled={x.categoryId === undefined}
-                title={x.categoryId === undefined ? undefined : filtered ? s.periodHome.trendUntickHint : s.periodHome.trendPickHint}
-                onClick={() => x.categoryId !== undefined && toggle(x.categoryId)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-colors",
-                  x.categoryId !== undefined && "hover:bg-accent/60 hover:text-foreground",
-                )}
-              >
-                <span className="size-2.5 rounded-full" style={{ backgroundColor: x.color }} />
-                {x.name}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </Card>
+            <div className="mt-4 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              {series.map((x) => (
+                <button
+                  key={x.key}
+                  type="button"
+                  disabled={x.categoryId === undefined}
+                  title={x.categoryId === undefined ? undefined : filtered ? s.periodHome.trendUntickHint : s.periodHome.trendPickHint}
+                  onClick={() => x.categoryId !== undefined && toggle(x.categoryId)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-colors",
+                    x.categoryId !== undefined && "hover:bg-accent/60 hover:text-foreground",
+                  )}
+                >
+                  <span className="size-2.5 rounded-full" style={{ backgroundColor: x.color }} />
+                  {x.name}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </Card>
+    </div>
   );
 }
 

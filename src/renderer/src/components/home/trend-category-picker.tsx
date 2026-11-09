@@ -2,7 +2,7 @@
 // groups with their categories under them, and uncategorized. Nothing ticked
 // is all spending.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, Layers } from "lucide-react";
 import type { Category } from "@shared/types";
 import { s } from "@/strings";
@@ -24,7 +24,13 @@ export function TrendCategoryPicker({
   onClear: () => void;
   defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(false);
+  // Demo screenshots open the list once the card has scrolled into view.
+  useEffect(() => {
+    if (!defaultOpen) return;
+    const timer = setTimeout(() => setOpen(true), 800);
+    return () => clearTimeout(timer);
+  }, [defaultOpen]);
 
   const label =
     ticks.length === 0
