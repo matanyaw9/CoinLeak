@@ -271,7 +271,66 @@ describe("listTransactions", () => {
     ]);
   });
 
+  // spec 17: sorting and the filters that came with it.
+  it("sorts by amount size either way, ties newest id first", () => {
+    const desc = listTransactions(db, { sort: "amount_desc" });
+    expect(desc.map((t) => Math.abs(t.amount))).toEqual([
+      1500000, 1400000, 450000, 99900, 35000, 20000, 20000, 12345, 12000, 10000, 8000, 5000, 3000,
+    ]);
+    // ATM (bank, added after the card) and the card's 02-12 groceries tie at 200.
+    expect(desc.slice(5, 7).map((t) => t.description)).toEqual(["כספומט", "סופר שכונתי"]);
+    const asc = listTransactions(db, { sort: "amount_asc" });
+    expect(asc.map((t) => Math.abs(t.amount))).toEqual(desc.map((t) => Math.abs(t.amount)).reverse());
+    expect(asc.slice(6, 8).map((t) => t.description)).toEqual(["כספומט", "סופר שכונתי"]);
+    expect(listTransactions(db, { sort: "date" })).toEqual(listTransactions(db));
+  });
+
+  it("sorts by name: Hebrew then English, natural numbers, case and spaces ignored, ties newest id first", () => {
+    const db2 = newDb();
+    const at = (description: string) => txn({ date: "2026-03-01", amount: -100, description });
+    ingest(
+      db2,
+      [bank(["zeta", "  Apple", "שופרסל", "אלון", "Shop 10", "Shop 9", "apple", "בית"].map(at))],
+      { now: NOW },
+    );
+    const rows = listTransactions(db2, { sort: "name" });
+    expect(rows.map((t) => t.description.trim())).toEqual([
+      "אלון",
+      "בית",
+      "שופרסל",
+      "apple",
+      "Apple",
+      "Shop 9",
+      "Shop 10",
+      "zeta",
+    ]);
+    expect(rows[3]?.id ?? 0).toBeGreaterThan(rows[4]?.id ?? 0);
+  });
+
+  it("filters pending rows or settled rows", () => {
+    expect(names({ pending: true })).toEqual(["מסעדה"]);
+    expect(listTransactions(db, { pending: false })).toHaveLength(12);
+  });
+
+  it("combines every filter with search and sort", () => {
+    const food = categoryId(db, "Food");
+    const card4321 = accountId(db, "visaCal", "4321");
+    expect(names({ search: "סופר", categoryIds: [food], sort: "amount_desc" })).toEqual(["סופר שכונתי", "סופר שכונתי"]);
+    expect(listTransactions(db, { search: "סופר", sort: "amount_desc" }).map((t) => t.amount)).toEqual([-20000, -8000]);
+    expect(names({ search: "חנות", flows: ["refund"] })).toEqual(["זיכוי חנות בגדים"]);
+    expect(names({ search: "משכורת", accountIds: [card4321] })).toEqual([]);
+    expect(names({ search: "מסעדה", pending: true })).toEqual(["מסעדה"]);
+    expect(names({ search: "סופר", pending: true })).toEqual([]);
+    expect(names({ search: "9999", needsReview: true })).toEqual(["ישראכרט 9999"]);
+    expect(names({ search: "חיוב", hideInternal: true })).toEqual([]);
+    expect(names({ search: "מתנה", flows: ["excluded"], categoryIds: [null], accountIds: [card4321], sort: "name" })).toEqual([
+      "מתנה לחבר",
+    ]);
+  });
+
   it("rejects a malformed filter", () => {
+    expect(() => listTransactions(db, { sort: "random" as never })).toThrow("BAD_REQUEST");
+    expect(() => listTransactions(db, { pending: "yes" as never })).toThrow("BAD_REQUEST");
     expect(() => listTransactions(db, { flows: ["nope" as never] })).toThrow("BAD_REQUEST");
     expect(() => listTransactions(db, { from: "yesterday" })).toThrow("BAD_REQUEST");
     expect(() => listTransactions(db, { accountIds: [1.5] })).toThrow("BAD_REQUEST");

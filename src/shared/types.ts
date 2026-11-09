@@ -130,7 +130,18 @@ export interface TransactionFilter {
   needsReview?: boolean;
   /** Leaves out card bills and other internal rows (spec 11). */
   hideInternal?: boolean;
+  /** spec 17: true keeps only pending rows, false only settled ones. */
+  pending?: boolean;
+  /** spec 17: row order. Defaults to `date`. */
+  sort?: TransactionSort;
 }
+
+/**
+ * spec 17. `date`: newest first. `amount_*`: by size (money in or out),
+ * then newest. `name`: A to Z, Hebrew then English, numbers in natural
+ * order. Ties always fall back to the newest id first.
+ */
+export type TransactionSort = "date" | "amount_desc" | "amount_asc" | "name";
 
 export interface TransactionPatch {
   categoryId?: number | null;

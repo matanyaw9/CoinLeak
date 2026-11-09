@@ -3,11 +3,13 @@
 // card bill and gone-row answers. Greets instead before the first sync.
 // Spec 11: the row menu (rule, ignore, trash), card bills hidden behind a
 // toggle, and the "Always put X in Y?" offer after sorting a row by hand.
+// Spec 17: the month's Income, Spent and Left on top, sort and filters kept
+// in the URL, a click on a row's category filters to it, and Ctrl+F.
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { ArrowLeftRight, CircleCheck, Eye, EyeOff, ListPlus, Search, SearchX, Trash2, WandSparkles, X } from "lucide-react";
+import { ArrowLeftRight, CircleCheck, Eye, EyeOff, ListPlus, Search, SearchX, Trash2, WandSparkles } from "lucide-react";
 import type { Category, TransactionFilter, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
@@ -25,9 +27,9 @@ import { useAddKnownPlace } from "@/lib/rule-actions";
 import { allIgnored, menuTargets, shouldOfferRule, suggestFor } from "@/lib/review-rows";
 import { useShot } from "@/lib/shot";
 import { useMonth } from "@/lib/month-context";
-import { monthRange, shiftMonth } from "@/lib/month";
+import { monthRange, shiftMonth, toIsoMonth } from "@/lib/month";
 import { formatDayLong, formatMonth } from "@/lib/format";
-import { colorOf, idsUnder, indexCategories, type CategoryIndex } from "@/lib/categories";
+import { indexCategories, type CategoryIndex } from "@/lib/categories";
 import { groupByDay } from "@/lib/day-groups";
 import { Page } from "@/components/layout/page";
 import { Input, Skeleton } from "@/components/ui/misc";
@@ -39,10 +41,17 @@ import { Welcome } from "@/components/common/welcome";
 import { TransactionRow } from "@/components/transactions/transaction-row";
 import { BulkBar } from "@/components/transactions/bulk-bar";
 import type { RowMenuModel } from "@/components/transactions/row-menu";
+import { SummaryBar } from "@/components/transactions/summary-bar";
+import { FilterChips, FilterMenu, SortMenu } from "@/components/transactions/list-tools";
+import { chipsFor, clearFilters, onlyCategory, readView, toFilter, writeView, type ListView } from "@/components/transactions/list-view";
+import { onFind, takeFindRequest } from "@/components/transactions/find";
 import { Hint } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
 
 const NONE = new Set<number>();
+// The offer's X sits inside the top right corner, not on sonner's outer edge.
+const OFFER_CLOSE =
+  "!left-auto !right-2 !top-2 !size-6 !transform-none !border-0 !bg-transparent !text-muted-foreground hover:!bg-accent hover:!text-foreground [&>svg]:!size-3.5";
 const failed = (e: unknown) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody);
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -57,11 +66,23 @@ function useDebounced<T>(value: T, ms: number): T {
 export function TransactionsPage() {
   const { month, setMonth } = useMonth();
   const [params, setParams] = useSearchParams();
-  const review = params.get("review") === "1";
-  const categoryParam = params.get("category");
+  const view = useMemo(() => readView(params), [params]);
+  const review = view.review;
   const [search, setSearch] = useState("");
   const [showBills, setShowBills] = useState(false);
   const query = useDebounced(search.trim(), 200);
+  const searchBox = useRef<HTMLInputElement>(null);
+  const shotName = useShot();
+
+  // Ctrl+F (spec 17): focus and select the box, now or on arrival.
+  const focusSearch = useCallback(() => {
+    searchBox.current?.focus();
+    searchBox.current?.select();
+  }, []);
+  useEffect(() => {
+    if (takeFindRequest()) focusSearch();
+    return onFind(focusSearch);
+  }, [focusSearch]);
 
   const categories = useCategories();
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
@@ -69,22 +90,18 @@ export function TransactionsPage() {
   const accountById = useMemo(() => new Map((accounts.data ?? []).map((a) => [a.id, a])), [accounts.data]);
   const summary = useMonthSummary(month);
 
-  const filterCategory = categoryParam === "none" ? null : categoryParam ? index.byId.get(Number(categoryParam)) : undefined;
-  const filter = useMemo<TransactionFilter>(() => {
-    const f: TransactionFilter = { ...monthRange(month) };
-    if (query) f.search = query;
-    if (review) f.needsReview = true;
-    if (categoryParam === "none") f.categoryIds = [null];
-    else if (categoryParam) f.categoryIds = idsUnder(index, Number(categoryParam));
-    return f;
-  }, [month, query, review, categoryParam, index]);
-
   // Card bills never count, so they stay out of the way unless asked for.
-  const tx = useTransactions(showBills ? filter : { ...filter, hideInternal: true });
-  const bills = useTransactions({ ...filter, flows: ["internal"] });
-  const billCount = bills.data?.length ?? 0;
+  const filter = useMemo<TransactionFilter>(
+    () => toFilter(view, index, { ...monthRange(month), search: query, showBills }),
+    [view, index, month, query, showBills],
+  );
+  const tx = useTransactions(filter);
+  const bills = useTransactions({ ...filter, hideInternal: undefined, sort: undefined, flows: ["internal"] });
+  const billCount = view.flows.length ? 0 : (bills.data?.length ?? 0);
   const rows = useMemo(() => tx.data ?? [], [tx.data]);
-  const groups = useMemo(() => groupByDay(rows), [rows]);
+  const byDay = view.sort === "date";
+  const groups = useMemo(() => (byDay ? groupByDay(rows) : [{ date: "", rows, spent: 0, income: 0 }]), [rows, byDay]);
+  const chips = chipsFor(view, index, accountById);
   const update = useUpdateTransactions();
   const actions = useReviewActions();
   const kept = useKept();
@@ -122,6 +139,9 @@ export function TransactionsPage() {
     toast(`${s.rules.offerLead}${row.description.trim()}${s.rules.offerInto}${category.name}${s.rules.offerEnd}`, {
       description: s.rules.offerBody,
       duration: still ? Infinity : 8000,
+      // spec 17: an X to close it; it still goes away by itself.
+      closeButton: true,
+      classNames: { closeButton: OFFER_CLOSE },
       // Hidden screenshot runs never advance transitions; demo shots skip them.
       className: still ? "!transition-none" : undefined,
       // spec 13: yes adds the shop to the category's known places.
@@ -198,18 +218,9 @@ export function TransactionsPage() {
     index,
   });
 
-  const setParam = (key: string, value: string | null) =>
-    setParams(
-      (p) => {
-        const next = new URLSearchParams(p);
-        if (value == null) next.delete(key);
-        else next.set(key, value);
-        return next;
-      },
-      { replace: true },
-    );
+  const setView = (next: ListView) => setParams((p) => writeView(p, next), { replace: true });
 
-  const filtered = Boolean(query || categoryParam);
+  const filtered = Boolean(query) || chips.length > 0;
   const reviewCount = summary.data?.needsReview ?? 0;
 
   if (firstRun) {
@@ -222,11 +233,12 @@ export function TransactionsPage() {
 
   return (
     <Page title={s.transactions.title} withMonth>
+      <SummaryBar summary={summary.data} current={month === toIsoMonth(new Date())} />
       <div className="rounded-3xl border border-border bg-card">
         <div className="flex flex-wrap items-center gap-3 px-6 py-4">
           <Segmented
             value={review ? "review" : "all"}
-            onChange={(v) => setParam("review", v === "review" ? "1" : null)}
+            onChange={(v) => setView({ ...view, review: v === "review" })}
             options={[
               { value: "all", label: s.transactions.all },
               {
@@ -244,24 +256,8 @@ export function TransactionsPage() {
               },
             ]}
           />
-          {(categoryParam === "none" || filterCategory) && (
-            <span className="inline-flex h-8 items-center gap-2 rounded-full border border-border bg-background ps-3 pe-1 text-sm">
-              <span className="text-muted-foreground">{s.transactions.filteredBy}</span>
-              <span className="size-2 rounded-full" style={{ backgroundColor: colorOf(filterCategory ?? null) }} />
-              <span className="font-medium">
-                {filterCategory ? `${filterCategory.emoji ?? ""} ${filterCategory.name}`.trim() : s.common.uncategorized}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="rounded-full"
-                aria-label={s.transactions.clearFilter}
-                onClick={() => setParam("category", null)}
-              >
-                <X />
-              </Button>
-            </span>
-          )}
+          <FilterMenu view={view} onChange={setView} index={index} accounts={accounts.data ?? []} defaultOpen={shotName === "filters"} />
+          <SortMenu value={view.sort} onChange={(sort) => setView({ ...view, sort })} />
           {(billCount > 0 || showBills) && (
             <Hint label={s.cardBills.hint}>
               <button
@@ -281,6 +277,7 @@ export function TransactionsPage() {
           <label className="relative ms-auto w-72">
             <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              ref={searchBox}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Escape" && setSearch("")}
@@ -289,6 +286,7 @@ export function TransactionsPage() {
             />
           </label>
         </div>
+        <FilterChips chips={chips} view={view} onChange={setView} />
 
         {tx.isError ? (
           <QueryError error={tx.error} className="border-t border-border" />
@@ -298,7 +296,7 @@ export function TransactionsPage() {
               <Skeleton key={i} className="h-11 w-full" />
             ))}
           </div>
-        ) : groups.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="border-t border-border">
             {review && !filtered ? (
               <EmptyState icon={CircleCheck} title={s.transactions.reviewDoneTitle} body={s.transactions.reviewDoneBody} />
@@ -313,7 +311,7 @@ export function TransactionsPage() {
                     size="sm"
                     onClick={() => {
                       setSearch("");
-                      setParam("category", null);
+                      setView({ ...clearFilters(view), review });
                     }}
                   >
                     {s.common.clear}
@@ -328,7 +326,7 @@ export function TransactionsPage() {
           <div className={cn("pb-2 transition-opacity", tx.isPlaceholderData && "opacity-60")}>
             {groups.map((g) => (
               <Fragment key={g.date}>
-                <div className="flex items-center justify-between border-t border-border bg-secondary/45 px-6 py-2.5">
+                {byDay && <div className="flex items-center justify-between border-t border-border bg-secondary/45 px-6 py-2.5">
                   <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
                     {formatDayLong(g.date)}
                   </span>
@@ -345,7 +343,7 @@ export function TransactionsPage() {
                       </span>
                     )}
                   </span>
-                </div>
+                </div>}
                 {g.rows.map((row) => (
                   <TransactionRow
                     key={row.id}
@@ -358,6 +356,9 @@ export function TransactionsPage() {
                     onCategory={onRowCategory}
                     menu={() => menuFor(row)}
                     menuOpen={shot.menuRow === row.id}
+                    hintOpen={shot.hintRow === row.id}
+                    showDate={!byDay}
+                    onFilterCategory={(id) => setView(onlyCategory(view, id))}
                     review={{
                       reviewing: review,
                       kept: kept.has(row.id),
@@ -398,7 +399,9 @@ export function TransactionsPage() {
  * Demo screenshot aid: `?shot=menu` opens the "..." menu on a row,
  * `?shot=select` selects three rows, `?shot=offer` shows the "Always put X
  * in Y?" toast, and `?shot=bills` or `?shot=bills-on` go to last month
- * (which has card bills) with them hidden or shown.
+ * (which has card bills) with them hidden or shown. Spec 17:
+ * `?shot=hover` shows who set the category on a row a rule sorted, and
+ * `?shot=hover-user` on a row sorted by hand.
  */
 function useDemoShot(
   rows: Row[],
@@ -409,10 +412,11 @@ function useDemoShot(
     offerRule: (row: Row, category: Category, still: boolean) => void;
     index: CategoryIndex;
   },
-): { menuRow: number | null } {
+): { menuRow: number | null; hintRow: number | null } {
   const shot = useShot();
   const ready = rows.length > 0;
   const [menuRow, setMenuRow] = useState<number | null>(null);
+  const [hintRow, setHintRow] = useState<number | null>(null);
   useEffect(() => {
     if (!shot || !ready) return;
     const id = setTimeout(() => {
@@ -425,10 +429,12 @@ function useDemoShot(
       if (shot === "bills-on") aids.setShowBills(true);
       const groceries = [...aids.index.byId.values()].find((c) => c.name === "Groceries");
       if (shot === "offer" && spending[0] && groceries) aids.offerRule(spending[0], groceries, true);
+      const source = shot === "hover" ? "rule" : shot === "hover-user" ? "user" : null;
+      if (source) setHintRow(rows.find((r) => r.categorySource === source && r.categoryId != null)?.id ?? null);
     }, 400);
     return () => clearTimeout(id);
     // Once per load: refreshed rows must not repeat it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shot, ready]);
-  return { menuRow };
+  return { menuRow, hintRow };
 }

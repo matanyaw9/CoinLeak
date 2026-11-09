@@ -571,10 +571,24 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
           (r.flow !== "trashed" || Boolean(f.flows?.includes("trashed"))) &&
           (!f.hideInternal || r.flow !== "internal") &&
           (!f.needsReview || r.flags.length > 0) &&
+          (f.pending === undefined || f.pending === (r.status === "pending")) &&
           (!q || [r.description, r.memo, r.note].some((t) => t?.toLowerCase().includes(q))),
       )
-      .sort((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1))
+      .sort(demoOrder(f.sort ?? "date"))
       .map(publicRow);
+  }
+
+  // spec 17: the same orders as core's listTransactions, ties newest id first.
+  function demoOrder(sort: NonNullable<TransactionFilter["sort"]>): (a: DemoRow, b: DemoRow) => number {
+    const names = new Intl.Collator(["he", "en"], { numeric: true, sensitivity: "base" });
+    const size = (r: DemoRow) => Math.abs(r.amount);
+    const by: Record<typeof sort, (a: DemoRow, b: DemoRow) => number> = {
+      date: (a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1),
+      amount_desc: (a, b) => size(b) - size(a),
+      amount_asc: (a, b) => size(a) - size(b),
+      name: (a, b) => names.compare(a.description.trim(), b.description.trim()),
+    };
+    return (a, b) => by[sort](a, b) || b.id - a.id;
   }
 
   function update(ids: number[], patch: TransactionPatch): Result<Res<"transactions:update">> {
