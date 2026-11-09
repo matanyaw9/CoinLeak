@@ -9,7 +9,7 @@ touches a bank. Owner features F46, F48, F8 (`docs/FEATURES.md`).
 
 - `src/core/db/migrations/0010_*.sql` (the only migration this wave) and
   `src/core/db/migrations.ts` if new files must be listed there
-- `src/core/ledger/**` except `queries.ts` summary functions (spec 22 adds
+- `src/core/ledger/**` except `period.ts`, `curves.ts`, `money-flow.ts` and the `queries.ts` summary functions (spec 22 adds
   one there; you may add transaction functions to `queries.ts`, at the end
   of the transaction section, nothing else)
 - `src/core/demo/**`: seed a Cash wallet with a few rows
