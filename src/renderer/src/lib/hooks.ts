@@ -15,13 +15,25 @@ export const useAccounts = () =>
 export const useCashWallet = () => useQuery({ queryKey: queryKey("cash:wallet"), queryFn: () => call("cash:wallet", undefined) });
 
 /**
- * True when no account has been synced yet, so screens greet instead of
- * charting nothing. Undefined while it is still loading.
+ * True when there is no money account and no cash wallet yet, so screens
+ * greet instead of charting nothing. Undefined while either is loading.
  */
 export function useFirstRun(): boolean | undefined {
   const accounts = useAccounts();
-  if (accounts.isError) return false;
-  return accounts.data ? accounts.data.length === 0 : undefined;
+  const wallet = useCashWallet();
+  return firstRun(accounts, wallet);
+}
+
+/** The rule behind `useFirstRun`: a failed read never shows the greeting. */
+export function firstRun(
+  accounts: { data?: unknown[]; isError: boolean },
+  wallet: { data?: unknown; isError: boolean },
+): boolean | undefined {
+  if (accounts.isError || wallet.isError) return false;
+  if (accounts.data && accounts.data.length > 0) return false;
+  if (wallet.data) return false;
+  if (!accounts.data || wallet.data === undefined) return undefined;
+  return true;
 }
 
 export const useCategories = () =>
