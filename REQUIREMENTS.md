@@ -207,8 +207,12 @@ migrations are never edited.
 | 3 | `07-rules-core`, `08-all-providers`, `09-rules-screen` | Core and first slices done. Rules engine on every sync, Rules page and editor, all 18 providers researched with generic self-login. Left: provider picker in Accounts and Sync, rules from Transactions |
 | 4 | `10-money-accounts`, `11-transactions-workbench`, `12-home-charts` | Add any bank from the app, Money accounts, last sync on hover; Trash, right-click menu, rules from rows, card bills hidden by default; category curves, Today button, chart research |
 | 5 | `13-rules-v2`, `14-money-flow`, `15-categories-accounts` | Rules with several conditions, known places and starter lists; transfers to savings and the Sankey chart; Empty trash fix; category editor; remove a money account; app icon |
-| 6 | to plan | Date ranges, Transactions summary bar, sorting and filtering, manual transactions, then installers |
-| later | | Hebrew UI, budgets, pockets, AI helper (opt-in) |
+| 6 | `16-periods-home`, `17-transactions-tools`, `18-categories-sync-feel` | Time periods and custom dates, Home charts, Transactions sort and filter, essential or extra tags, new categories, live sync, rules change hand-set rows (F45) |
+| 7 | `19-profiles` | Profiles, each its own database; Demo profile on the real core; renderer demo removed |
+| 8 | to write | Daily use: select all, notes, manual transactions with a Cash wallet (F46, F48, F8); search and rule order on Categories and Rules (F47, F50); essentials vs extras on charts and money left per day on Home (F49, F51) |
+| 9 | to write | Trust and safety: delete data and sync range (F52, F53); balance check (F54); code-health cleanup |
+| 10 | to write | First public version: installer, bug report and feedback, version and update link, backup export, experimental labels, scraper update routine (F55, F27, F28, F56, F57, F1) |
+| later | | Debt tracking (F58), budgets (F59), Hebrew UI, pockets, AI helper (opt-in) |
 
 ## 9. Open questions
 

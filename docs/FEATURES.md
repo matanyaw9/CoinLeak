@@ -35,20 +35,42 @@ Status: **idea** (not planned), **planned** (in a wave), **spec NN**
 | F45 | A new or edited rule also changes rows you categorized by hand | done (spec 18) | Owner, 2026-11-09: "no need to memorize which transactions I manually changed." Decided 2026-11-09: the rule simply applies, no tick box. The editor lists the hand-set rows it will change before saving. Sync still never changes a hand-set category. |
 | F42 | Code health review: simple, modular, readable, easy for a new developer | done (review saved) | Item 14. Findings in `docs/reviews/2026-11-code-health.md`; the lead turns them into a cleanup spec. |
 | F24 | Remove a money account from syncing, keeping its transactions | done (spec 15) | The account is marked "not synced" (hidden from the Sync panel, its rows stay and count). Can be added back. Deleting its rows too would be a separate, explicit action. |
-| F8 | Add a transaction by hand: title, cash or how paid, category, etc. | planned | Needs a "manual" money account (Cash) and a source flag, so a sync never touches or duplicates manual rows. |
+| F8 | Add a transaction by hand: title, cash or how paid, category, etc. | planned (wave 8) | Needs a "manual" money account (Cash) and a source flag, so a sync never touches or duplicates manual rows. Owner, 2026-11-09: spending cash and cash received (for example from parents). Decided 2026-11-09: an ATM withdrawal is a move into the Cash wallet (like a card bill, counted once), and the hand-added cash purchases are the spending. |
 | F3 | Money moved to investments or savings is not spending (an option) | done (spec 14) | A third category kind, *transfer*: counts neither as spending nor income; Home can show "moved to savings". |
 | F25 | Budget flow chart | done (spec 14) | A Sankey diagram of the month: income on the left, flowing into spending categories, transfers to savings and what was left. Ranked 2nd in `docs/research/money-charts.md`. Best after F3, so savings show as their own stream. |
 | F30 | Money flow: when a month's spending is more than its income, say so loudly | done (spec 16) | Owner, 2026-11-08: drop the "From savings / earlier months" source node. Instead make "this month you spent more than you earned" stand out (color, wording) so it draws attention. |
 | F31 | Money flow: click a group (meta category) to open its own flow chart | done (spec 16) | Owner, 2026-11-08: clicking for example Food expands into a Sankey of Food's categories (Groceries, Restaurants, Cafes), with a way back to the whole month. |
 | F26 | CoinLeak logo in the Linux dock instead of the generic one | done (spec 15) | The app has no icon file at all yet. Needs icon files from the logo, the window icon, and on Wayland a `.desktop` file whose name matches the app, which an installer normally adds. Dev runs get a small helper; the installer spec finishes it. |
 
+## Waves 8 to 10 (owner, 2026-11-09)
+
+Wave 8 is daily use, wave 9 trust and safety, wave 10 the first public
+version. F8 (manual transactions) is in wave 8.
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| F46 | Select all transactions from a top checkbox; select all of one day | planned (wave 8) | Item 1. Checkboxes and shift-click exist (F2). |
+| F47 | Ctrl+F on Categories searches categories; on Rules searches rules | planned (wave 8) | Item 2. Today Ctrl+F works only in Transactions (F33). |
+| F48 | Write a note on a transaction | planned (wave 8) | Item 3. The `note` field, search in notes and "sync never overwrites a note" already exist; only the editing is missing. |
+| F49 | Essentials vs extras on the existing Home charts | planned (wave 8) | Item 4, the F37 follow-up: see how essential and extra spending change, not only the total. |
+| F50 | Make rule order clear: which rule wins | planned (wave 8) | Item 6. The top rule wins (first match, top to bottom); today one line on the page says so. Number the rules, mark the top as checked first, and show when a lower rule also matched. |
+| F51 | Home: money left this month and how many days it covers | planned (wave 8) | Item 7. Decided 2026-11-09: real income received this month minus spending, divided by the days left (today included). Becomes "budget minus spent" once budgets (F59) exist. |
+| F52 | Delete data: this profile's, or everything | planned (wave 9) | Item 8. Decided 2026-11-09: two buttons, "Delete this profile's data" and "Delete everything" (every profile and the profiles list; the app starts fresh). Typed confirmation. Honest wording: every file CoinLeak made is deleted and nothing exists elsewhere, but on SSDs and btrfs old bytes can stay on the disk; disk encryption is the real protection. First move the banks list out of localStorage (BACKLOG, spec 10) so nothing is left behind. |
+| F53 | Choose how far back a sync downloads | planned (wave 9) | Item 9. Default stays "as far as the bank allows" (Discount 12 months, Cal 18, Max 48, Leumi 36, Yahav 3); the user can pick a later start. |
+| F54 | Balance check: do the numbers add up? | planned (wave 9) | Item 10. Keep a balance per sync per account (today each sync overwrites it); between two syncs, balance change should equal the sum of that account's rows. Bank accounts mostly; cards rarely send a balance. Show matches and gaps, never hide rows. |
+| F55 | Installer: install and open like any desktop app | planned (wave 10) | Linux (AppImage or rpm, with the dock icon from F26) and Windows. One new build tool. Windows shows "unknown publisher" without a paid signing certificate; owner decides later. Includes the fuses in `REQUIREMENTS.md` section 3. |
+| F56 | Export a copy of my data (backup) | planned (wave 10) | Promised in `REQUIREMENTS.md` section 6, never built. |
+| F57 | Banks not tested live are labeled "experimental" in the app | planned (wave 10) | Only Discount and Cal are verified. |
+
 ## Later
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
+| F58 | Track debt: how much, due dates, interest, am I ready to pay | idea (after v1) | Owner, 2026-11-09. Cheap first step: card installments ("payment 3 of 12") already show future charges you committed to. Loans and interest are usually not in the bank download. |
+| F59 | Monthly budget: did I spend as planned, am I near the red line, does the budget fit my needs | idea (after v1) | Owner, 2026-11-09. Turns F51's "left" into "budget minus spent". |
 | F1 | Scraper updates: stay current without trusting blindly | planned | Pinned to an exact version (6.12.2), install scripts off. Missing a routine: `npm run scraper:check` lists newer versions at least two weeks old and prints the code diff; the lead reviews it for new network addresses, file or process access, new dependencies or obfuscated code, writes a review note, then upgrades. |
-| F27 | "Report a bug / give feedback" and "Star us on GitHub" buttons | idea | The app itself never sends anything. The buttons open a GitHub page in your normal web browser (feedback opens a new issue with a blank template, no data from the app attached). Needs one narrow exception in the window security: open these fixed GitHub addresses externally. Only makes sense once the repo is public. |
-| F28 | Updates for people who installed the app | idea | Automatic updates are out of v1 on purpose: an updater is a program that downloads and runs new code, which is exactly the supply-chain risk we avoid. Step 1: Settings shows the version and a "Check for updates" button that opens the GitHub Releases page in the browser; you download the new installer yourself. Step 2 (later, opt-in): signed automatic updates from GitHub Releases. Releases come from tagged versions, not from every push to `main`. |
+| F27 | "Report a bug / give feedback" and "Star us on GitHub" buttons | planned (wave 10) | The app itself never sends anything. The buttons open a GitHub page in your normal web browser (feedback opens a new issue with a blank template, no data from the app attached). Needs one narrow exception in the window security: open these fixed GitHub addresses externally. Only makes sense once the repo is public. |
+| F28 | Updates for people who installed the app | planned (wave 10, step 1) | Automatic updates are out of v1 on purpose: an updater is a program that downloads and runs new code, which is exactly the supply-chain risk we avoid. Step 1: Settings shows the version and a "Check for updates" button that opens the GitHub Releases page in the browser; you download the new installer yourself. Step 2 (later, opt-in): signed automatic updates from GitHub Releases. Releases come from tagged versions, not from every push to `main`. |
 | F15 | Transactions have an ID | done | Every transaction has a permanent number plus a content hash for dedup. |
 
 ## Done
