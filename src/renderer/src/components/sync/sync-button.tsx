@@ -1,12 +1,13 @@
 // The top bar Sync button: opens a small panel with one row per provider the
 // user has (money accounts or added), an "Add a bank or card" button, and
-// shows the running stage while a sync is in progress. Whether the panel and
+// shows who is syncing, the stage and the time so far while a sync runs. Whether the panel and
 // the Add picker are open lives in the sync context, so other screens can open them.
 
 import { useEffect } from "react";
 import { LoaderCircle, Plus, RefreshCw } from "lucide-react";
+import type { ProviderId, SyncStage } from "@shared/types";
 import { s } from "@/strings";
-import { useSync } from "@/lib/sync";
+import { useSync, useSyncElapsed } from "@/lib/sync";
 import { useAccounts } from "@/lib/hooks";
 import { useShot } from "@/lib/shot";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -33,9 +34,12 @@ export function SyncButton() {
   return (
     <>
       <Popover open={sync.panelOpen} onOpenChange={sync.setPanelOpen}>
-        <PopoverTrigger className={cn(buttonVariants(), "h-9 rounded-xl px-4")}>
+        <PopoverTrigger
+          className={cn(buttonVariants(), "h-9 rounded-xl px-4")}
+          title={busy ? s.syncLive.keepOpen : undefined}
+        >
           {busy ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
-          {busy && sync.stage ? s.sync.stageShort[sync.stage] : s.sync.button}
+          {busy && sync.provider && sync.stage ? <BusyLabel provider={sync.provider} stage={sync.stage} /> : s.sync.button}
         </PopoverTrigger>
         <PopoverContent className="w-96 p-5">
           <p className="font-heading text-lg tracking-tight">{s.sync.title}</p>
@@ -68,20 +72,38 @@ export function SyncButton() {
   );
 }
 
+/** "Cal: Downloading 0:42" while a sync runs (spec 18). */
+function BusyLabel({ provider, stage }: { provider: ProviderId; stage: SyncStage }) {
+  const elapsed = useSyncElapsed();
+  return (
+    <>
+      {s.syncLive.button(s.providers[provider].short, s.sync.stageShort[stage])}
+      {elapsed && <span className="font-mono text-xs tabular-nums opacity-80">{elapsed}</span>}
+    </>
+  );
+}
+
 /**
  * Demo screenshot aid: `?shot=sync-tip-visaCal` opens the panel with that
- * row's tooltip held open; `?shot=add` and `?shot=why` open the Add picker.
+ * row's tooltip held open; `?shot=add` and `?shot=why` open the Add picker;
+ * `?shot=sync-live-visaCal` opens the panel and starts that sync.
  */
 function useDemoShot(ready: boolean): string | null {
   const shot = useShot();
-  const { setPanelOpen, setPickerOpen } = useSync();
+  const { setPanelOpen, setPickerOpen, start } = useSync();
   useEffect(() => {
     if (!shot || !ready) return;
     const id = setTimeout(() => {
       if (shot.startsWith("sync-tip-")) setPanelOpen(true);
       if (shot === "add" || shot === "why") setPickerOpen(true);
+      if (shot.startsWith("sync-live-")) {
+        setPanelOpen(true);
+        start(shot.slice("sync-live-".length) as ProviderId);
+      }
     }, 400);
     return () => clearTimeout(id);
-  }, [shot, ready, setPanelOpen, setPickerOpen]);
+    // Once per load: a new sync must not start again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shot, ready]);
   return shot;
 }

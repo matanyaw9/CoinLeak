@@ -1,5 +1,5 @@
 // Sync building blocks shared by the top bar and the Money accounts page: the
-// stage stepper, the "log in now" note, and one row per provider with its
+// stage stepper, the live note, the "log in now" note, and one row per provider with its
 // Sync and Cancel buttons and a tooltip of its money accounts' last syncs.
 
 import { AppWindow, Check, LoaderCircle, RefreshCw } from "lucide-react";
@@ -17,8 +17,6 @@ import { syncedText } from "@/components/accounts/sync-time";
 const STEPS: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading", "saving"];
 /** Stages where Cancel still stops something; saving is quick and final. */
 const CANCELLABLE: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading"];
-/** Stages where the sync is still working, so the live note shows. */
-const RUNNING: SyncStage[] = STEPS;
 
 export function lastSync(accounts: Account[] | undefined, provider: ProviderId): string | null {
   const times = (accounts ?? []).flatMap((a) => (a.provider === provider && a.lastSyncedAt ? [a.lastSyncedAt] : []));
@@ -176,7 +174,7 @@ export function ProviderSyncRow({
       ) : (
         head
       )}
-      {stage && RUNNING.includes(stage) && <LiveNote provider={provider} className="mt-4 ms-12" />}
+      {stage && STEPS.includes(stage) && <LiveNote provider={provider} className="mt-4 ms-12" />}
       {stage && stage !== "failed" && <SyncSteps stage={stage} className="mt-4 ms-12" />}
       {stage === "waiting_for_login" && <LoginNote className="mt-4 ms-12" />}
     </div>

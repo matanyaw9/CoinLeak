@@ -169,6 +169,6 @@ export function useSyncElapsed(): string | null {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [clock]);
-  const ms = elapsedMs(clock, Math.max(now, clock.startedAt ?? 0));
+  const ms = elapsedMs(clock, now);
   return ms === null ? null : formatElapsed(ms);
 }
