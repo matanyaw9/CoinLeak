@@ -326,7 +326,7 @@ function RuleLine({
 }
 
 /**
- * Demo screenshot aid: `?shot=new`, `?shot=edit-3` or `?shot=suggest` opens
+ * Screenshot aid: `?shot=new`, `?shot=edit-Groceries` (by name) or `?shot=suggest` opens
  * the editor; `?shot=empty` deletes every demo rule to show the empty state.
  * Spec 13: `?shot=handset` opens a rule that would take over rows sorted by
  * hand, `?shot=starters` the starter lists.
@@ -339,25 +339,27 @@ function useDemoShot(rules: Rule[], openEditor: ReturnType<typeof useRuleEditor>
     if (!shot || !ready) return;
     const id = setTimeout(() => {
       if (shot === "new") openEditor({});
-      const rule = rules.find((r) => `edit-${r.id}` === shot);
+      const rule = rules.find((r) => `edit-${r.name}` === shot);
       if (rule) openEditor({ rule });
       if (shot === "empty") {
         void Promise.all(rules.map((r) => call("rules:delete", { id: r.id }))).then(() => refreshRules(client));
       }
       if (shot === "starters") openStarters();
       if (shot === "handset") {
-        openEditor({
-          draft: {
-            name: "Bit and PayBox",
-            enabled: true,
-            join: "any",
-            conditions: [
-              { kind: "text", field: "description", mode: "starts_with", values: ["העברה ב-BIT", "PAYBOX"] },
-              { kind: "text", field: "memo", mode: "contains", values: ["דנה"] },
-            ],
-            setCategoryId: 61,
-            setExcluded: null,
-          },
+        void call("categories:list", undefined).then((all) => {
+          openEditor({
+            draft: {
+              name: "Bit and PayBox",
+              enabled: true,
+              join: "any",
+              conditions: [
+                { kind: "text", field: "description", mode: "starts_with", values: ["העברה ב-BIT", "PAYBOX"] },
+                { kind: "text", field: "memo", mode: "contains", values: ["דנה"] },
+              ],
+              setCategoryId: all.find((c) => c.name === "Cash & ATM")?.id ?? null,
+              setExcluded: null,
+            },
+          });
         });
         setTimeout(() => {
           const form = document.querySelector("[data-hand-set]")?.closest("form");

@@ -85,24 +85,19 @@ function BusyLabel({ provider, stage }: { provider: ProviderId; stage: SyncStage
 
 /**
  * Demo screenshot aid: `?shot=sync-tip-visaCal` opens the panel with that
- * row's tooltip held open; `?shot=add` and `?shot=why` open the Add picker;
- * `?shot=sync-live-visaCal` opens the panel and starts that sync.
+ * row's tooltip held open; `?shot=add` and `?shot=why` open the Add picker.
  */
 function useDemoShot(ready: boolean): string | null {
   const shot = useShot();
-  const { setPanelOpen, setPickerOpen, start } = useSync();
+  const { setPanelOpen, setPickerOpen } = useSync();
   useEffect(() => {
     if (!shot || !ready) return;
     const id = setTimeout(() => {
       if (shot.startsWith("sync-tip-")) setPanelOpen(true);
       if (shot === "add" || shot === "why") setPickerOpen(true);
-      if (shot.startsWith("sync-live-")) {
-        setPanelOpen(true);
-        start(shot.slice("sync-live-".length) as ProviderId);
-      }
     }, 400);
     return () => clearTimeout(id);
-    // Once per load: a new sync must not start again.
+    // Once per load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shot, ready]);
   return shot;
