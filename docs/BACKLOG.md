@@ -181,3 +181,15 @@ Nothing open.
 - A row counts as "decided by a higher rule" even when that rule sets the
   same category (the lower rule is redundant there). Kept: it tells the
   user the lower rule changes nothing for those rows.
+
+## From spec 24
+
+- The check dates bank rows by `date` (booking day), not `processed_date`
+  (value date), from reading the library, not a live sync. Owner to
+  confirm after two real Discount syncs; a false gap points here first.
+- Not counted, can show a false gap: a pending row dated on the older
+  balance's day that settles later; a late booking dated before it.
+- "Show those transactions" opens from the older balance's day, so a few
+  rows the older balance already counted show too.
+- `useBalanceChecks` lives in `components/accounts/balance-check.tsx`;
+  move it next to the other query hooks after spec 25.
