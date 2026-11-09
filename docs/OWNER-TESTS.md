@@ -4,6 +4,10 @@ Things only the owner can check, because they need a real bank login or a
 human eye. Each takes a few minutes. Report results to the lead in the
 chat; the printed summaries hold no private data and are safe to paste.
 
+**Before testing new work, restart `npm run dev`** (Ctrl+C, then start it
+again). A running dev window reloads its screens when code changes, but the
+app behind them keeps the old code, so new buttons can fail until a restart.
+
 ## 1. First real login (sync:try)
 
 Checks that self-login works on the live Discount and Cal sites. Nothing
