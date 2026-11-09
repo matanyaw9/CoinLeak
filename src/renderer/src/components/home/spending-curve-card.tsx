@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { chartAnimation, ChartTooltip, type TooltipRow } from "@/components/charts/chart-tooltip";
 import type { PeriodWords } from "./period-words";
 import { axisOf } from "./period-axis";
+import type { SpendingFilter } from "./spending-filter";
 
 interface Point {
   i: number;
@@ -22,7 +23,18 @@ interface Point {
 
 const PREV_COLOR = "var(--muted-foreground)";
 
-export function SpendingCurveCard({ choice, words, summary }: { choice: PeriodChoice; words: PeriodWords; summary: PeriodSummary }) {
+export function SpendingCurveCard({
+  choice,
+  words,
+  summary,
+  filter,
+}: {
+  choice: PeriodChoice;
+  words: PeriodWords;
+  /** Already essentials or extras only when Home's filter says so (spec 22). */
+  summary: PeriodSummary;
+  filter: SpendingFilter;
+}) {
   const axis = axisOf(summary, summary.bucket);
   const prev = summary.previous;
   const lastIndex = summary.series.length - 1;
@@ -34,7 +46,8 @@ export function SpendingCurveCard({ choice, words, summary }: { choice: PeriodCh
     previous: prev.series[i]?.amount,
   }));
   const hasData = summary.spending > 0 || prev.spending > 0;
-  const title = choice.kind === "month" ? s.home.curveTitle : s.periodHome.curveTitle;
+  const base = choice.kind === "month" ? s.home.curveTitle : s.periodHome.curveTitle;
+  const title = filter === "all" ? base : `${base} · ${s.essentials[filter]}`;
 
   return (
     <Card className="flex h-full flex-col">

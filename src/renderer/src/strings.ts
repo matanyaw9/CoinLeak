@@ -830,6 +830,32 @@ export const s = {
     switchTo: "Switch profile",
     manage: "Manage profiles",
   },
+  // spec 22
+  left: {
+    title: "Left this month",
+    perDay: (left: string, days: number, perDay: string) =>
+      `${left} left for ${days === 1 ? "1 day" : `${days} days`}: about ${perDay} a day.`,
+    nothing: (days: number) => `Nothing left for the ${days === 1 ? "last day" : `${days} days to go`}.`,
+    over: (amount: string) => `You spent ${amount} more than came in this month.`,
+    noIncome: "No income this month yet.",
+    soFar: (income: string, spent: string) => `Came in ${income} · spent ${spent}, this month so far.`,
+    hint: "Income minus spending this calendar month, whatever period Home shows. Savings moves and card bills count as neither.",
+  },
+  essentials: {
+    label: "Which spending",
+    all: "All",
+    essential: "Essentials",
+    extra: "Extras",
+    /** After the amount in the hero: "You've spent ₪X on essentials so far this month." */
+    on: { essential: "on essentials", extra: "on extras" },
+    untagged: (amount: string) => `${amount} of spending is neither essential nor extra, so it shows only under All.`,
+    untaggedLink: "See uncategorized rows",
+    splitView: "Essential or extra",
+    groupView: "By category",
+    viewLabel: "Split the bars",
+    untaggedName: "Neither",
+    splitHint: "Click a part to show only that spending",
+  },
 };
 
 export type Strings = typeof s;
