@@ -2,14 +2,15 @@
 // account and amount. Rows that do not count are muted with a reason chip;
 // ignored rows are greyed with the amount struck through. Rows with a
 // question for the user (card bill, gone) carry a strip below. The left
-// gutter selects; right click or "..." opens the row menu.
+// gutter selects; right click or "..." opens the row menu. Spec 17: the
+// category chip filters and explains itself (category-cell.tsx).
 
-import { ArrowLeftRight, Check, ChevronDown, CircleDashed, Clock, EyeOff, WandSparkles } from "lucide-react";
+import { ArrowLeftRight, Check, CircleDashed, Clock, EyeOff, WandSparkles } from "lucide-react";
 import type { Account, Category, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { colorOf, type CategoryIndex } from "@/lib/categories";
-import { awaitingShekels, formatForeign } from "@/lib/format";
+import { type CategoryIndex } from "@/lib/categories";
+import { awaitingShekels, formatDayShort, formatForeign } from "@/lib/format";
 import { isGone, isPossibleCardBill, type InternalChoice } from "@/lib/review";
 import { ruleChipId } from "@/lib/review-rows";
 import { useRules } from "@/lib/hooks";
@@ -17,7 +18,7 @@ import { Hint } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
 import { Money } from "@/components/common/money";
 import { AccountChip, CategoryBubble, IconBubble } from "@/components/common/chips";
-import { CategoryPicker } from "./category-picker";
+import { CategoryCell } from "./category-cell";
 import { CardBillPrompt, GonePrompt, InternalMenu } from "./review-prompt";
 import { RowContextMenu, RowMenuButton, type RowMenuModel } from "./row-menu";
 
@@ -44,6 +45,9 @@ export function TransactionRow({
   review,
   menu,
   menuOpen,
+  onFilterCategory,
+  showDate,
+  hintOpen,
 }: {
   row: Row;
   account: Account | undefined;
@@ -58,6 +62,12 @@ export function TransactionRow({
   menu: () => RowMenuModel;
   /** Demo screenshots: open the "..." menu at once. */
   menuOpen?: boolean;
+  /** spec 17: a click on the category chip shows only that category. */
+  onFilterCategory?: (categoryId: number) => void;
+  /** spec 17: the list is not grouped by day, so the row says its date. */
+  showDate?: boolean;
+  /** Demo screenshots: show the category hover card at once. */
+  hintOpen?: boolean;
 }) {
   const category = row.categoryId != null ? index.byId.get(row.categoryId) : undefined;
   const gone = isGone(row);
@@ -156,6 +166,12 @@ export function TransactionRow({
               {chipRule !== null && <RuleChip ruleId={chipRule} />}
             </div>
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+              {showDate && (
+                <>
+                  <span className="shrink-0 tabular-nums">{formatDayShort(row.date)}</span>
+                  {(row.memo || (row.originalAmount != null && row.originalCurrency && !abroad)) && <span>·</span>}
+                </>
+              )}
               {row.memo && (
                 <span dir="auto" className="truncate">
                   {row.memo}
@@ -176,22 +192,14 @@ export function TransactionRow({
             ) : gone ? (
               <span className="block truncate px-3 text-sm text-muted-foreground">{s.review.goneColumn}</span>
             ) : (
-              <CategoryPicker
+              <CategoryCell
+                row={row}
+                category={category}
                 index={index}
-                value={row.categoryId}
-                preferKind={moneyIn ? "income" : "expense"}
-                onSelect={(c) => onCategory(row, c)}
-                triggerClassName={cn(
-                  "group/pick inline-flex h-8 max-w-full items-center gap-2 rounded-full px-3 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                  category
-                    ? "text-foreground/85 hover:bg-accent"
-                    : "border border-dashed border-status-heads-up/60 bg-status-heads-up/8 text-foreground/80 hover:bg-status-heads-up/15",
-                )}
-              >
-                {category && <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: colorOf(category) }} />}
-                <span className="truncate">{category ? category.name : s.transactions.chooseCategory}</span>
-                <ChevronDown className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/pick:opacity-100" />
-              </CategoryPicker>
+                onCategory={(c) => onCategory(row, c)}
+                onFilter={onFilterCategory}
+                hintOpen={hintOpen}
+              />
             )}
           </div>
 

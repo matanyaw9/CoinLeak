@@ -674,6 +674,46 @@ export const s = {
       offerRule: "Make a rule",
     },
   },
+
+  // spec 17
+  txTools: {
+    sort: {
+      label: "Sort",
+      date: "Newest first",
+      amount_desc: "Largest amount",
+      amount_asc: "Smallest amount",
+      name: "Name, A to Z",
+    } as Record<string, string>,
+    filter: {
+      button: "Filter",
+      categories: "Category",
+      accounts: "Money account",
+      flow: "Kind",
+      other: "Status",
+      pending: "Pending",
+      review: "Needs review",
+      clearAll: "Clear all",
+      remove: (what: string) => `Remove filter: ${what}`,
+      noAccounts: "No accounts yet",
+    },
+    flows: {
+      spending: "Spending",
+      income: "Income",
+      savings: "Savings",
+      ignored: "Ignored",
+      card_bills: "Card bills",
+    } as Record<string, string>,
+    origin: {
+      byRule: (name: string) => `Set by rule: ${name}`,
+      bySomeRule: "Set by a rule",
+      byYou: "Set by you",
+      none: "No category yet",
+      editRule: "Edit rule",
+      showOnly: "Click to show only this category",
+      change: "Change category",
+    },
+    closeOffer: "Close",
+  },
 };
 
 export type Strings = typeof s;
