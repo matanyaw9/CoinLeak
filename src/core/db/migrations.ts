@@ -10,6 +10,7 @@ import m0006 from "./migrations/0006_transfers.sql?raw";
 import m0007 from "./migrations/0007_rule_conditions.sql?raw";
 import m0008 from "./migrations/0008_accounts_settings.sql?raw";
 import m0009 from "./migrations/0009_essential_categories.sql?raw";
+import m0010 from "./migrations/0010_cash_wallet.sql?raw";
 
 export interface Migration {
   version: number;
@@ -26,4 +27,5 @@ export const MIGRATIONS: Migration[] = [
   { version: 7, sql: m0007 },
   { version: 8, sql: m0008 },
   { version: 9, sql: m0009 },
+  { version: 10, sql: m0010 },
 ];
