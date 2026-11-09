@@ -43,3 +43,34 @@ is saved; it only prints counts.
 Run `npm run dev` (empty database) or build with demo data:
 `VITE_DEMO=1 npm run preview`. Say what feels wrong, rough, or missing.
 Screenshots with amounts blurred are welcome.
+
+## 3. Wave 6 (periods, transactions tools, categories, sync feel)
+
+Run `npm run dev` (your dev data). About 15 minutes.
+
+1. **Periods.** Top bar picker: try Last 7 days, Last 12 months, This
+   year. Home and Transactions both follow. Pick Custom, set any first
+   and last day, press "Show these days". Then set the first day after
+   the last: a red message, the button stays off.
+2. **Bar chart filter.** Home, "Month by month": open the categories
+   list, tick Food and one other group. Only those show. Click a colored
+   segment to add it. "All spending" goes back.
+3. **Home charts.** Hover the pie: one label, nothing covering the slice.
+   In the money flow chart, click a group (Food): its own chart opens,
+   with Back. "This month vs last month": this month's line stops today.
+4. **Transactions.** Sort by amount and by name. Filter by a category, a
+   card, and "Spending"; remove a chip with its x. Click a row's category
+   to show only that category. Hover a rule-set category: it says which
+   rule. Press Ctrl+F: the search box takes the cursor.
+5. **Rules change hand-set rows (F45).** Set one transaction's category
+   by hand. Make a rule that matches it with a different category. The
+   editor lists it under "This rule will also change..."; save; the row
+   moves. Then sync: a category you set by hand afterwards stays.
+6. **Categories.** New Fuel, Parking, Bars, Vacation, Impulsive buying
+   are there. Extras carry a small "EXTRA" badge; the editor has an
+   Essential / Extra switch.
+7. **Sync.** Sync a bank. While it runs, the button shows the bank, the
+   stage and a ticking clock; the panel says to keep the bank window
+   open. Stops on done or cancel.
+8. **Rules drag.** On a long rules list, drag a rule to the bottom edge:
+   the page scrolls.
