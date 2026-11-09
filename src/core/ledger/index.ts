@@ -21,3 +21,4 @@ export { createCategory, deleteCategory, updateCategory } from "./categories";
 export { setAccountsSyncing } from "./accounts";
 export { addManualTransaction, editManualTransaction, getCashWallet } from "./cash";
 export { balanceChecks } from "./balance";
+export { restoreExclusions } from "./exclusions";

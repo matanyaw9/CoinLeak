@@ -61,6 +61,8 @@ export interface IpcContract {
     args: { ids: number[]; patch: TransactionPatch };
     result: { updated: number; before?: ExclusionState[] };
   };
+  /** Undo of Ignore or Count again: puts back each row's exclusion from `before`, in one step. */
+  "transactions:restoreExclusions": { args: { states: ExclusionState[] }; result: { updated: number } };
   /** The user's word on card bills: true internal, false spending, null back to automatic. */
   "transactions:setInternal": { args: { ids: number[]; internal: boolean | null }; result: { updated: number } };
   /** Only rows with status `gone` can be deleted. */
@@ -188,6 +190,7 @@ export const CHANNELS = [
   "categories:list",
   "transactions:list",
   "transactions:update",
+  "transactions:restoreExclusions",
   "transactions:setInternal",
   "transactions:deleteGone",
   "transactions:trash",
