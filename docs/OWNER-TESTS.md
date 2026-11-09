@@ -122,3 +122,19 @@ Run `npm run dev`. Try the Demo profile first, then your own.
 9. **Rule order.** Rules are numbered, "Checked from the top" above
    them; a rule overlapping a higher one says "Also fits N transactions
    that rule X decides". Drag one: a toast says where it went.
+
+## 6. Wave 9 (specs 23, 24)
+
+Restart `npm run dev` first.
+
+1. **Sync range.** Settings, "How far back to sync": switch to "From a
+   date", pick a day; the Sync panel shows "Downloads from <day>" under
+   each bank. Switch back to "As far as each bank allows".
+2. **Balance.** Sync Discount twice (a few hours or a day apart). Money
+   accounts shows the balance and, after the second sync, "Adds up" or
+   "Doesn't add up". A gap you cannot explain: tell the lead.
+3. **Delete, on a test profile only.** Add a profile "Test", switch to
+   it, add a cash row. Settings, Danger zone, "Delete this profile's
+   data": type DELETE. The row is gone, the profile stays. Do not try
+   "Delete everything" on real data unless you mean it; try it in a
+   throwaway data folder: `COINLEAK_DATA_DIR=$HOME/coinleak-test npm run dev`.
