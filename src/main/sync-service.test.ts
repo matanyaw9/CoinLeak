@@ -40,7 +40,7 @@ function setup(run: (provider: ProviderId, options: SyncOptions) => Promise<Sync
   const events: SyncProgress[] = [];
   const saved: IngestOptions[] = [];
   const service = createSyncService({
-    db,
+    getDb: () => db,
     runSync: run,
     ingest: (d, a, options) => {
       saved.push(options);

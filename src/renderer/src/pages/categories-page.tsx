@@ -237,9 +237,9 @@ function List({ children }: { children: ReactNode }) {
 }
 
 /**
- * Demo screenshot aid: `?shot=edit-11`, `?shot=move-13`, `?shot=delete-11`
- * or `?shot=new-group` opens that dialog; `?shot=drag-13-4` shows category
- * 13 being dragged over group 4.
+ * Screenshot aid: `?shot=edit-Groceries`, `?shot=move-Bars`, `?shot=delete-Bars`
+ * or `?shot=new-group` opens that dialog; `?shot=drag-Bars-Lifestyle` shows
+ * Bars being dragged over the Lifestyle group (categories found by name).
  */
 function useDemoShot(
   all: Category[],
@@ -254,7 +254,7 @@ function useDemoShot(
     if (!shot || !ready) return;
     const id = setTimeout(() => {
       const [what, a, b] = shot.split("-");
-      const c = all.find((x) => x.id === Number(a));
+      const c = all.find((x) => x.name === a);
       if (shot === "new-group") show({ name: "editor", request: { mode: "new", kind: "expense", parentId: null, meta: true } });
       if (!c) return;
       setKind(c.kind);
@@ -263,7 +263,7 @@ function useDemoShot(
       if (what === "delete") show({ name: "delete", category: c });
       if (what === "drag") {
         setDragging(c);
-        setOver(Number(b));
+        setOver(all.find((x) => x.name === b)?.id ?? null);
       }
     }, 400);
     return () => clearTimeout(id);

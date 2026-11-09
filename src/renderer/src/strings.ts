@@ -10,10 +10,7 @@ export const s = {
   app: {
     name: "CoinLeak",
     tagline: "Your money, kept local",
-    localOnly: "Local only",
     localOnlyHint: "Your data never leaves this computer.",
-    demo: "Demo data",
-    demoHint: "Made-up numbers to show the app.",
   },
 
   nav: {
@@ -262,7 +259,7 @@ export const s = {
     appearanceHint: "Pick how CoinLeak looks. System follows your computer.",
     theme: { system: "System", light: "Light", dark: "Dark" },
     data: "Your data",
-    dataHint: "Everything CoinLeak knows lives in one file on this computer.",
+    dataHint: "Everything CoinLeak knows lives in this folder on this computer, one file per profile.",
     dataFolder: "Data folder",
     version: "Version",
     devBuild: "Development build",
@@ -802,6 +799,36 @@ export const s = {
     keepOpen: "Keep the bank window open. CoinLeak is downloading; this can take a minute or two.",
     elapsed: (time: string) => `Running for ${time}`,
     button: (provider: string, stage: string) => `${provider}: ${stage}`,
+  },
+
+  // spec 19
+  profiles: {
+    title: "Profiles",
+    hint: "Each profile keeps its own transactions, rules and categories in its own file. Use one per person, or to keep money apart.",
+    current: "Open now",
+    open: "Switch",
+    add: "Add a profile",
+    addTitle: "New profile",
+    name: "Name",
+    namePlaceholder: "For example: Dana, or Business",
+    create: "Add",
+    rename: "Rename",
+    renameTitle: "Rename profile",
+    save: "Save",
+    cancel: "Cancel",
+    delete: "Delete",
+    deleteTitle: (name: string) => `Delete ${name}?`,
+    deleteBody: "This deletes the profile and all its data from this computer. It cannot be undone.",
+    deleteType: (name: string) => `Type ${name} to confirm`,
+    demoName: "Demo: made-up numbers",
+    demoHint: "Sync is off in this profile.",
+    addDemo: "Add the Demo profile",
+    addDemoHint: "A profile full of made-up money, to try things without touching yours.",
+    resetDemo: "Reset demo data",
+    resetDone: "The demo data is fresh again.",
+    syncOff: "Demo: made-up numbers. Sync is off in this profile.",
+    switchTo: "Switch profile",
+    manage: "Manage profiles",
   },
 };
 

@@ -216,7 +216,7 @@ function AccountLine({ account, onRemove }: { account: Account; onRemove: () => 
 }
 
 /**
- * Demo screenshot aid: `?shot=remove-2` asks to remove account 2,
+ * Screenshot aid: `?shot=remove-4821` asks to remove the account ending 4821,
  * `?shot=remove-visaCal` a whole provider, `?shot=removed` scrolls to the Removed group.
  */
 function useDemoShot(syncing: Account[], ask: (target: RemoveTarget) => void) {
@@ -227,7 +227,7 @@ function useDemoShot(syncing: Account[], ask: (target: RemoveTarget) => void) {
     const id = setTimeout(() => {
       if (shot === "removed") document.getElementById("removed-accounts")?.scrollIntoView({ block: "end" });
       const key = shot.slice("remove-".length);
-      const account = syncing.find((a) => String(a.id) === key);
+      const account = syncing.find((a) => a.accountNumber === key);
       const mine = syncing.filter((a) => a.provider === key);
       if (account) ask({ account });
       else if (mine.length > 0) ask({ provider: key as ProviderId, accounts: mine });

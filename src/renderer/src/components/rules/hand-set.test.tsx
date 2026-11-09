@@ -1,50 +1,56 @@
 // F45: the rule editor lists hand-set rows the rule matches, and saving
-// hands every one of them to the rule. With none, nothing extra shows.
+// sends every one of them. With none, nothing extra shows. That the save
+// really takes them over is tested in core (rules/save.test.ts).
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { RuleInput } from "@shared/types";
-import type { Args, Channel, Res } from "@shared/ipc";
+import type { Category, TransactionRow } from "@shared/types";
 import { s } from "@/strings";
-import { createDemo } from "@/lib/demo";
 import { indexCategories } from "@/lib/categories";
 import { HandSetList, handSetIds } from "./hand-set";
 
-type Demo = ReturnType<typeof createDemo>;
-
-async function ask<C extends Channel>(demo: Demo, channel: C, args: Args<C>): Promise<Res<C>> {
-  const r = await demo.invoke(channel, args);
-  if (!r.ok) throw new Error(r.error.code);
-  return r.value;
-}
-
-const bitToCash: RuleInput = {
-  name: "BIT",
-  enabled: true,
-  join: "all",
-  conditions: [{ kind: "text", field: "description", mode: "starts_with", values: ["העברה ב-BIT"] }],
-  setCategoryId: 61,
-  setExcluded: null,
+const gifts: Category = {
+  id: 7,
+  parentId: null,
+  name: "Gifts",
+  kind: "expense",
+  emoji: "🎁",
+  color: "#E3A6B4",
+  archived: false,
+  essential: null,
 };
 
+function row(id: number, description: string): TransactionRow {
+  return {
+    id,
+    accountId: 1,
+    date: "2026-10-05",
+    processedDate: "2026-10-05",
+    amount: -12000,
+    originalAmount: null,
+    originalCurrency: null,
+    description,
+    memo: null,
+    status: "completed",
+    installment: null,
+    categoryId: gifts.id,
+    categorySource: "user",
+    note: null,
+    excluded: false,
+    flow: "spending",
+    flags: [],
+    ruleId: null,
+  };
+}
+
 describe("hand-set rows in the rule editor", () => {
-  it("lists them, and saving sends every id so all of them change", async () => {
-    const demo = createDemo(new Date(2026, 10, 7, 12, 0));
-    const index = indexCategories(await ask(demo, "categories:list", undefined));
-    const handSet = (await ask(demo, "rules:preview", bitToCash)).handSet;
-    expect(handSet.length).toBeGreaterThan(1);
-
-    const html = renderToStaticMarkup(<HandSetList rows={handSet} index={index} />);
-    expect(html).toContain(s.rulesV2.handSet.willChange(handSet.length));
+  it("lists them, and saving sends every id so all of them change", () => {
+    const rows = [row(3, "העברה ב-BIT"), row(9, "העברה ב-BIT"), row(14, "PAYBOX")];
+    const html = renderToStaticMarkup(<HandSetList rows={rows} index={indexCategories([gifts])} />);
+    expect(html).toContain(s.rulesV2.handSet.willChange(3));
+    expect(html).toContain("Gifts");
     expect(html).not.toContain("checkbox");
-
-    const ids = handSetIds(handSet);
-    expect(ids).toEqual(handSet.map((r) => r.id));
-    await ask(demo, "rules:save", { id: null, rule: bitToCash, alsoChange: ids });
-
-    const rows = await ask(demo, "transactions:list", {});
-    for (const id of ids) expect(rows.find((r) => r.id === id)).toMatchObject({ categoryId: 61, categorySource: "rule" });
-    expect((await ask(demo, "rules:preview", bitToCash)).handSet).toEqual([]);
+    expect(handSetIds(rows)).toEqual([3, 9, 14]);
   });
 
   it("shows nothing when the rule matches no hand-set rows", () => {
