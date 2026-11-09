@@ -82,3 +82,87 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export function showToday(month: IsoMonth, current: IsoMonth): boolean {
   return month !== current;
 }
+
+// ---- Periods (spec 16) ----
+
+/** How the period was chosen in the top bar. */
+export type PeriodKind = "month" | "last7" | "last30" | "last12" | "year" | "custom";
+
+/** Everything the picker remembers; `kind` says which part is on screen. */
+export interface PeriodChoice {
+  kind: PeriodKind;
+  month: IsoMonth;
+  year: number;
+  custom: { from: IsoDate; to: IsoDate };
+}
+
+export const PERIOD_KINDS: PeriodKind[] = ["month", "last7", "last30", "last12", "year", "custom"];
+
+export function addDays(date: IsoDate, n: number): IsoDate {
+  const d = parseDate(date);
+  d.setDate(d.getDate() + n);
+  return toIsoDate(d);
+}
+
+/** The days the period covers, both ends included. Rolling periods end today. */
+export function periodRange(choice: PeriodChoice, today: IsoDate): { from: IsoDate; to: IsoDate } {
+  switch (choice.kind) {
+    case "month":
+      return monthRange(choice.month);
+    case "last7":
+      return { from: addDays(today, -6), to: today };
+    case "last30":
+      return { from: addDays(today, -29), to: today };
+    case "last12": {
+      const now = monthOf(today);
+      return { from: `${shiftMonth(now, -11)}-01`, to: monthRange(now).to };
+    }
+    case "year":
+      return { from: `${choice.year}-01-01`, to: `${choice.year}-12-31` };
+    case "custom":
+      return choice.custom;
+  }
+}
+
+/** Why custom days cannot be shown, or null when they can. Never swaps them. */
+export function customDaysProblem(from: string, to: string): "missing" | "fromAfterTo" | null {
+  if (!from || !to) return "missing";
+  if (from > to) return "fromAfterTo";
+  return null;
+}
+
+/** Arrows step a month or a year; other periods have none. */
+export function canStep(kind: PeriodKind): boolean {
+  return kind === "month" || kind === "year";
+}
+
+/** One month or year back or forward, never past the current one. */
+export function stepPeriod(choice: PeriodChoice, delta: -1 | 1, current: IsoMonth): PeriodChoice {
+  if (choice.kind === "month") return { ...choice, month: stepMonth(choice.month, delta, current) };
+  if (choice.kind === "year") return { ...choice, year: Math.min(choice.year + delta, parseMonth(current).year) };
+  return choice;
+}
+
+export function canStepNext(choice: PeriodChoice, current: IsoMonth): boolean {
+  if (choice.kind === "month") return canGoNext(choice.month, current);
+  if (choice.kind === "year") return choice.year < parseMonth(current).year;
+  return false;
+}
+
+/** Today shows when a past month or year is on screen. */
+export function periodShowsToday(choice: PeriodChoice, current: IsoMonth): boolean {
+  if (choice.kind === "month") return showToday(choice.month, current);
+  if (choice.kind === "year") return choice.year !== parseMonth(current).year;
+  return false;
+}
+
+/** The period that brings today back: this month, or this year when years are on screen. */
+export function periodToday(choice: PeriodChoice, current: IsoMonth): PeriodChoice {
+  if (choice.kind === "year") return { ...choice, year: parseMonth(current).year };
+  return { ...choice, kind: "month", month: current };
+}
+
+/** Whether today falls inside the range, so "so far" wording fits. */
+export function isOngoing(range: { from: IsoDate; to: IsoDate }, today: IsoDate): boolean {
+  return range.from <= today && today <= range.to;
+}

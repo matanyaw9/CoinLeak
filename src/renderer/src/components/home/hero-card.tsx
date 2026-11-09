@@ -1,54 +1,51 @@
-// Home hero: what was spent this month in one big sentence, how that
-// compares with last month, and income, spending and what was left, plus
-// what moved to savings when anything did (spec 14).
+// Home hero: what was spent in the period in one big sentence, how that
+// compares with the period before, and income, spending and what was left,
+// plus what moved to savings when anything did (specs 14 and 16). When
+// spending and savings outran income, it says by how much, in the warning
+// color the money flow uses for the same amount.
 // Look adapted from Spent (github.com/Shaya16/Spent), src/components/dashboard/hero-card.tsx.
 
 import { Link } from "react-router";
-import { ArrowRight, CircleHelp } from "lucide-react";
-import type { IsoMonth, MonthSummary } from "@shared/types";
+import { ArrowRight, CircleHelp, TriangleAlert } from "lucide-react";
+import type { Agorot, IsoDate, PeriodSummary } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { daysInMonth, shiftMonth, toIsoDate } from "@/lib/month";
-import { formatDayLong, formatMonth, formatMonthName, ils } from "@/lib/format";
+import { daysInMonth, monthOf, parseDate } from "@/lib/month";
+import { formatDayLong, ils } from "@/lib/format";
 import { Card } from "@/components/common/card";
 import { Money } from "@/components/common/money";
-
-/** What to compare against: last month by the same day, or all of it. */
-function comparison(summary: MonthSummary, prev: MonthSummary | undefined, isCurrent: boolean, day: number) {
-  if (!prev || prev.spending <= 0) return null;
-  const base = isCurrent ? (prev.byDay[Math.min(day, prev.byDay.length) - 1]?.amount ?? prev.spending) : prev.spending;
-  if (base <= 0) return null;
-  return { diff: summary.spending - base, base };
-}
+import { rangeLabel, type PeriodWords } from "./period-words";
 
 export function HeroCard({
-  month,
-  current,
+  words,
+  today,
   summary,
-  prev,
+  shortfall,
 }: {
-  month: IsoMonth;
-  current: IsoMonth;
-  summary: MonthSummary;
-  prev: MonthSummary | undefined;
+  words: PeriodWords;
+  today: IsoDate;
+  summary: PeriodSummary;
+  /** From core's money flow: spending plus transfers beyond income. */
+  shortfall: Agorot;
 }) {
-  const isCurrent = month === current;
-  const today = new Date();
-  const day = today.getDate();
-  const prevName = formatMonthName(shiftMonth(month, -1));
-  const cmp = comparison(summary, prev, isCurrent, day);
+  const { ongoing, calendar } = words;
+  const base = summary.previous.sameTime;
+  const diff = summary.spending - base;
   const left = summary.income - summary.spending;
   const spent = summary.spending > 0;
   const moved = summary.transfers;
+  const isThisMonth = calendar && ongoing && summary.from.endsWith("-01") && monthOf(summary.from) === monthOf(summary.to);
+
+  const topLine = isThisMonth
+    ? s.home.todayLine(formatDayLong(today), daysInMonth(monthOf(today)) - parseDate(today).getDate())
+    : ongoing
+      ? `${formatDayLong(today)} · ${rangeLabel(summary)}`
+      : s.periodHome.rangeLine(rangeLabel(summary));
 
   return (
     <Card className="relative overflow-hidden px-10 pt-9 pb-8">
       <div className="flex items-start justify-between gap-6">
-        <p className="text-sm text-muted-foreground">
-          {isCurrent
-            ? s.home.todayLine(formatDayLong(toIsoDate(today)), daysInMonth(month) - day)
-            : s.home.pastLine(formatMonth(month))}
-        </p>
+        <p className="text-sm text-muted-foreground">{topLine}</p>
         {summary.needsReview > 0 && (
           <Link
             to="/transactions?review=1"
@@ -63,31 +60,44 @@ export function HeroCard({
 
       <h2 className="mt-5 max-w-4xl font-heading text-[46px] leading-[1.06] tracking-tight text-balance">
         {!spent ? (
-          isCurrent ? s.home.nothingYet : s.home.nothingPast(formatMonthName(month))
+          ongoing && calendar ? (
+            s.periodHome.nothingYet(words.when)
+          ) : (
+            s.periodHome.nothing(words.when)
+          )
         ) : (
           <>
-            {isCurrent ? s.home.headlineSoFar : s.home.headlinePast}{" "}
+            {ongoing ? s.home.headlineSoFar : s.home.headlinePast}{" "}
             <span className="text-primary">{ils(summary.spending, { decimals: false })}</span>{" "}
-            {isCurrent ? s.home.headlineSoFarTail : s.home.headlinePastTail(formatMonthName(month))}
+            {ongoing && calendar ? s.periodHome.soFar(words.when) : s.periodHome.tail(words.when)}
           </>
         )}
       </h2>
 
-      {spent && cmp && (
+      {spent && base > 0 && (
         <p className="mt-3 font-heading text-2xl tracking-tight text-muted-foreground">
-          {Math.abs(cmp.diff) < cmp.base * 0.02 ? (
-            s.home.vsSame(prevName)
+          {Math.abs(diff) < base * 0.02 ? (
+            s.home.vsSame(words.before)
           ) : (
             <>
               {s.home.thatIs}
-              <span className={cn(cmp.diff < 0 ? "text-status-on-track" : "text-status-over")}>
-                {cmp.diff < 0
-                  ? s.home.vsLess(ils(-cmp.diff, { decimals: false }))
-                  : s.home.vsMore(ils(cmp.diff, { decimals: false }))}
+              <span className={cn(diff < 0 ? "text-status-on-track" : "text-status-over")}>
+                {diff < 0 ? s.home.vsLess(ils(-diff, { decimals: false })) : s.home.vsMore(ils(diff, { decimals: false }))}
               </span>
-              {isCurrent ? s.home.vsSameDay(prevName) : s.home.vsWholeMonth(prevName)}
+              {!ongoing || summary.to === today
+                ? s.home.vsWholeMonth(words.before)
+                : calendar
+                  ? s.home.vsSameDay(words.before)
+                  : s.periodHome.vsSamePoint(words.before)}
             </>
           )}
+        </p>
+      )}
+
+      {shortfall > 0 && (
+        <p className="mt-3 flex items-center gap-2.5 font-heading text-2xl tracking-tight text-status-over" data-testid="overspent">
+          <TriangleAlert className="size-5 shrink-0" />
+          {(ongoing ? s.periodHome.overspentSoFar : s.periodHome.overspent)(ils(shortfall, { decimals: false }))}
         </p>
       )}
 
@@ -98,7 +108,7 @@ export function HeroCard({
         <Kpi label={s.home.spent} hint={s.home.spentHint}>
           <Money amount={summary.spending} />
         </Kpi>
-        <Kpi label={isCurrent ? s.home.leftSoFar : s.home.left} hint={left < 0 ? s.home.overspent : s.home.leftHint}>
+        <Kpi label={ongoing ? s.home.leftSoFar : s.home.left} hint={left < 0 ? s.home.overspent : s.home.leftHint}>
           <Money amount={left} className={left < 0 ? "text-status-over" : "text-foreground"} />
         </Kpi>
         {moved !== 0 && (

@@ -1,63 +1,46 @@
-// How spending builds up through the month per category: one chosen category
-// against last month, or the top five side by side with a toggling legend.
-// Core draws the curves (summary:curves); this card only lays them out.
+// How spending builds up through the period per category: one chosen category
+// against the period before, or the top five side by side with a toggling
+// legend. Core draws the curves (summary:periodCurves, stopping at today);
+// this card only lays them out on the period's axis (spec 16).
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { CategoryCurve, IsoMonth, MonthSummary } from "@shared/types";
+import type { PeriodSummary } from "@shared/types";
 import { s } from "@/strings";
-import { call } from "@/lib/api";
 import { useShot } from "@/lib/shot";
 import { cn } from "@/lib/utils";
 import { colorOf, parentSlices, type CategoryIndex, type Slice } from "@/lib/categories";
-import { daysInMonth, shiftMonth, toIsoDate } from "@/lib/month";
-import { formatDayShort, formatMonthName } from "@/lib/format";
+import type { PeriodChoice } from "@/lib/month";
+import { usePeriod } from "@/lib/month-context";
 import { Card, CardHeader } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
 import { Segmented } from "@/components/common/segmented";
 import { chartAnimation, ChartTooltip, type TooltipRow } from "@/components/charts/chart-tooltip";
 import { CurveCategoryPicker } from "./curve-category-picker";
+import { usePeriodCurves } from "./period-data";
+import { axisOf } from "./period-axis";
+import type { PeriodWords } from "./period-words";
 
 type Mode = "one" | "top";
-type Row = { day: number; date: string } & Record<string, number | string | undefined>;
+type Row = { i: number; title: string } & Record<string, number | string | undefined>;
 
 const TOP = 5;
 const PREV_COLOR = "var(--muted-foreground)";
 
-const useCurves = (month: IsoMonth, categoryIds: (number | null)[]) =>
-  useQuery({
-    queryKey: ["summary:curves", { month, categoryIds }],
-    queryFn: () => call("summary:curves", { month, categoryIds }),
-    enabled: categoryIds.length > 0,
-    placeholderData: (prev) => prev,
-  });
-
-/** One row per day of the month; this month stops at today. */
-function rowsOf(month: IsoMonth, series: { key: string; points?: CategoryCurve["byDay"]; cutAtToday: boolean }[]): Row[] {
-  const today = toIsoDate(new Date());
-  return Array.from({ length: daysInMonth(month) }, (_, i) => {
-    const date = `${month}-${String(i + 1).padStart(2, "0")}`;
-    const row: Row = { day: i + 1, date };
-    for (const x of series) {
-      if (x.cutAtToday && date > today) continue;
-      row[x.key] = x.points?.[i]?.amount;
-    }
-    return row;
-  });
-}
-
 export function CategoryCurvesCard({
-  month,
+  choice,
+  words,
   summary,
   index,
   onOpen,
 }: {
-  month: IsoMonth;
-  summary: MonthSummary;
+  choice: PeriodChoice;
+  words: PeriodWords;
+  summary: PeriodSummary;
   index: CategoryIndex;
   onOpen: (slice: Slice) => void;
 }) {
+  const { range } = usePeriod();
   const shot = useShot();
   const [mode, setMode] = useState<Mode>(shot === "curves-top" ? "top" : "one");
   const ref = useRef<HTMLDivElement>(null);
@@ -72,7 +55,7 @@ export function CategoryCurvesCard({
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   const ids = mode === "one" ? [chosen ?? null] : top.map((x) => x.categoryId ?? null);
-  const curves = useCurves(month, ids);
+  const curves = usePeriodCurves(range, ids);
   const byId = new Map((curves.data ?? []).map((c) => [c.categoryId, c]));
 
   const chosenCat = chosen === null ? null : (index.byId.get(chosen) ?? null);
@@ -85,24 +68,23 @@ export function CategoryCurvesCard({
     amount: 0,
   };
   const one = byId.get(chosen ?? null);
-  const prevMonth = shiftMonth(month, -1);
-
-  const data =
-    mode === "one"
-      ? rowsOf(month, [
-          { key: "current", points: one?.byDay, cutAtToday: true },
-          { key: "previous", points: one?.previousByDay, cutAtToday: false },
-        ])
-      : rowsOf(
-          month,
-          top.map((x) => ({ key: x.key, points: byId.get(x.categoryId ?? null)?.byDay, cutAtToday: true })),
-        );
+  const axis = axisOf(summary, summary.bucket);
+  const data: Row[] = axis.points.map((p, i) => {
+    const row: Row = { i, title: p.title };
+    if (mode === "one") {
+      row.current = one?.series[i]?.amount;
+      row.previous = one?.previous[i]?.amount;
+    } else {
+      for (const x of top) row[x.key] = byId.get(x.categoryId ?? null)?.series[i]?.amount;
+    }
+    return row;
+  });
 
   const hasData =
     mode === "one"
-      ? (one?.byDay.at(-1)?.amount ?? 0) > 0 || (one?.previousByDay.at(-1)?.amount ?? 0) > 0
+      ? (one?.series.at(-1)?.amount ?? 0) > 0 || (one?.previous.at(-1)?.amount ?? 0) > 0
       : top.length > 0;
-  const ticks = [1, 8, 15, 22, 29].filter((d) => d <= daysInMonth(month));
+  const ticks = axis.ticks;
   const toggle = (key: string) =>
     setHidden((h) => {
       const next = new Set(h);
@@ -122,7 +104,7 @@ export function CategoryCurvesCard({
     );
 
   // The last drawn day (today in the current month) gets a dot, like the spending curve.
-  const lastIndex = data.findLastIndex((r) => Object.keys(r).some((k) => k !== "previous" && k !== "day" && k !== "date" && r[k] !== undefined));
+  const lastIndex = data.findLastIndex((r) => Object.keys(r).some((k) => k !== "previous" && k !== "i" && k !== "title" && r[k] !== undefined));
   const endDot = (color: string) => (p: { cx?: number; cy?: number; index?: number }) =>
     p.index === lastIndex && p.cx != null && p.cy != null ? (
       <circle key="end" cx={p.cx} cy={p.cy} r={4} fill={color} stroke="var(--card)" strokeWidth={2} />
@@ -134,7 +116,7 @@ export function CategoryCurvesCard({
     <div ref={ref} className="h-full">
       <Card className="flex h-full flex-col">
         <CardHeader
-          label={s.curves.title}
+          label={choice.kind === "month" ? s.curves.title : s.periodHome.curvesTitle}
           action={
             <Segmented<Mode>
               label={s.curves.modeLabel}
@@ -154,11 +136,11 @@ export function CategoryCurvesCard({
               <CurveCategoryPicker index={index} value={chosen} onSelect={setPicked} />
               <span className="flex items-center gap-1.5">
                 <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: chosenSlice.color }} />
-                {formatMonthName(month)}
+                {words.name}
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-4 border-t-2 border-dashed border-muted-foreground/70" />
-                {formatMonthName(prevMonth)}
+                <span className="first-letter:uppercase">{words.before}</span>
               </span>
             </>
           ) : (
@@ -189,10 +171,13 @@ export function CategoryCurvesCard({
         ) : (
           <div className="-mx-2 min-h-60 flex-1">
             <ResponsiveContainer width="100%" height="100%" minHeight={240}>
-              <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+              <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 12 }}>
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
-                  dataKey="day"
+                  dataKey="i"
+                  type="number"
+                  domain={[0, Math.max(data.length - 1, 1)]}
+                  tickFormatter={(i: number) => axis.points[i]?.label ?? ""}
                   ticks={ticks}
                   tickLine={false}
                   axisLine={false}
@@ -210,7 +195,7 @@ export function CategoryCurvesCard({
                       if (typeof p.current === "number")
                         rows.push({ key: "c", label: chosenSlice.name, amount: p.current, color: chosenSlice.color, strong: true });
                       if (typeof p.previous === "number")
-                        rows.push({ key: "p", label: s.curves.byDay(p.day, formatMonthName(prevMonth)), amount: p.previous, color: PREV_COLOR, dashed: true });
+                        rows.push({ key: "p", label: choice.kind === "month" ? s.curves.byDay(p.i + 1, words.before) : words.before, amount: p.previous, color: PREV_COLOR, dashed: true });
                     } else {
                       for (const x of top) {
                         const v = p[x.key];
@@ -219,7 +204,7 @@ export function CategoryCurvesCard({
                       rows.sort((a, b) => b.amount - a.amount);
                     }
                     if (!rows.length) return null;
-                    return <ChartTooltip title={formatDayShort(p.date)} rows={rows} hint={s.curves.hint} />;
+                    return <ChartTooltip title={p.title} rows={rows} hint={s.curves.hint} />;
                   }}
                 />
                 {mode === "one" ? (

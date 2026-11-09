@@ -1,16 +1,13 @@
-// Home: the month at a glance. Hero, spending curve, categories, money flow,
-// category curves, 12 months.
+// Home: the chosen period at a glance (spec 16). Hero, spending curve,
+// categories, money flow, category curves, month by month.
 // Before the first sync it greets instead, with no empty charts.
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
-import { useQuery } from "@tanstack/react-query";
 import type { IsoMonth } from "@shared/types";
 import { s } from "@/strings";
-import { useCategories, useFirstRun, useMonthSummary, useTrend } from "@/lib/hooks";
-import { call } from "@/lib/api";
-import { useMonth } from "@/lib/month-context";
-import { shiftMonth } from "@/lib/month";
+import { useCategories, useFirstRun } from "@/lib/hooks";
+import { useMonth, usePeriod } from "@/lib/month-context";
 import { indexCategories, type Slice } from "@/lib/categories";
 import { Page } from "@/components/layout/page";
 import { Card, CardSkeleton } from "@/components/common/card";
@@ -22,6 +19,8 @@ import { CategoryDonutCard } from "@/components/home/category-donut-card";
 import { TrendCard } from "@/components/home/trend-card";
 import { CategoryCurvesCard } from "@/components/home/category-curves-card";
 import { MoneyFlowCard } from "@/components/home/money-flow-card";
+import { periodWords } from "@/components/home/period-words";
+import { usePeriodFlow, usePeriodSummary } from "@/components/home/period-data";
 
 /** The Transactions link for a chart slice: a category, uncategorized, or all. */
 export function sliceLink(slice: Slice): string {
@@ -30,20 +29,15 @@ export function sliceLink(slice: Slice): string {
 }
 
 export function HomePage() {
-  const { month, current, setMonth } = useMonth();
+  const { choice, range, today } = usePeriod();
+  const { setMonth } = useMonth();
   const navigate = useNavigate();
-  const summary = useMonthSummary(month);
-  const prev = useMonthSummary(shiftMonth(month, -1));
-  const trend = useTrend(12);
+  const summary = usePeriodSummary(range);
+  const flow = usePeriodFlow(range);
   const categories = useCategories();
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
   const firstRun = useFirstRun();
-  // Keyed under "summary:month" so every refresh of the month's money
-  // (refreshLedger in lib/hooks) refreshes the flow too.
-  const flow = useQuery({
-    queryKey: ["summary:month", { month }, "flow"],
-    queryFn: () => call("summary:flow", { month }),
-  });
+  const words = periodWords(choice, range, today);
 
   const open = (slice: Slice, m?: IsoMonth) => {
     if (m) setMonth(m);
@@ -68,21 +62,21 @@ export function HomePage() {
         <div className="grid grid-cols-12 gap-6">
           <div className="col-span-12">
             {summary.data ? (
-              <HeroCard month={month} current={current} summary={summary.data} prev={prev.data} />
+              <HeroCard words={words} today={today} summary={summary.data} shortfall={flow.data?.shortfall ?? 0} />
             ) : (
               <CardSkeleton height={250} />
             )}
           </div>
           <div className="col-span-12 lg:col-span-7">
             {summary.data ? (
-              <SpendingCurveCard month={month} summary={summary.data} prev={prev.data} />
+              <SpendingCurveCard choice={choice} words={words} summary={summary.data} />
             ) : (
               <CardSkeleton label={s.home.curveTitle} height={300} />
             )}
           </div>
           <div className="col-span-12 lg:col-span-5">
             {summary.data && categories.data ? (
-              <CategoryDonutCard summary={summary.data} index={index} onOpen={(x) => open(x)} />
+              <CategoryDonutCard summary={summary.data} words={words} index={index} onOpen={(x) => open(x)} />
             ) : (
               <CardSkeleton label={s.home.donutTitle} height={300} />
             )}
@@ -100,20 +94,16 @@ export function HomePage() {
           </div>
           <div className="col-span-12">
             {summary.data && categories.data ? (
-              <CategoryCurvesCard month={month} summary={summary.data} index={index} onOpen={(x) => open(x)} />
+              <CategoryCurvesCard choice={choice} words={words} summary={summary.data} index={index} onOpen={(x) => open(x)} />
             ) : (
               <CardSkeleton label={s.curves.title} height={300} />
             )}
           </div>
           <div className="col-span-12">
-            {trend.data && categories.data ? (
-              <TrendCard trend={trend.data} index={index} month={month} onOpen={open} />
-            ) : trend.isError ? (
-              <Card>
-                <QueryError compact error={trend.error} />
-              </Card>
+            {categories.data ? (
+              <TrendCard range={range} index={index} onOpen={open} />
             ) : (
-              <CardSkeleton label={s.home.trendTitle} height={280} />
+              <CardSkeleton label={s.periodHome.trendTitle} height={280} />
             )}
           </div>
         </div>

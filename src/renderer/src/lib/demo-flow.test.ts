@@ -26,8 +26,8 @@ describe("demo money flow (spec 14)", () => {
       expect(into).toBe(out);
       for (const n of flow.nodes) kinds.add(n.kind);
     }
-    // Savings each month, and one month with money back out of savings.
-    expect(kinds).toEqual(new Set(["income", "from_savings", "hub", "spending", "transfer", "left"]));
+    // Savings each month, one month with money back out of savings, and one overspent.
+    expect(kinds).toEqual(new Set(["income", "from_savings", "beyond_income", "hub", "spending", "transfer", "left"]));
   });
 
   it("keeps transfers out of spending and income", async () => {

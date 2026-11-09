@@ -69,7 +69,7 @@ describe("monthFlow", () => {
     expect(flow.income).toBe(monthSummary(db, "2026-03").income);
   });
 
-  it("an overspent month takes the difference from savings or earlier months", () => {
+  it("an overspent month shows what was spent beyond income, not savings (spec 16)", () => {
     const db = ledger([
       ["01", 500000, "משכורת", "Salary"],
       ["04", -450000, "שכר דירה", "Bills & Utilities"],
@@ -80,7 +80,7 @@ describe("monthFlow", () => {
     expectBalanced(flow);
     expect(shape(db, flow)).toEqual([
       ["income", "Salary", 500000],
-      ["from_savings", null, 100000],
+      ["beyond_income", null, 100000],
       ["hub", null, 600000],
       ["spending", "Home & Bills", 450000],
       ["spending", "Transportation", 100000],
@@ -106,12 +106,12 @@ describe("monthFlow", () => {
     ]);
   });
 
-  it("a month with no income is all from savings", () => {
+  it("a month with no income is all beyond income", () => {
     const db = ledger([["05", -60000, "סופר", "Groceries"]]);
     const flow = monthFlow(db, "2026-03");
     expectBalanced(flow);
     expect(shape(db, flow)).toEqual([
-      ["from_savings", null, 60000],
+      ["beyond_income", null, 60000],
       ["hub", null, 60000],
       ["spending", "Food", 60000],
     ]);
@@ -159,6 +159,7 @@ describe("monthFlow", () => {
       income: 0,
       spending: 0,
       transfers: 0,
+      shortfall: 0,
       nodes: [],
       links: [],
     });

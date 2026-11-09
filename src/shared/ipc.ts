@@ -12,7 +12,12 @@ import type {
   CategoryDeleteResult,
   CategoryInput,
   CategoryPatch,
+  DateRange,
   ExclusionState,
+  GroupFlow,
+  PeriodCurve,
+  PeriodFlow,
+  PeriodSummary,
   IsoMonth,
   KnownPlaceAdded,
   KnownPlaces,
@@ -63,6 +68,19 @@ export interface IpcContract {
   "summary:curves": { args: { month: IsoMonth; categoryIds: (number | null)[] }; result: CategoryCurve[] };
   /** Where the month's money came from and went, for the Sankey (spec 14). */
   "summary:flow": { args: { month: IsoMonth }; result: MoneyFlow };
+  // ---- spec 16: the same summaries for any range of days ----
+  "summary:period": { args: DateRange; result: PeriodSummary };
+  /** Spending above income shows as `beyond_income`, never as savings. */
+  "summary:periodFlow": { args: DateRange; result: PeriodFlow };
+  /** One spending group opened up, for the Sankey drill-down. */
+  "summary:groupFlow": { args: DateRange & { categoryId: number }; result: GroupFlow };
+  /**
+   * The calendar months the range covers (at least 3, never past this month).
+   * With `categoryIds`, `byCategory` has one entry per id in that order, each
+   * with its subcategories (null: uncategorized), and `spending` is their sum.
+   */
+  "summary:periodTrend": { args: DateRange & { categoryIds?: (number | null)[] }; result: TrendPoint[] };
+  "summary:periodCurves": { args: DateRange & { categoryIds: (number | null)[] }; result: PeriodCurve[] };
   "sync:start": { args: { provider: ProviderId }; result: SyncResult };
   "sync:cancel": { args: undefined; result: null };
   /** Rules in evaluation order. Every change below reapplies all rules to all rows. */
@@ -129,6 +147,11 @@ export const CHANNELS = [
   "summary:trend",
   "summary:curves",
   "summary:flow",
+  "summary:period",
+  "summary:periodFlow",
+  "summary:groupFlow",
+  "summary:periodTrend",
+  "summary:periodCurves",
   "sync:start",
   "sync:cancel",
   "rules:list",

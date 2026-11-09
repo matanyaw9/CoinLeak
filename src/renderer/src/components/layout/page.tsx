@@ -2,8 +2,8 @@
 // Header look adapted from Spent (github.com/Shaya16/Spent), src/components/layout/app-shell.tsx.
 
 import type { ReactNode } from "react";
-import { useMonth } from "@/lib/month-context";
-import { formatMonth } from "@/lib/format";
+import { usePeriod } from "@/lib/month-context";
+import { periodWords } from "@/components/home/period-words";
 import { SyncButton } from "@/components/sync/sync-button";
 import { MonthPicker } from "./month-picker";
 
@@ -13,11 +13,11 @@ export function Page({
   children,
 }: {
   title: string;
-  /** Show the month next to the title and the month picker. */
+  /** Show the period next to the title and the period picker (spec 16). */
   withMonth?: boolean;
   children: ReactNode;
 }) {
-  const { month } = useMonth();
+  const { choice, range, today } = usePeriod();
   return (
     <>
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/85 backdrop-blur-md">
@@ -27,7 +27,7 @@ export function Page({
             {withMonth && (
               <>
                 <span className="text-sm text-muted-foreground">·</span>
-                <span className="truncate text-sm text-muted-foreground">{formatMonth(month)}</span>
+                <span className="truncate text-sm text-muted-foreground">{periodWords(choice, range, today).label}</span>
               </>
             )}
           </div>
