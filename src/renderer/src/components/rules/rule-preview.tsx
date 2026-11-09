@@ -1,7 +1,8 @@
 // The editor's live preview: how many transactions the rule fits today and
-// the newest of them, each with the category it has now.
+// the newest of them, each with the category it has now, and (spec 21) how
+// many of them a higher rule decides.
 
-import { CircleSlash, LoaderCircle, SearchCheck, TextCursorInput, TriangleAlert, type LucideIcon } from "lucide-react";
+import { CircleSlash, Layers, LoaderCircle, SearchCheck, TextCursorInput, TriangleAlert, type LucideIcon } from "lucide-react";
 import type { RulePreview as Preview, TransactionRow } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,12 @@ export function RulePreview({
         </div>
         <div className="mt-3 text-[13px]">{children}</div>
         {data && data.matches > 0 && !waiting && !broken && <p className="mt-2 text-xs text-muted-foreground">{p.yours}</p>}
+        {data && (data.decidedHigher ?? 0) > 0 && !waiting && !broken && (
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-status-heads-up">
+            <Layers className="mt-px size-3.5 shrink-0" />
+            {s.ruleOrder.previewHigher(data.decidedHigher ?? 0)}
+          </p>
+        )}
       </div>
 
       <div className="mt-5 min-h-0 flex-1 overflow-y-auto border-t border-border/80 px-4 pt-2 pb-4">

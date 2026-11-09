@@ -5,7 +5,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import type { Rule, RuleInput } from "@shared/types";
+import type { Rule, RuleInput, RulePreviewArgs } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
@@ -59,7 +59,12 @@ export function RuleEditor({
 
   const check = useMemo(() => checkForm(form), [form]);
   const previewKey = useDebounced(JSON.stringify(check.preview), 250);
-  const previewInput = useMemo(() => JSON.parse(previewKey) as RuleInput | null, [previewKey]);
+  // spec 21: a saved rule's id lets the preview count rows the rules above it decide.
+  const editingId = editing?.id;
+  const previewInput = useMemo((): RulePreviewArgs | null => {
+    const input = JSON.parse(previewKey) as RuleInput | null;
+    return input && editingId !== undefined ? { ...input, ruleId: editingId } : input;
+  }, [previewKey, editingId]);
   const preview = useRulePreview(previewInput);
   const broken = previewInput !== null && preview.isError && preview.error instanceof ApiError && preview.error.code === "BAD_REQUEST";
   const regex = form.conditions.some((c) => c.kind === "text" && c.mode === "regex");

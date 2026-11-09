@@ -14,7 +14,7 @@ import {
   type FormCondition,
   type RuleForm,
 } from "./rule-form";
-import { moveId, restoreRule, toInput } from "./rules";
+import { moveId, placeAfterMove, restoreRule, toInput } from "./rules";
 
 const draft: RuleInput = {
   name: "שופרסל",
@@ -113,6 +113,17 @@ describe("rules calls", () => {
     expect(moveId([1, 2, 3, 4], 3, 0)).toEqual([4, 1, 2, 3]);
     expect(moveId([1, 2, 3, 4], 0, 2)).toEqual([2, 3, 1, 4]);
     expect(moveId([1, 2], 5, 0)).toEqual([1, 2]);
+  });
+
+  it("says where a moved rule landed and which rule now runs after it (spec 21)", () => {
+    expect(placeAfterMove([4, 1, 2, 3], 4)).toEqual({ place: 1, nextId: 1 });
+    expect(placeAfterMove([1, 2, 4, 3], 4)).toEqual({ place: 3, nextId: 3 });
+    expect(placeAfterMove([1, 2, 3, 4], 4)).toEqual({ place: 4, nextId: null });
+  });
+
+  it("sends no overlap counts back when a listed rule is saved again", () => {
+    const listed: Rule = { ...draft, id: 2, position: 2, overlaps: [{ action: "category", count: 3, winnerId: 1 }] };
+    expect(toInput(listed)).toEqual(draft);
   });
 
   it("Undo recreates a deleted rule and moves it back to its old place", async () => {

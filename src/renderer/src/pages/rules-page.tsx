@@ -1,36 +1,35 @@
 // Rules: the ordered list, each rule as one plain sentence, with a switch,
 // edit, delete with Undo, and reordering by drag (scrolling near the edges) or arrows.
 // A friendly empty state explains what a rule is. Spec 13: Apply now, and
-// the starter lists offer.
+// the starter lists offer. Spec 21: numbered places, "also fits" lines from core,
+// a toast after each move, and Ctrl+F search (no reordering while it is on).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, EyeOff, GripVertical, ListPlus, Pencil, Plus, RefreshCw, Trash, WandSparkles } from "lucide-react";
+import { ArrowDownNarrowWide, Info, ListPlus, Plus, RefreshCw, WandSparkles } from "lucide-react";
+import { toast } from "sonner";
 import type { Rule } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { call } from "@/lib/api";
-import { indexCategories, type CategoryIndex } from "@/lib/categories";
+import { indexCategories } from "@/lib/categories";
 import { refreshRules, useCategories, useRules } from "@/lib/hooks";
 import { useRuleActions, useStarters } from "@/lib/rule-actions";
-import { moveId } from "@/lib/rules";
+import { moveId, placeAfterMove } from "@/lib/rules";
 import { useShot } from "@/lib/shot";
-import type { SentenceContext } from "@/lib/rule-sentence";
 import { Page } from "@/components/layout/page";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
-import { Switch } from "@/components/ui/switch";
 import { Hint } from "@/components/ui/tooltip";
 import { Card } from "@/components/common/card";
 import { EmptyState, QueryError } from "@/components/common/empty-state";
-import { CategoryBubble, IconBubble } from "@/components/common/chips";
-import { RuleSentence, useSentenceContext } from "@/components/rules/rule-sentence";
+import { useSentenceContext } from "@/components/rules/rule-sentence";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
 import { StarterListsDialog } from "@/components/rules/starter-lists";
+import { ruleHits } from "@/components/rules/rule-search";
+import { FindBox, NoMatches } from "@/components/layout/find-box";
+import { RuleLine } from "@/components/rules/rule-line";
 import { useDragAutoScroll } from "./rules-drag-scroll";
-
-/** Names shown per list in a rule's sentence before "or N more". */
-const SENTENCE_VALUES = 6;
 
 type Drag = { id: number; order: number[] };
 
@@ -56,15 +55,32 @@ export function RulesPage() {
   const starters = useStarters();
   const offerStarters = (starters.data?.lists.length ?? 0) > 0;
   const order = drag?.order ?? (held && held.base === rules.data ? held.ids : saved);
-  const shown = order.flatMap((id) => byId.get(id) ?? []);
+  const ordered = order.flatMap((id) => byId.get(id) ?? []);
+  // spec 21: the search hides rules that do not match; reordering is off meanwhile.
+  const [search, setSearch] = useState("");
+  const query = search.trim();
+  const searching = query !== "";
+  const shown = searching ? ordered.filter((r) => ruleHits(r, query, context)) : ordered;
+  const placeOf = (id: number) => order.indexOf(id) + 1;
 
-  const commit = (ids: number[]) => {
+  /** `still` keeps the toast up without transitions, for screenshot runs. */
+  const commit = (ids: number[], moved: number, still = false) => {
     if (ids.join() === saved.join()) return;
     setHeld({ ids, base: rules.data });
     actions.reorder(ids);
+    const { place, nextId } = placeAfterMove(ids, moved);
+    const next = nextId !== null ? byId.get(nextId) : undefined;
+    toast.success(s.ruleOrder.moved(place), {
+      description: next ? s.ruleOrder.runsBefore(next.name) : s.ruleOrder.runsLast,
+      duration: still ? Infinity : undefined,
+      className: still ? "!transition-none" : undefined,
+    });
   };
 
-  useDemoShot(list, openEditor, () => setStartersOpen(true));
+  useDemoShot(list, openEditor, () => setStartersOpen(true), setSearch, (delta) => {
+    const last = order.at(-1);
+    if (last !== undefined) commit(moveId(order, order.length - 1, order.length - 1 + delta), last, true);
+  });
 
   return (
     <Page title={s.rules.title}>
@@ -72,9 +88,7 @@ export function RulesPage() {
         <div className="flex items-start gap-8">
           <div className="max-w-2xl">
             <p className="text-[15px] leading-relaxed">{s.rules.intro}</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              {s.rules.order} {s.rules.yoursWin}
-            </p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{s.rules.yoursWin}</p>
           </div>
           {list.length > 0 && (
             <div className="ms-auto flex shrink-0 items-center gap-2">
@@ -141,48 +155,73 @@ export function RulesPage() {
               />
             </Card>
           ) : (
-            <ol
-              ref={listRef}
-              className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card"
-              onDragOver={(e) => drag && e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (drag) commit(drag.order);
-                setDrag(null);
-              }}
-            >
-              {shown.map((rule, i) => (
-                <RuleLine
-                  key={rule.id}
-                  rule={rule}
-                  place={i + 1}
-                  index={index}
-                  context={context}
-                  first={i === 0}
-                  last={i === shown.length - 1}
-                  dragging={drag?.id === rule.id}
-                  draggable={armed === rule.id}
-                  onArm={() => setArmed(rule.id)}
-                  onDragStart={() => setDrag({ id: rule.id, order })}
-                  onDragOver={() => {
-                    if (!drag || drag.id === rule.id) return;
-                    const next = moveId(drag.order, drag.order.indexOf(drag.id), drag.order.indexOf(rule.id));
-                    if (next.join() !== drag.order.join()) setDrag({ ...drag, order: next });
-                  }}
-                  onDragEnd={() => {
+            <>
+              <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 px-1">
+                <p className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground">
+                  <ArrowDownNarrowWide className="size-4 shrink-0 text-primary" />
+                  {s.ruleOrder.header}
+                </p>
+                <FindBox value={search} onChange={setSearch} placeholder={s.find.rulesPlaceholder} className="w-72 max-w-full" />
+              </div>
+              {searching && (
+                <p className="mb-3 flex items-center gap-2 px-1 text-xs text-muted-foreground">
+                  <Info className="size-3.5 shrink-0" />
+                  {s.find.rulesShown(shown.length, list.length)} · {s.find.dragOff}
+                </p>
+              )}
+              {searching && shown.length === 0 ? (
+                <NoMatches query={query} onClear={() => setSearch("")} />
+              ) : (
+                <ol
+                  ref={listRef}
+                  className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card"
+                  onDragOver={(e) => drag && e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (drag) commit(drag.order, drag.id);
                     setDrag(null);
-                    setArmed(null);
                   }}
-                  onMove={(delta) => commit(moveId(order, i, i + delta))}
-                  onOpen={() => openEditor({ rule })}
-                  onToggle={(enabled) => actions.setEnabled(rule, enabled)}
-                  onDelete={() => actions.remove(rule)}
-                />
-              ))}
-            </ol>
+                >
+                  {shown.map((rule, i) => (
+                    <RuleLine
+                      key={rule.id}
+                      rule={rule}
+                      place={placeOf(rule.id)}
+                      placeOf={placeOf}
+                      query={query}
+                      index={index}
+                      context={context}
+                      searching={searching}
+                      first={i === 0}
+                      last={i === shown.length - 1}
+                      dragging={drag?.id === rule.id}
+                      draggable={!searching && armed === rule.id}
+                      onArm={() => setArmed(rule.id)}
+                      onDragStart={() => setDrag({ id: rule.id, order })}
+                      onDragOver={() => {
+                        if (!drag || drag.id === rule.id) return;
+                        const next = moveId(drag.order, drag.order.indexOf(drag.id), drag.order.indexOf(rule.id));
+                        if (next.join() !== drag.order.join()) setDrag({ ...drag, order: next });
+                      }}
+                      onDragEnd={() => {
+                        setDrag(null);
+                        setArmed(null);
+                      }}
+                      onMove={(delta) => {
+                        const at = order.indexOf(rule.id);
+                        commit(moveId(order, at, at + delta), rule.id);
+                      }}
+                      onOpen={() => openEditor({ rule })}
+                      onToggle={(enabled) => actions.setEnabled(rule, enabled)}
+                      onDelete={() => actions.remove(rule)}
+                    />
+                  ))}
+                </ol>
+              )}
+            </>
           )}
         </div>
-        {list.length > 1 && (
+        {list.length > 1 && !searching && (
           <p className="mt-4 text-center text-xs text-muted-foreground">
             {s.rules.count(list.length)} · {s.rules.drag}
           </p>
@@ -192,146 +231,20 @@ export function RulesPage() {
   );
 }
 
-function RuleLine({
-  rule,
-  place,
-  index,
-  context,
-  first,
-  last,
-  dragging,
-  draggable,
-  onArm,
-  onDragStart,
-  onDragOver,
-  onDragEnd,
-  onMove,
-  onOpen,
-  onToggle,
-  onDelete,
-}: {
-  rule: Rule;
-  place: number;
-  index: CategoryIndex;
-  context: SentenceContext;
-  first: boolean;
-  last: boolean;
-  dragging: boolean;
-  draggable: boolean;
-  onArm: () => void;
-  onDragStart: () => void;
-  onDragOver: () => void;
-  onDragEnd: () => void;
-  onMove: (delta: -1 | 1) => void;
-  onOpen: () => void;
-  onToggle: (enabled: boolean) => void;
-  onDelete: () => void;
-}) {
-  const category = rule.setCategoryId != null ? index.byId.get(rule.setCategoryId) : undefined;
-  return (
-    <li
-      draggable={draggable}
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", rule.name);
-        onDragStart();
-      }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        onDragOver();
-      }}
-      onDragEnd={onDragEnd}
-      className={cn(
-        "group relative flex items-center gap-4 py-4 ps-3 pe-5 transition-colors hover:bg-accent/30",
-        dragging && "bg-accent/50 opacity-70",
-      )}
-    >
-      <div className="relative flex w-7 shrink-0 justify-center">
-        <span
-          className={cn(
-            "num text-sm text-muted-foreground/70 tabular-nums transition-opacity group-hover:opacity-0",
-            dragging && "opacity-0",
-          )}
-        >
-          {place}
-        </span>
-        <Hint label={s.rules.drag} side="left">
-          <button
-            type="button"
-            aria-label={s.rules.drag}
-            onPointerDown={onArm}
-            className="absolute inset-y-0 flex cursor-grab items-center rounded-md text-muted-foreground opacity-0 transition-opacity outline-none group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
-          >
-            <GripVertical className="size-4" />
-          </button>
-        </Hint>
-      </div>
-
-      <div className={cn("shrink-0 transition-opacity", !rule.enabled && "opacity-45 grayscale")}>
-        {category ? (
-          <CategoryBubble category={category} size={40} />
-        ) : (
-          <IconBubble icon={rule.setExcluded ? EyeOff : WandSparkles} size={40} />
-        )}
-      </div>
-
-      <button
-        type="button"
-        onClick={onOpen}
-        className="min-w-0 flex-1 rounded-lg text-start outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-      >
-        <span className="flex items-center gap-2">
-          <span dir="auto" className={cn("truncate text-[15px] font-medium", !rule.enabled && "text-muted-foreground")}>
-            {rule.name}
-          </span>
-          {!rule.enabled && (
-            <span className="shrink-0 rounded-full bg-secondary px-2 py-px text-[11px] font-medium text-muted-foreground">
-              {s.rules.off}
-            </span>
-          )}
-        </span>
-        <RuleSentence
-          rule={rule}
-          context={context}
-          maxValues={SENTENCE_VALUES}
-          className={cn("mt-0.5 text-[13px]", !rule.enabled && "opacity-70")}
-        />
-      </button>
-
-      <div className="flex shrink-0 items-center gap-1">
-        <div className="flex items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-          <Button variant="ghost" size="icon-xs" className="rounded-full" aria-label={s.rules.moveUp} disabled={first} onClick={() => onMove(-1)}>
-            <ChevronUp />
-          </Button>
-          <Button variant="ghost" size="icon-xs" className="rounded-full" aria-label={s.rules.moveDown} disabled={last} onClick={() => onMove(1)}>
-            <ChevronDown />
-          </Button>
-          <Button variant="ghost" size="icon-xs" className="rounded-full" aria-label={s.rules.edit} onClick={onOpen}>
-            <Pencil />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="rounded-full hover:bg-status-over/10 hover:text-status-over"
-            aria-label={s.rules.delete}
-            onClick={onDelete}
-          >
-            <Trash />
-          </Button>
-        </div>
-        <Switch className="ms-2" checked={rule.enabled} onCheckedChange={onToggle} aria-label={s.rules.toggle(rule.name)} />
-      </div>
-    </li>
-  );
-}
-
 /**
  * Screenshot aid: `?shot=new`, `?shot=edit-Groceries` (by name) or `?shot=suggest` opens
  * the editor; `?shot=empty` deletes every demo rule to show the empty state.
  * Spec 13: `?shot=handset` opens a rule that would take over rows sorted by
- * hand, `?shot=starters` the starter lists.
+ * hand, `?shot=starters` the starter lists. Spec 21: `?shot=find-<text>` searches,
+ * `?shot=move` moves the last rule up one (a real reorder) to show its toast.
  */
-function useDemoShot(rules: Rule[], openEditor: ReturnType<typeof useRuleEditor>["openEditor"], openStarters: () => void) {
+function useDemoShot(
+  rules: Rule[],
+  openEditor: ReturnType<typeof useRuleEditor>["openEditor"],
+  openStarters: () => void,
+  setSearch: (text: string) => void,
+  moveLast: (delta: -1) => void,
+) {
   const shot = useShot();
   const client = useQueryClient();
   const ready = rules.length > 0;
@@ -345,6 +258,8 @@ function useDemoShot(rules: Rule[], openEditor: ReturnType<typeof useRuleEditor>
         void Promise.all(rules.map((r) => call("rules:delete", { id: r.id }))).then(() => refreshRules(client));
       }
       if (shot === "starters") openStarters();
+      if (shot.startsWith("find-")) setSearch(shot.slice("find-".length));
+      if (shot === "move") moveLast(-1);
       if (shot === "handset") {
         void call("categories:list", undefined).then((all) => {
           openEditor({
