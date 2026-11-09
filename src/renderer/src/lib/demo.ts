@@ -45,13 +45,18 @@ export interface DemoOptions {
 
 // ---- Fixed reference data ----
 
+/** spec 18: the demo's extras, as migration 0009 seeds them. */
+const DEMO_EXTRAS = ["Restaurants", "Coffee & Cafes", "Bars", "Entertainment", "Shopping", "Vacation", "Impulsive buying", "Personal Care", "Subscriptions", "Gifts & Donations"];
+
 const CATEGORIES: Category[] = [
   cat(1, null, "Food", "🍔", "#E7A875"),
   cat(11, 1, "Groceries", "🛒", "#81B482"),
   cat(12, 1, "Restaurants", "🍽️", "#E89B80"),
   cat(13, 1, "Coffee & Cafes", "☕", "#C9A27E"),
+  cat(14, 1, "Bars", "🍺", "#D9A05B"),
   cat(2, null, "Transportation", "🚗", "#7D90CA"),
-  cat(21, 2, "Fuel & Parking", "⛽", "#8E9BD8"),
+  cat(21, 2, "Fuel", "⛽", "#8E9BD8"),
+  cat(23, 2, "Parking", "🅿️", "#9AA8C4"),
   cat(22, 2, "Public Transport", "🚌", "#65AFD2"),
   cat(3, null, "Home & Bills", "🏠", "#A4C386"),
   cat(31, 3, "Rent", "🔑", "#9CBF7C"),
@@ -62,6 +67,8 @@ const CATEGORIES: Category[] = [
   cat(41, 4, "Shopping", "🛍️", "#DCB87A"),
   cat(42, 4, "Entertainment", "🎬", "#E499A4"),
   cat(43, 4, "Personal Care", "💇", "#D5A4D7"),
+  cat(44, 4, "Vacation", "🏖️", "#6CC4C9"),
+  cat(45, 4, "Impulsive buying", "⚡", "#E58FA0"),
   cat(5, null, "Health & Family", "🩷", "#65C1D1"),
   cat(51, 5, "Health", "🩺", "#75BCA3"),
   cat(52, 5, "Pet Care", "🐾", "#6FC3C0"),
@@ -86,7 +93,8 @@ function cat(
   color: string,
   kind: Category["kind"] = "expense",
 ): Category {
-  return { id, parentId, name, kind, emoji, color, archived: false };
+  const essential = kind === "expense" && parentId !== null ? !DEMO_EXTRAS.includes(name) : null;
+  return { id, parentId, name, kind, emoji, color, archived: false, essential };
 }
 
 const BANK = 1;
@@ -174,7 +182,9 @@ const CARD_SPENDS: Spend[] = [
   { categoryId: 11, merchants: ["שופרסל דיל", "רמי לוי שיווק השקמה", "יוחננוף", "ויקטורי", "טיב טעם", "AM:PM"], perMonth: [7, 9], shekels: [58, 640] },
   { categoryId: 13, merchants: ["קפה קפה", "ארומה אספרסו בר", "קופיקס", "גרג קפה", "לנדוור"], perMonth: [8, 12], shekels: [14, 52] },
   { categoryId: 12, merchants: ["WOLT", "תן ביס", "הבורגר הבא", "מסעדת הסלון", "פיצה שמש"], perMonth: [4, 6], shekels: [62, 340] },
-  { categoryId: 21, merchants: ["פז אפליקציה", "דלק מוטורס", "סונול", "פנגו", "אחוזות החוף"], perMonth: [3, 5], shekels: [12, 360] },
+  { categoryId: 21, merchants: ["פז אפליקציה", "דלק מוטורס", "סונול"], perMonth: [2, 3], shekels: [120, 360] },
+  { categoryId: 23, merchants: ["פנגו", "אחוזות החוף"], perMonth: [1, 3], shekels: [12, 48] },
+  { categoryId: 14, merchants: ["בירה בר", "הבר השכונתי"], perMonth: [0, 2], shekels: [48, 180] },
   { categoryId: 22, merchants: ["רב-קו אונליין", "מוביט"], perMonth: [1, 3], shekels: [30, 110] },
   { categoryId: 41, merchants: ["ZARA", "קסטרו", "H&M", "המשביר לצרכן", "ACE"], perMonth: [1, 3], shekels: [79, 520] },
   { categoryId: 51, merchants: ["סופר-פארם", "בי פארם", "מכבי פארם"], perMonth: [1, 2], shekels: [24, 230] },
@@ -406,7 +416,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
   for (const a of accounts) a.syncEnabled = a.id !== 4;
   // spec 15: categories the editor can change, and the settings table.
   const catList: Category[] = CATEGORIES.map((c) => ({ ...c }));
-  let nextCategoryId = 100;
+  let nextCategoryId = 1000;
   const settings: AppSettings = { addedProviders: ["max"] };
 
   // Rules (spec 13): demo-rules.ts answers every rules channel, like core.
@@ -709,6 +719,8 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       if (problem) return refuse(problem);
     }
     if (taken(input.parentId, name, null)) return refuse("name_taken");
+    const flagged = input.kind === "expense" && input.parentId !== null;
+    if (!flagged && input.essential !== undefined) return fail("BAD_REQUEST");
     const c: Category = {
       id: nextCategoryId++,
       parentId: input.parentId,
@@ -717,6 +729,7 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       emoji: input.emoji || null,
       color: input.color,
       archived: false,
+      essential: flagged ? input.essential !== false : null,
     };
     place(c);
     return ok({ ok: true, category: withCounts(c.id) });
@@ -739,6 +752,9 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       if (catList.some((x) => x.parentId === c.id)) return refuse("has_children");
     }
     if (taken(parentId, name, c.id)) return refuse("name_taken");
+    const flagged = c.kind === "expense" && parentId !== null;
+    if (!flagged && patch.essential !== undefined) return fail("BAD_REQUEST");
+    c.essential = flagged ? (patch.essential ?? c.essential !== false) : null;
     c.name = name;
     if (patch.emoji !== undefined) c.emoji = patch.emoji || null;
     if (patch.color !== undefined) c.color = patch.color;
