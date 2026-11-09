@@ -1,12 +1,12 @@
-// Income, Spent and Left for the shown month at the top of Transactions
+// Income, Spent and Left for the chosen period at the top of Transactions
 // (spec 17, F22). The same numbers and words as the Home hero, from core.
 
-import type { MonthSummary } from "@shared/types";
+import type { Agorot } from "@shared/types";
 import { s } from "@/strings";
 import { Money } from "@/components/common/money";
 import { Skeleton } from "@/components/ui/misc";
 
-export function SummaryBar({ summary, current }: { summary: MonthSummary | undefined; current: boolean }) {
+export function SummaryBar({ summary, current }: { summary: { income: Agorot; spending: Agorot } | undefined; current: boolean }) {
   if (!summary) return <Skeleton className="mb-4 h-[76px] w-full rounded-3xl" />;
   const left = summary.income - summary.spending;
   return (

@@ -1,9 +1,9 @@
-// Transactions: the month's rows grouped by day, with search, a needs-review
+// Transactions: the chosen period's rows grouped by day, with search, a needs-review
 // view, a category filter from Home, quick categorizing, bulk select, and the
 // card bill and gone-row answers. Greets instead before the first sync.
 // Spec 11: the row menu (rule, ignore, trash), card bills hidden behind a
 // toggle, and the "Always put X in Y?" offer after sorting a row by hand.
-// Spec 17: the month's Income, Spent and Left on top, sort and filters kept
+// Spec 17: the period's Income, Spent and Left on top, sort and filters kept
 // in the URL, a click on a row's category filters to it, and Ctrl+F.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -18,7 +18,6 @@ import {
   useAccounts,
   useCategories,
   useFirstRun,
-  useMonthSummary,
   useTransactions,
   useUpdateTransactions,
 } from "@/lib/hooks";
@@ -26,9 +25,11 @@ import { useKept, useReviewActions, useRowActions } from "@/lib/review-actions";
 import { useAddKnownPlace } from "@/lib/rule-actions";
 import { allIgnored, menuTargets, shouldOfferRule, suggestFor } from "@/lib/review-rows";
 import { useShot } from "@/lib/shot";
-import { useMonth } from "@/lib/month-context";
-import { monthRange, shiftMonth, toIsoMonth } from "@/lib/month";
-import { formatDayLong, formatMonth } from "@/lib/format";
+import { useMonth, usePeriod } from "@/lib/month-context";
+import { usePeriodSummary } from "@/components/home/period-data";
+import { rangeLabel } from "@/components/home/period-words";
+import { shiftMonth } from "@/lib/month";
+import { formatDayLong } from "@/lib/format";
 import { indexCategories, type CategoryIndex } from "@/lib/categories";
 import { groupByDay } from "@/lib/day-groups";
 import { Page } from "@/components/layout/page";
@@ -65,6 +66,7 @@ function useDebounced<T>(value: T, ms: number): T {
 
 export function TransactionsPage() {
   const { month, setMonth } = useMonth();
+  const { range } = usePeriod();
   const [params, setParams] = useSearchParams();
   const view = useMemo(() => readView(params), [params]);
   const review = view.review;
@@ -88,12 +90,12 @@ export function TransactionsPage() {
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
   const accounts = useAccounts();
   const accountById = useMemo(() => new Map((accounts.data ?? []).map((a) => [a.id, a])), [accounts.data]);
-  const summary = useMonthSummary(month);
+  const summary = usePeriodSummary(range);
 
   // Card bills never count, so they stay out of the way unless asked for.
   const filter = useMemo<TransactionFilter>(
-    () => toFilter(view, index, { ...monthRange(month), search: query, showBills }),
-    [view, index, month, query, showBills],
+    () => toFilter(view, index, { ...range, search: query, showBills }),
+    [view, index, range, query, showBills],
   );
   const tx = useTransactions(filter);
   const bills = useTransactions({ ...filter, hideInternal: undefined, sort: undefined, flows: ["internal"] });
@@ -233,7 +235,7 @@ export function TransactionsPage() {
 
   return (
     <Page title={s.transactions.title} withMonth>
-      <SummaryBar summary={summary.data} current={month === toIsoMonth(new Date())} />
+      <SummaryBar summary={summary.data} current={summary.data?.inProgress ?? false} />
       <div className="rounded-3xl border border-border bg-card">
         <div className="flex flex-wrap items-center gap-3 px-6 py-4">
           <Segmented
@@ -319,7 +321,7 @@ export function TransactionsPage() {
                 }
               />
             ) : (
-              <EmptyState title={s.transactions.emptyTitle(formatMonth(month))} body={s.transactions.emptyBody} />
+              <EmptyState title={s.transactions.emptyTitle(rangeLabel(range))} body={s.transactions.emptyBody} />
             )}
           </div>
         ) : (

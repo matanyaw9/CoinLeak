@@ -167,7 +167,7 @@ export const s = {
       possibleCardBill: "Card bill?",
       possibleCardBillHint: "Looks like a card bill for a card that is not tracked here. It counts as spending until you add that card.",
     },
-    emptyTitle: (month: string) => `No transactions in ${month}`,
+    emptyTitle: (when: string) => `No transactions from ${when}`,
     emptyBody: "Pick another month, or sync your accounts to bring in new ones.",
     noMatchTitle: "Nothing matches",
     noMatchBody: "Try a different search, or clear the filters.",
