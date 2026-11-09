@@ -80,12 +80,15 @@ export function FilterMenu({
   onChange,
   index,
   accounts,
+  walletId = null,
   defaultOpen,
 }: {
   view: ListView;
   onChange: (view: ListView) => void;
   index: CategoryIndex;
   accounts: Account[];
+  /** The cash wallet's account id, offered as "Cash" when there is one. */
+  walletId?: number | null;
   /** Demo screenshots: open at once. */
   defaultOpen?: boolean;
 }) {
@@ -140,12 +143,17 @@ export function FilterMenu({
             </Option>
           </Section>
           <Section title={f.accounts}>
-            {accounts.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">{f.noAccounts}</p>}
+            {accounts.length === 0 && walletId === null && <p className="px-2 py-1.5 text-xs text-muted-foreground">{f.noAccounts}</p>}
             {accounts.map((a) => (
               <Option key={a.id} on={view.accounts.includes(a.id)} onClick={() => onChange({ ...view, accounts: toggle(view.accounts, a.id) })}>
                 <span className="truncate">{accountLabel(a)}</span>
               </Option>
             ))}
+            {walletId !== null && (
+              <Option on={view.accounts.includes(walletId)} onClick={() => onChange({ ...view, accounts: toggle(view.accounts, walletId) })}>
+                <span className="truncate">{s.cash.chip}</span>
+              </Option>
+            )}
           </Section>
         </div>
       </PopoverContent>

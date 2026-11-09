@@ -17,6 +17,7 @@ import { showFailure } from "@/lib/failure";
 import { cn } from "@/lib/utils";
 import {
   useAccounts,
+  useCashWallet,
   useCategories,
   useFirstRun,
   useTransactions,
@@ -92,6 +93,7 @@ export function TransactionsPage() {
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
   const accounts = useAccounts();
   const accountById = useMemo(() => new Map((accounts.data ?? []).map((a) => [a.id, a])), [accounts.data]);
+  const walletId = useCashWallet().data?.id ?? null;
   const summary = usePeriodSummary(range);
 
   // Card bills never count, so they stay out of the way unless asked for.
@@ -108,7 +110,7 @@ export function TransactionsPage() {
     () => (byDay ? groupByDay(rows, tx.data?.days) : [{ date: "", rows, spent: 0, income: 0 }]),
     [rows, byDay, tx.data],
   );
-  const chips = chipsFor(view, index, accountById);
+  const chips = chipsFor(view, index, accountById, walletId);
   const update = useUpdateTransactions();
   const actions = useReviewActions();
   const kept = useKept();
@@ -285,7 +287,7 @@ export function TransactionsPage() {
               },
             ]}
           />
-          <FilterMenu view={view} onChange={setView} index={index} accounts={accounts.data ?? []} defaultOpen={shotName === "filters"} />
+          <FilterMenu view={view} onChange={setView} index={index} accounts={accounts.data ?? []} walletId={walletId} defaultOpen={shotName === "filters"} />
           <SortMenu value={view.sort} onChange={(sort) => setView({ ...view, sort })} />
           {(billCount > 0 || showBills) && (
             <Hint label={s.cardBills.hint}>
