@@ -2,7 +2,7 @@
 // profile sees only its own rows, switching waits for a sync, and the Demo
 // profile never syncs.
 
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +18,7 @@ let dir: string;
 let db: Db | undefined;
 let syncing = false;
 const reloadWindow = vi.fn();
+const clearWindowStorage = vi.fn(() => Promise.resolve());
 const sync: SyncService = {
   start: vi.fn(() => Promise.reject(new Error("no bank in tests"))),
   cancel: () => undefined,
@@ -51,6 +52,7 @@ function setup() {
     openCurrentDb,
     closeDb,
     reloadWindow,
+    clearWindowStorage,
     now: () => NOW,
   });
   return async <C extends Channel>(channel: C, args: Args<C>): Promise<Res<C>> => await handlers[channel](args);
@@ -121,5 +123,100 @@ describe("profile channels", () => {
     expect(await ask("rules:list", undefined)).toHaveLength(rules.length);
     expect((await ask("transactions:list", { flows: ["trashed"] })).length).toBeGreaterThan(0);
     expect(reloadWindow).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("delete data (spec 23)", () => {
+  const files = () => readdirSync(dir).filter((f) => !f.endsWith("-wal") && !f.endsWith("-shm")).sort();
+
+  it("deletes this profile's data, even the only profile, and opens it fresh and empty", async () => {
+    const ask = setup();
+    ingest(getDb(), [bank([txn({ date: "2026-03-02", amount: -5000, description: "חנות" })])], { now: NOW });
+    await ask("settings:set", { key: "syncFrom", value: "2026-01-01" });
+
+    await ask("profiles:wipeCurrent", undefined);
+    expect(await ask("transactions:list", {})).toHaveLength(0);
+    expect(await ask("accounts:list", undefined)).toHaveLength(0);
+    expect(await ask("settings:get", { key: "syncFrom" })).toBe("max");
+    expect((await ask("profiles:list", undefined)).profiles).toEqual([{ id: "me", name: "Me", file: "coinleak.db", demo: false }]);
+    expect(files()).toEqual(["coinleak.db", "profiles.json"]);
+    expect(reloadWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the other profiles untouched", async () => {
+    const ask = setup();
+    const work = await ask("profiles:add", { name: "Work" });
+    await ask("profiles:switch", { id: work.id });
+    ingest(getDb(), [bank([txn({ date: "2026-03-02", amount: -5000, description: "חנות" })])], { now: NOW });
+    await ask("profiles:switch", { id: "me" });
+    ingest(getDb(), [bank([txn({ date: "2026-03-03", amount: -700, description: "קפה" })])], { now: NOW });
+
+    await ask("profiles:wipeCurrent", undefined);
+    expect(await ask("transactions:list", {})).toHaveLength(0);
+    await ask("profiles:switch", { id: work.id });
+    expect(await ask("transactions:list", {})).toHaveLength(1);
+  });
+
+  it("on the Demo profile, resets the made-up data instead", async () => {
+    const ask = setup();
+    const demo = await ask("profiles:addDemo", undefined);
+    await ask("profiles:switch", { id: demo.id });
+    const before = await ask("transactions:list", {});
+    await ask("transactions:trash", { ids: before.map((t) => t.id) });
+    await ask("transactions:emptyTrash", undefined);
+    expect(await ask("transactions:list", {})).toHaveLength(0);
+
+    await ask("profiles:wipeCurrent", undefined);
+    expect(await ask("transactions:list", {})).toHaveLength(before.length);
+  });
+
+  it("deletes everything: no profile database and no profile list left; it starts with one empty Me", async () => {
+    const ask = setup();
+    ingest(getDb(), [bank([txn({ date: "2026-03-02", amount: -5000, description: "חנות" })])], { now: NOW });
+    const work = await ask("profiles:add", { name: "Work" });
+    await ask("profiles:switch", { id: work.id });
+    await ask("profiles:addDemo", undefined);
+    writeFileSync(join(dir, "not-ours.txt"), "x");
+    expect(files()).toEqual(["coinleak.db", "demo.db", "not-ours.txt", "profile-p2.db", "profiles.json"]);
+
+    await ask("profiles:wipeAll", undefined);
+    expect(clearWindowStorage).toHaveBeenCalledTimes(1);
+    expect(files()).toEqual(["coinleak.db", "not-ours.txt", "profiles.json"]);
+    expect(await ask("profiles:list", undefined)).toEqual({
+      current: "me",
+      profiles: [{ id: "me", name: "Me", file: "coinleak.db", demo: false }],
+    });
+    expect(await ask("transactions:list", {})).toHaveLength(0);
+    expect(reloadWindow).toHaveBeenCalledTimes(2);
+  });
+
+  it("deletes everything even when profiles.json is broken", async () => {
+    const ask = setup();
+    await ask("profiles:add", { name: "Work" });
+    writeFileSync(join(dir, "profile-p2.db"), "old");
+    writeFileSync(join(dir, "profiles.json"), "{broken");
+    await ask("profiles:wipeAll", undefined);
+    expect(files()).toEqual(["coinleak.db", "profiles.json"]);
+  });
+
+  it("refuses both while a sync runs and keeps the data", async () => {
+    const ask = setup();
+    ingest(getDb(), [bank([txn({ date: "2026-03-02", amount: -5000, description: "חנות" })])], { now: NOW });
+    syncing = true;
+    expect(await code(ask("profiles:wipeCurrent", undefined))).toBe("SYNC_IN_PROGRESS");
+    expect(await code(ask("profiles:wipeAll", undefined))).toBe("SYNC_IN_PROGRESS");
+    expect(await ask("transactions:list", {})).toHaveLength(1);
+    expect(clearWindowStorage).not.toHaveBeenCalled();
+  });
+});
+
+describe("sync range (spec 23)", () => {
+  it("lists each provider's first day, following the saved syncFrom", async () => {
+    const ask = setup();
+    const discount = async () => (await ask("sync:ranges", undefined)).find((r) => r.provider === "discount");
+    expect(await discount()).toMatchObject({ limitMonths: 12, from: "2025-04-02" });
+    await ask("settings:set", { key: "syncFrom", value: "2025-09-01" });
+    expect((await discount())?.from).toBe("2025-09-01");
+    expect(await code(ask("settings:set", { key: "syncFrom", value: "1999-01-01" }))).toBe("BAD_REQUEST");
   });
 });

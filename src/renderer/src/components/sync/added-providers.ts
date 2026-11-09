@@ -8,7 +8,8 @@ import { isEnabledProvider } from "@shared/providers";
 export const LEGACY_ADDED_KEY = "coinleak.addedProviders";
 
 export interface AddedStore {
-  get: () => Promise<ProviderId[]>;
+  /** The saved list. Typed loosely: the settings channel returns any key's value (spec 23). */
+  get: () => Promise<unknown>;
   set: (list: ProviderId[]) => Promise<void>;
 }
 
@@ -31,7 +32,8 @@ function readLegacy(storage: LegacyStorage): ProviderId[] | null {
  * so a failed save tries again next time and nothing is lost.
  */
 export async function loadAddedProviders(store: AddedStore, storage: LegacyStorage | null): Promise<ProviderId[]> {
-  const saved = await store.get();
+  const stored = await store.get();
+  const saved = Array.isArray(stored) ? stored.filter(isEnabledProvider) : [];
   const legacy = storage ? readLegacy(storage) : null;
   if (legacy === null || !storage) return saved;
   const merged = [...new Set([...saved, ...legacy])];

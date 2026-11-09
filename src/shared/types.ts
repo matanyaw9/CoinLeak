@@ -486,6 +486,8 @@ export type CategoryDeleteResult =
 export interface AppSettings {
   /** Providers the user added in the picker that may have no money accounts yet. */
   addedProviders: ProviderId[];
+  /** How far back a sync downloads (spec 23). */
+  syncFrom: SyncFrom;
 }
 
 export type SettingKey = keyof AppSettings;
@@ -655,4 +657,18 @@ export interface BalanceCheck {
   /** The bank's change minus the rows' sum. Positive means the bank shows
    *  more money than the rows explain. 0 unless `gap`. */
   gap: Agorot;
+}
+
+// ---- spec 23: how far back a sync goes ----
+
+/** "max": as far back as each bank allows. Otherwise the first day to download. */
+export type SyncFrom = "max" | IsoDate;
+
+/** One provider's download range today. */
+export interface SyncRange {
+  provider: ProviderId;
+  /** How far back the bank lets us go, in whole months. */
+  limitMonths: number;
+  /** The first day the next sync asks for: the later of `syncFrom` and the bank's limit. */
+  from: IsoDate;
 }

@@ -49,6 +49,7 @@ import type { Handlers } from "./ipc";
 import {
   addDemoProfile,
   addProfile,
+  deleteAllData,
   currentProfile,
   databasePath,
   deleteProfile,
@@ -58,6 +59,7 @@ import {
   renameProfile,
   setCurrentProfile,
 } from "./profiles";
+import { syncRanges } from "./sync-range";
 import type { SyncService } from "./sync-service";
 
 export interface HandlerDeps {
@@ -71,11 +73,14 @@ export interface HandlerDeps {
   openCurrentDb(): void;
   closeDb(): void;
   reloadWindow(): void;
+  /** Clears what the window stored in Electron's own storage (local storage, caches). */
+  clearWindowStorage(): Promise<void>;
   now?: () => Date;
 }
 
 export function createHandlers(deps: HandlerDeps): Handlers {
   const { version, dataDir, dev, sync, getDb } = deps;
+  const now = deps.now ?? (() => new Date());
   return {
     ...profileHandlers(deps),
     "app:info": () => ({ version, dataDir, dev }),
@@ -145,6 +150,8 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "transactions:editManual": ({ id, input }) => editManualTransaction(getDb(), id, input),
     // spec 24
     "accounts:balanceChecks": () => balanceChecks(getDb()),
+    // spec 23
+    "sync:ranges": () => syncRanges(getSetting(getDb(), "syncFrom"), now()),
   };
 }
 
@@ -200,6 +207,39 @@ function profileHandlers(deps: HandlerDeps): Pick<Handlers, ProfileChannel> {
         openCurrentDb();
         reloadWindow();
       }
+      return null;
+    },
+    // spec 23: delete for good. The database closes first, so no file is held open.
+    "profiles:wipeCurrent": () => {
+      if (sync.isRunning()) throw new CodedError("SYNC_IN_PROGRESS");
+      const profile = currentProfile(readProfiles(dataDir));
+      const path = databasePath(dataDir, profile);
+      closeDb();
+      try {
+        removeDatabaseFiles(path);
+        // The Demo profile starts again with fresh made-up data, like Reset demo data.
+        if (profile.demo) createDemoDatabase(path, now());
+      } catch {
+        throw new CodedError("DATABASE");
+      } finally {
+        openCurrentDb();
+      }
+      reloadWindow();
+      return null;
+    },
+    "profiles:wipeAll": async () => {
+      if (sync.isRunning()) throw new CodedError("SYNC_IN_PROGRESS");
+      closeDb();
+      try {
+        deleteAllData(dataDir);
+        await deps.clearWindowStorage();
+      } catch {
+        throw new CodedError("DATABASE");
+      } finally {
+        // A fresh install: readProfiles makes the "Me" list, and its database opens empty.
+        openCurrentDb();
+      }
+      reloadWindow();
       return null;
     },
   };

@@ -95,6 +95,11 @@ function start(): void {
     openCurrentDb,
     closeDb,
     reloadWindow: () => mainWindow?.webContents.reload(),
+    // "Delete everything" (spec 23): what the window kept in Electron's own storage.
+    clearWindowStorage: async () => {
+      await session.defaultSession.clearStorageData();
+      await session.defaultSession.clearCache();
+    },
   });
   registerIpc(handlers, (url) => isAppUrl(url, devServerUrl));
   mainWindow = createWindow();

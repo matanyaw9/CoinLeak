@@ -4,6 +4,7 @@ import { ENABLED_PROVIDERS } from "@shared/providers";
 import type { ProviderId, ScrapedAccount, ScrapedTransaction, SyncProgress } from "@shared/types";
 import { openDatabase } from "@core/db";
 import { ingest, listTransactions, type IngestOptions } from "@core/ledger";
+import { setSetting } from "@core/settings";
 import type { SyncDownload, SyncOptions } from "./sync";
 import { createSyncService } from "./sync-service";
 
@@ -103,6 +104,27 @@ describe("sync service", () => {
     const { saved, service } = setup(async () => download);
     await service.start("visaCal");
     expect(saved).toEqual([expect.objectContaining({ provider: "visaCal", since: SINCE })]);
+  });
+
+  it("asks for no start date with syncFrom max, as before (spec 23)", async () => {
+    let asked: SyncOptions | undefined;
+    const { service } = setup(async (_p, o) => {
+      asked = o;
+      return download;
+    });
+    await service.start("visaCal");
+    expect(asked?.startDate).toBeUndefined();
+  });
+
+  it("passes the profile's syncFrom day as the start date (spec 23)", async () => {
+    let asked: SyncOptions | undefined;
+    const { db, service } = setup(async (_p, o) => {
+      asked = o;
+      return download;
+    });
+    setSetting(db, { key: "syncFrom", value: "2026-01-15" });
+    await service.start("visaCal");
+    expect(asked?.startDate?.toISOString()).toBe("2026-01-15T00:00:00.000Z");
   });
 
   it.each<[ProviderId, string, ScrapedTransaction[][], boolean]>([

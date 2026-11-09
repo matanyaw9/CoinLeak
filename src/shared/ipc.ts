@@ -41,6 +41,7 @@ import type {
   Profile,
   ProfileList,
   SyncProgress,
+  SyncRange,
   SyncResult,
   TransactionFilter,
   TransactionPatch,
@@ -156,6 +157,20 @@ export interface IpcContract {
   // ---- spec 24: balance check ----
   /** One check per bank and card account (not the cash wallet). Read only. */
   "accounts:balanceChecks": { args: undefined; result: BalanceCheck[] };
+  // ---- spec 23: delete data, how far back a sync goes ----
+  /** Every provider that can sync: its limit and the first day the next sync asks for. */
+  "sync:ranges": { args: undefined; result: SyncRange[] };
+  /**
+   * Deletes the open profile's database files and opens a fresh empty one
+   * under the same name, then reloads the window. The Demo profile resets
+   * to fresh made-up data instead. Refused while a sync runs.
+   */
+  "profiles:wipeCurrent": { args: undefined; result: null };
+  /**
+   * Deletes every profile's database files, profiles.json and the window's
+   * stored data, then starts like a fresh install. Refused while a sync runs.
+   */
+  "profiles:wipeAll": { args: undefined; result: null };
 }
 
 export interface IpcEvents {
@@ -221,6 +236,10 @@ export const CHANNELS = [
   "transactions:addManual",
   "transactions:editManual",
   "accounts:balanceChecks",
+  // spec 23
+  "sync:ranges",
+  "profiles:wipeCurrent",
+  "profiles:wipeAll",
 ] as const satisfies readonly Channel[];
 
 export const EVENTS = ["sync:progress"] as const satisfies readonly EventName[];

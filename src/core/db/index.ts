@@ -11,7 +11,8 @@ export type Db = DatabaseSync;
 export function openDatabase(path: string): Db {
   if (path !== ":memory:") ensurePrivateDir(dirname(path));
   const db = new DatabaseSync(path);
-  db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
+  // secure_delete: deleted rows are overwritten in the file, not only marked free (spec 23).
+  db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA secure_delete = ON;");
   migrate(db);
   if (path !== ":memory:") restrictFile(path);
   return db;
