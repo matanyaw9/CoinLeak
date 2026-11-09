@@ -62,6 +62,15 @@ Read first: `AGENTS.md`, `REQUIREMENTS.md` sections 3, 4 and 7,
    in the Sync panel and on the Sync button. No fake progress
    percentages: only real stages and real time.
 6. **Demo** shows the new categories, flags and badge.
+7. **Rules change hand-set rows (F45).** Owner decided: no tick box. When
+   a new or edited rule matches rows the user categorized by hand into
+   another category, the editor shows them as a plain list ("This rule
+   will also change 4 transactions you categorized by hand") and saving
+   always hands them over (send every `handSet` id as `alsoChange`).
+   Remove the checkbox and its state. Core stays as it is. Only rule
+   save does this: sync and "Apply now" still never change a hand-set
+   category. Owns for this item: `components/rules/rule-editor.tsx`,
+   `components/rules/hand-set.tsx`, and `lib/demo-rules.ts` if needed.
 
 ## Tests (definition of done)
 
@@ -75,6 +84,8 @@ Read first: `AGENTS.md`, `REQUIREMENTS.md` sections 3, 4 and 7,
 - Starter lists: fuel points at Fuel, parking at Parking.
 - Sync indicator shows elapsed time from the start stage and stops on
   done, failed and cancel.
+- Rule editor: with hand-set matches, the list shows and saving sends
+  all their ids; with none, nothing extra shows.
 - `npm run check` green. Screenshots light and dark: Categories with
   badges and the switch in the editor, the Sync panel mid-download.
 
