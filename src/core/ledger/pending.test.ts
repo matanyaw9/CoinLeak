@@ -495,7 +495,7 @@ describe("totals leave gone rows out", () => {
     expect(march.byParent).toEqual([{ categoryId: food, amount: 8000, count: 1 }]);
     expect(march.byDay.at(-1)).toEqual({ date: "2026-03-31", amount: 8000 });
     expect(trend(db, 1, { now: NOW })).toEqual([
-      { month: "2026-03", income: 0, spending: 8000, byCategory: [{ categoryId: groceries, amount: 8000 }] },
+      { month: "2026-03", income: 0, spending: 8000, byCategory: [{ categoryId: groceries, amount: 8000 }], byParent: [{ categoryId: food, amount: 8000 }] },
     ]);
   });
 });

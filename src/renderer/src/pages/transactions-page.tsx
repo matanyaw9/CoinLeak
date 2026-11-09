@@ -26,7 +26,7 @@ import { useKept, useReviewActions, useRowActions } from "@/lib/review-actions";
 import { useAddKnownPlace } from "@/lib/rule-actions";
 import { allIgnored, menuTargets, shouldOfferRule, suggestFor } from "@/lib/review-rows";
 import { useShot } from "@/lib/shot";
-import { useMonth, usePeriod } from "@/lib/month-context";
+import { usePeriod } from "@/lib/month-context";
 import { usePeriodSummary } from "@/components/home/period-data";
 import { rangeLabel } from "@/components/home/period-words";
 import { shiftMonth } from "@/lib/month";
@@ -68,8 +68,7 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 export function TransactionsPage() {
-  const { month, setMonth } = useMonth();
-  const { range } = usePeriod();
+  const { choice, range, showMonth } = usePeriod();
   const [params, setParams] = useSearchParams();
   const view = useMemo(() => readView(params), [params]);
   const review = view.review;
@@ -102,10 +101,13 @@ export function TransactionsPage() {
   );
   const tx = useTransactions(filter);
   const bills = useTransactions({ ...filter, hideInternal: undefined, sort: undefined, flows: ["internal"] });
-  const billCount = view.flows.length ? 0 : (bills.data?.length ?? 0);
-  const rows = useMemo(() => tx.data ?? [], [tx.data]);
+  const billCount = view.flows.length ? 0 : (bills.data?.rows.length ?? 0);
+  const rows = useMemo(() => tx.data?.rows ?? [], [tx.data]);
   const byDay = view.sort === "date";
-  const groups = useMemo(() => (byDay ? groupByDay(rows) : [{ date: "", rows, spent: 0, income: 0 }]), [rows, byDay]);
+  const groups = useMemo(
+    () => (byDay ? groupByDay(rows, tx.data?.days) : [{ date: "", rows, spent: 0, income: 0 }]),
+    [rows, byDay, tx.data],
+  );
   const chips = chipsFor(view, index, accountById);
   const update = useUpdateTransactions();
   const actions = useReviewActions();
@@ -238,7 +240,7 @@ export function TransactionsPage() {
   const shot = useDemoShot(rows, {
     select: (ids) => setSelection({ scope, ids }),
     setShowBills,
-    lastMonth: () => setMonth(shiftMonth(month, -1)),
+    lastMonth: () => showMonth(shiftMonth(choice.month, -1)),
     offerRule,
     index,
     openNote: setNoteRow,

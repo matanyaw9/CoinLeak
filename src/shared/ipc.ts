@@ -10,7 +10,6 @@ import type {
   AppSettings,
   Category,
   CategoryChange,
-  CategoryCurve,
   CategoryDeleteResult,
   CategoryInput,
   CategoryPatch,
@@ -21,12 +20,9 @@ import type {
   PeriodCurve,
   PeriodFlow,
   PeriodSummary,
-  IsoMonth,
   KnownPlaceAdded,
   KnownPlaces,
   ManualTransactionInput,
-  MoneyFlow,
-  MonthSummary,
   ProviderId,
   Rule,
   RuleInput,
@@ -45,7 +41,7 @@ import type {
   SyncResult,
   TransactionFilter,
   TransactionPatch,
-  TransactionRow,
+  TransactionList,
   ThisMonth,
   TrendPoint,
 } from "./types";
@@ -55,7 +51,8 @@ export interface IpcContract {
   "app:info": { args: undefined; result: AppInfo };
   "accounts:list": { args: undefined; result: Account[] };
   "categories:list": { args: undefined; result: Category[] };
-  "transactions:list": { args: TransactionFilter; result: TransactionRow[] };
+  /** The rows, plus each of their days' spending and income for the day headers. */
+  "transactions:list": { args: TransactionFilter; result: TransactionList };
   /** With `excluded` in the patch, `before` holds each named row's exclusion as it was, for Undo (spec 13). */
   "transactions:update": {
     args: { ids: number[]; patch: TransactionPatch };
@@ -73,13 +70,7 @@ export interface IpcContract {
   /** Deletes every trashed row for good. The window asks the user first. */
   "transactions:emptyTrash": { args: undefined; result: { deleted: number } };
   "accounts:setCardMode": { args: { accountId: number; mode: CardMode }; result: null };
-  "summary:month": { args: { month: IsoMonth }; result: MonthSummary };
-  "summary:trend": { args: { months: number }; result: TrendPoint[] };
-  /** One curve per requested category, in the order asked. `null` is uncategorized. */
-  "summary:curves": { args: { month: IsoMonth; categoryIds: (number | null)[] }; result: CategoryCurve[] };
-  /** Where the month's money came from and went, for the Sankey (spec 14). */
-  "summary:flow": { args: { month: IsoMonth }; result: MoneyFlow };
-  // ---- spec 16: the same summaries for any range of days ----
+  // ---- Summaries for any range of days (spec 16) ----
   /** With `essential`, every spending number is essentials or extras only (spec 22). */
   "summary:period": { args: DateRange & EssentialFilter; result: PeriodSummary };
   /** Spending above income shows as `beyond_income`, never as savings. */
@@ -197,10 +188,6 @@ export const CHANNELS = [
   "transactions:restore",
   "transactions:emptyTrash",
   "accounts:setCardMode",
-  "summary:month",
-  "summary:trend",
-  "summary:curves",
-  "summary:flow",
   "summary:period",
   "summary:periodFlow",
   "summary:groupFlow",

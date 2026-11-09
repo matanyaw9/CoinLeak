@@ -1,10 +1,26 @@
+// Category curves over a month's days (period.ts `periodCurves`), read one
+// point per day. The month-only `summary:curves` channel is gone (spec 25);
+// these cases now run through the period function it wrapped.
+
 import { beforeEach, describe, expect, it } from "vitest";
-import type { CategoryCurve } from "@shared/types";
+import type { Agorot, IsoDate, IsoMonth } from "@shared/types";
 import type { Db } from "../db";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testing/ledger";
-import { categoryCurves } from "./curves";
 import { ingest } from "./ingest";
+import { monthRange, periodCurves } from "./period";
 import { listTransactions, monthSummary, updateTransactions } from "./queries";
+
+type DayPoint = { date: IsoDate; amount: Agorot };
+
+/** A month's curves with a point per day, this month and the one before. */
+function categoryCurves(db: Db, args: { month: IsoMonth; categoryIds: (number | null)[] }, opts: { now?: Date } = {}) {
+  const days = (points: { from: IsoDate; amount: Agorot }[]): DayPoint[] => points.map((p) => ({ date: p.from, amount: p.amount }));
+  return periodCurves(db, { ...monthRange(args.month), categoryIds: args.categoryIds }, opts).map((c) => ({
+    categoryId: c.categoryId,
+    byDay: days(c.series),
+    previousByDay: days(c.previous),
+  }));
+}
 
 // A hand-built ledger. Expected curves below are worked out by hand.
 //
@@ -61,11 +77,11 @@ function ledger(): Db {
 }
 
 /** The curve's value on each listed day of the month (1-based). */
-function on(points: CategoryCurve["byDay"] | undefined, ...days: number[]): number[] {
+function on(points: DayPoint[] | undefined, ...days: number[]): number[] {
   return days.map((d) => points?.[d - 1]?.amount ?? Number.NaN);
 }
 
-describe("categoryCurves", () => {
+describe("periodCurves over a month", () => {
   let db: Db;
   beforeEach(() => {
     db = ledger();
@@ -127,7 +143,6 @@ describe("categoryCurves", () => {
 
   it("rejects malformed requests with BAD_REQUEST", () => {
     const bad = [
-      { month: "2026-3", categoryIds: [] },
       { month: "2026-03", categoryIds: [0] },
       { month: "2026-03", categoryIds: ["1"] },
       { month: "2026-03", categoryIds: null },
@@ -136,6 +151,6 @@ describe("categoryCurves", () => {
     for (const args of bad) {
       expect(() => categoryCurves(db, args as never)).toThrow(expect.objectContaining({ code: "BAD_REQUEST" }));
     }
-    expect(() => categoryCurves(db, null as never)).toThrow(expect.objectContaining({ code: "BAD_REQUEST" }));
+    expect(() => periodCurves(db, null as never)).toThrow(expect.objectContaining({ code: "BAD_REQUEST" }));
   });
 });

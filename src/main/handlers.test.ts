@@ -78,16 +78,16 @@ describe("profile channels", () => {
   it("two profiles never see each other's transactions", async () => {
     const ask = setup();
     ingest(getDb(), [bank([txn({ date: "2026-03-02", amount: -5000, description: "חנות" })])], { now: NOW });
-    expect(await ask("transactions:list", {})).toHaveLength(1);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(1);
 
     const work = await ask("profiles:add", { name: "Work" });
     await ask("profiles:switch", { id: work.id });
     expect(reloadWindow).toHaveBeenCalledTimes(1);
-    expect(await ask("transactions:list", {})).toHaveLength(0);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(0);
     expect(await ask("accounts:list", undefined)).toHaveLength(0);
 
     await ask("profiles:switch", { id: "me" });
-    expect(await ask("transactions:list", {})).toHaveLength(1);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(1);
   });
 
   it("refuses to switch while a sync runs, and stays put", async () => {
@@ -103,7 +103,7 @@ describe("profile channels", () => {
     const ask = setup();
     const demo = await ask("profiles:addDemo", undefined);
     await ask("profiles:switch", { id: demo.id });
-    expect((await ask("transactions:list", {})).length).toBeGreaterThan(100);
+    expect((await ask("transactions:list", {})).rows.length).toBeGreaterThan(100);
 
     expect(await code(ask("sync:start", { provider: "discount" }))).toBe("BAD_REQUEST");
     expect(sync.start).not.toHaveBeenCalled();
@@ -113,15 +113,15 @@ describe("profile channels", () => {
     const ask = setup();
     const demo = await ask("profiles:addDemo", undefined);
     await ask("profiles:switch", { id: demo.id });
-    const before = await ask("transactions:list", {});
+    const before = (await ask("transactions:list", {})).rows;
     const rules = await ask("rules:list", undefined);
     await ask("transactions:emptyTrash", undefined);
     await ask("rules:delete", { id: rules[0]?.id ?? 0 });
 
     await ask("profiles:resetDemo", undefined);
-    expect(await ask("transactions:list", {})).toHaveLength(before.length);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(before.length);
     expect(await ask("rules:list", undefined)).toHaveLength(rules.length);
-    expect((await ask("transactions:list", { flows: ["trashed"] })).length).toBeGreaterThan(0);
+    expect((await ask("transactions:list", { flows: ["trashed"] })).rows.length).toBeGreaterThan(0);
     expect(reloadWindow).toHaveBeenCalledTimes(2);
   });
 });

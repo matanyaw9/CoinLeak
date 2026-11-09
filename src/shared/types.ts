@@ -126,6 +126,20 @@ export interface TransactionRow {
   movedToCash?: boolean;
 }
 
+/** One day's money among the listed rows: the Transactions day subtotals. */
+export interface DayTotal {
+  date: IsoDate;
+  /** Spending after refunds; negative when refunds were bigger. */
+  spent: Agorot;
+  income: Agorot;
+}
+
+/** The rows a filter matches, with each of their days' totals, newest day first. */
+export interface TransactionList {
+  rows: TransactionRow[];
+  days: DayTotal[];
+}
+
 export interface TransactionFilter {
   from?: IsoDate;
   to?: IsoDate;
@@ -182,6 +196,9 @@ export interface TrendPoint {
   income: Agorot;
   spending: Agorot;
   byCategory: { categoryId: number | null; amount: Agorot }[];
+  /** The month's spending (with the filter) rolled up to top-level
+   *  categories, null for uncategorized, largest first. */
+  byParent: { categoryId: number | null; amount: Agorot }[];
   /** All spending split by the categories' essential tag (spec 22). Only on
    *  unfiltered points; the three add up to `spending`. */
   split?: EssentialSplit;
@@ -193,14 +210,6 @@ export interface EssentialSplit {
   essential: Agorot;
   extra: Agorot;
   untagged: Agorot;
-}
-
-/** Cumulative spending per day for one category (its subcategories included;
- *  null is uncategorized), this month and the month before for comparison. */
-export interface CategoryCurve {
-  categoryId: number | null;
-  byDay: { date: IsoDate; amount: Agorot }[];
-  previousByDay: { date: IsoDate; amount: Agorot }[];
 }
 
 export interface SyncResult {
@@ -539,6 +548,23 @@ export interface PeriodSummary extends DateRange {
   previous: PreviousPeriod;
   /** Spending in the range that is neither essential nor extra, whatever the filter (spec 22). */
   untagged: Agorot;
+  /**
+   * Income minus all spending minus money moved to savings, whatever the
+   * filter; negative when spending and savings outran income.
+   */
+  left: Agorot;
+  /** This period's spending against the period before by the same point. */
+  comparison: SpendingComparison;
+}
+
+/** How this period's spending compares with the period before (Home's hero). */
+export interface SpendingComparison {
+  /** Spent in the period before by the same point (`previous.sameTime`). */
+  base: Agorot;
+  /** `spending - base`: positive when more was spent this time. */
+  change: Agorot;
+  /** True when the change is under 2% of the base: "about the same". */
+  aboutSame: boolean;
 }
 
 /**

@@ -20,7 +20,7 @@ const FILTER = { flows: ["trashed" as const] };
 
 export function TrashPage() {
   const tx = useTransactions(FILTER);
-  const rows = useMemo(() => tx.data ?? [], [tx.data]);
+  const rows = useMemo(() => tx.data?.rows ?? [], [tx.data]);
   const accounts = useAccounts();
   const accountById = useMemo(() => new Map((accounts.data ?? []).map((a) => [a.id, a])), [accounts.data]);
   const actions = useRowActions();

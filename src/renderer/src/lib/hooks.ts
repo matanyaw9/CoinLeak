@@ -1,17 +1,19 @@
-// One TanStack Query hook per channel. Components read data only through
-// these, so caching and refreshing after a change live in one place.
+// Query hooks for the channels many screens read. Keys and what to refresh
+// after a change live in query-keys.ts; screens with their own queries
+// (Home's charts, rules, the cash wallet) build keys there too.
 
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { IsoMonth, RuleInput, TransactionFilter, TransactionPatch } from "@shared/types";
-import type { Args, Channel } from "@shared/ipc";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { RuleInput, TransactionFilter, TransactionPatch } from "@shared/types";
 import { call } from "./api";
+import { queryKey, refreshLedger } from "./query-keys";
 
-const key = <C extends Channel>(channel: C, args?: Args<C>) => (args === undefined ? [channel] : [channel, args]);
+// Kept for callers that still import these from here.
+export { refreshLedger, refreshRules } from "./query-keys";
 
-export const useAppInfo = () => useQuery({ queryKey: key("app:info"), queryFn: () => call("app:info", undefined) });
+export const useAppInfo = () => useQuery({ queryKey: queryKey("app:info"), queryFn: () => call("app:info", undefined) });
 
 export const useAccounts = () =>
-  useQuery({ queryKey: key("accounts:list"), queryFn: () => call("accounts:list", undefined) });
+  useQuery({ queryKey: queryKey("accounts:list"), queryFn: () => call("accounts:list", undefined) });
 
 /**
  * True when no account has been synced yet, so screens greet instead of
@@ -24,26 +26,14 @@ export function useFirstRun(): boolean | undefined {
 }
 
 export const useCategories = () =>
-  useQuery({ queryKey: key("categories:list"), queryFn: () => call("categories:list", undefined), staleTime: 5 * 60_000 });
+  useQuery({ queryKey: queryKey("categories:list"), queryFn: () => call("categories:list", undefined), staleTime: 5 * 60_000 });
 
 export const useTransactions = (filter: TransactionFilter) =>
   useQuery({
-    queryKey: key("transactions:list", filter),
+    queryKey: queryKey("transactions:list", filter),
     queryFn: () => call("transactions:list", filter),
     placeholderData: (prev) => prev,
   });
-
-export const useMonthSummary = (month: IsoMonth) =>
-  useQuery({ queryKey: key("summary:month", { month }), queryFn: () => call("summary:month", { month }) });
-
-export const useTrend = (months: number) =>
-  useQuery({ queryKey: key("summary:trend", { months }), queryFn: () => call("summary:trend", { months }) });
-
-/** Everything that shows money, refreshed after an edit or a sync. */
-export function refreshLedger(client: QueryClient): Promise<void> {
-  const channels: Channel[] = ["transactions:list", "summary:month", "summary:trend", "summary:curves", "accounts:list"];
-  return Promise.all(channels.map((c) => client.invalidateQueries({ queryKey: [c] }))).then(() => undefined);
-}
 
 export function useUpdateTransactions() {
   const client = useQueryClient();
@@ -53,7 +43,7 @@ export function useUpdateTransactions() {
   });
 }
 
-export const useRules = () => useQuery({ queryKey: key("rules:list"), queryFn: () => call("rules:list", undefined) });
+export const useRules = () => useQuery({ queryKey: queryKey("rules:list"), queryFn: () => call("rules:list", undefined) });
 
 /** What a rule being edited would match today. Waits while `rule` is null. */
 export const useRulePreview = (rule: RuleInput | null) =>
@@ -64,15 +54,3 @@ export const useRulePreview = (rule: RuleInput | null) =>
     placeholderData: (prev) => prev,
     staleTime: 0,
   });
-
-/** Every rule change reapplies the rules to all rows, so money views refresh too. */
-export function refreshRules(client: QueryClient): Promise<void> {
-  return Promise.all([
-    client.invalidateQueries({ queryKey: ["rules:list"] }),
-    client.invalidateQueries({ queryKey: ["rules:preview"] }),
-    // spec 13: known places and starter lists read the rules too.
-    client.invalidateQueries({ queryKey: ["rules:knownPlaces"] }),
-    client.invalidateQueries({ queryKey: ["rules:starters"] }),
-    refreshLedger(client),
-  ]).then(() => undefined);
-}

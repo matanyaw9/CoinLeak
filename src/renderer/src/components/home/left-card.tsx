@@ -52,7 +52,7 @@ export function useOverspentShot(shot: string | null, left: ThisMonth | undefine
     if (shot !== "left-overspent" || !left || done.current) return;
     done.current = true;
     void (async () => {
-      const rows = await call("transactions:list", { from: `${left.month}-01`, to: left.today, flows: ["income"] });
+      const { rows } = await call("transactions:list", { from: `${left.month}-01`, to: left.today, flows: ["income"] });
       await call("transactions:update", { ids: rows.map((r) => r.id), patch: { excluded: true } });
       await refreshLedger(client);
     })();

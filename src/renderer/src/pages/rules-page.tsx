@@ -282,7 +282,7 @@ function useDemoShot(
         }, 1500);
       }
       if (shot === "suggest") {
-        void call("transactions:list", { search: "שופרסל" }).then(async (rows) => {
+        void call("transactions:list", { search: "שופרסל" }).then(async ({ rows }) => {
           const picked = [...new Map(rows.map((r) => [r.description, r.id])).values()];
           openEditor({ draft: await call("rules:suggest", { ids: picked }), optIn: true });
         });

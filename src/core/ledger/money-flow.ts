@@ -8,16 +8,14 @@ import type {
   DateRange,
   GroupFlow,
   IsoDate,
-  IsoMonth,
-  MoneyFlow,
   MoneyFlowLink,
   MoneyFlowNode,
   PeriodFlow,
 } from "@shared/types";
 import type { Db } from "../db";
-import { assertMonth, dayNumber, toIsoDate } from "./dates";
+import { dayNumber, toIsoDate } from "./dates";
 import { LEDGER_SQL } from "./flow";
-import { assertRange, monthRange, spendingByCategory, spendingByParent, totals } from "./period";
+import { assertRange, spendingByCategory, spendingByParent, totals } from "./period";
 import { check, isId } from "./validate";
 
 interface Part {
@@ -83,14 +81,6 @@ export function periodFlow(db: Db, range: DateRange): PeriodFlow {
     ...targets.map((n, i) => ({ source: hub, target: hub + 1 + i, amount: n.amount })),
   ];
   return { ...base, nodes, links };
-}
-
-export function monthFlow(db: Db, month: IsoMonth): MoneyFlow {
-  assertMonth(month);
-  const { from, to, ...flow } = periodFlow(db, monthRange(month));
-  void from;
-  void to;
-  return { month, ...flow };
 }
 
 /**

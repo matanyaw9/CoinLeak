@@ -1,5 +1,5 @@
-// Display helpers for the two-level category tree: lookups, and grouping
-// core's per-category amounts under their top-level category for charts.
+// Display helpers for the two-level category tree: lookups, and core's
+// totals per top-level category as chart slices.
 
 import type { Agorot, Category } from "@shared/types";
 import { s } from "@/strings";
@@ -30,13 +30,6 @@ export function indexCategories(list: Category[] = []): CategoryIndex {
   return { byId, roots, children };
 }
 
-export function rootOf(index: CategoryIndex, id: number | null): Category | null {
-  if (id == null) return null;
-  const c = index.byId.get(id);
-  if (!c) return null;
-  return c.parentId != null ? (index.byId.get(c.parentId) ?? c) : c;
-}
-
 /** The category and its subcategories, for "show me these transactions". */
 export function idsUnder(index: CategoryIndex, id: number): number[] {
   return [id, ...(index.children.get(id) ?? []).map((c) => c.id)];
@@ -59,26 +52,6 @@ export interface Slice {
   emoji: string | null;
   color: string;
   amount: Agorot;
-}
-
-/** Puts each amount under its top-level category, largest first. */
-export function groupByRoot(index: CategoryIndex, rows: { categoryId: number | null; amount: Agorot }[]): Slice[] {
-  const slices = new Map<string, Slice>();
-  for (const row of rows) {
-    const root = rootOf(index, row.categoryId);
-    const k = root ? String(root.id) : "none";
-    const slice = slices.get(k) ?? {
-      key: k,
-      categoryId: root ? root.id : null,
-      name: root ? root.name : s.common.uncategorized,
-      emoji: root ? root.emoji : null,
-      color: colorOf(root),
-      amount: 0,
-    };
-    slice.amount += row.amount;
-    slices.set(k, slice);
-  }
-  return [...slices.values()].filter((x) => x.amount > 0).sort((a, b) => b.amount - a.amount);
 }
 
 /** Core's totals per top-level category as chart slices, largest first. */

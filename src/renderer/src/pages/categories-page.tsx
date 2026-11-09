@@ -8,8 +8,10 @@ import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "re
 import { FolderPlus, Plus, Shapes } from "lucide-react";
 import type { Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
-import { useCategories, useMonthSummary } from "@/lib/hooks";
-import { useMonth } from "@/lib/month-context";
+import { useCategories } from "@/lib/hooks";
+import { usePeriod } from "@/lib/month-context";
+import { monthRange } from "@/lib/month";
+import { usePeriodSummary } from "@/components/home/period-data";
 import { formatMonth } from "@/lib/format";
 import { useShot } from "@/lib/shot";
 import { cn } from "@/lib/utils";
@@ -37,11 +39,11 @@ type OpenRequest =
 type Open = OpenRequest & { key: number };
 
 export function CategoriesPage() {
-  const { month } = useMonth();
+  const month = usePeriod().choice.month;
   const [kind, setKind] = useState<CategoryKind>("expense");
   const [search, setSearch] = useState("");
   const categories = useCategories();
-  const summary = useMonthSummary(month);
+  const summary = usePeriodSummary(monthRange(month));
   const places = useKnownPlaces();
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
   const all = useMemo(() => (categories.data ?? []).filter((c) => !c.archived), [categories.data]);

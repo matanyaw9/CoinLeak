@@ -28,7 +28,7 @@ describe("api", () => {
   it("recognizes 'not built yet' so screens can show an empty state", async () => {
     const error = { code: "NOT_IMPLEMENTED", message: ERROR_MESSAGES.NOT_IMPLEMENTED };
     vi.stubGlobal("window", { coinleak: { invoke: vi.fn().mockResolvedValue({ ok: false, error }), on: vi.fn() } });
-    const err = await call("summary:month", { month: "2026-11" }).catch((e: unknown) => e);
+    const err = await call("summary:thisMonth", undefined).catch((e: unknown) => e);
     expect(isNotBuilt(err)).toBe(true);
     expect(isNotBuilt(new Error("x"))).toBe(false);
   });

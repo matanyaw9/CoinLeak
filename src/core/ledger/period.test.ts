@@ -1,13 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import type { DateRange } from "@shared/types";
+import type { DateRange, TransactionFilter, TransactionRow } from "@shared/types";
 import type { Db } from "../db";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testing/ledger";
-import { categoryCurves } from "./curves";
 import { ingest } from "./ingest";
-import { groupFlow, monthFlow, periodFlow } from "./money-flow";
+import { groupFlow, periodFlow } from "./money-flow";
 import {
   bucketFor,
   bucketsOf,
+  compareSpending,
   monthRange,
   periodCurves,
   periodSummary,
@@ -15,7 +15,16 @@ import {
   previousRange,
   thisMonth,
 } from "./period";
-import { monthSummary, trashTransactions, trend, updateTransactions } from "./queries";
+import {
+  dayTotals,
+  listCategories,
+  listTransactions,
+  listTransactionsWithDays,
+  monthSummary,
+  trashTransactions,
+  trend,
+  updateTransactions,
+} from "./queries";
 
 // A hand-built ledger over four months. Totals below are worked out by hand.
 //
@@ -136,16 +145,12 @@ describe("periodSummary", () => {
       });
       expect(p.series.map((x) => ({ date: x.from, amount: x.amount }))).toEqual(m.byDay);
 
-      const { from, to, ...flow } = periodFlow(db, range);
-      expect([from, to]).toEqual([range.from, range.to]);
-      expect({ month, ...flow }).toEqual(monthFlow(db, month));
+      const flow = periodFlow(db, range);
+      expect([flow.from, flow.to]).toEqual([range.from, range.to]);
+      expect([flow.income, flow.spending, flow.transfers]).toEqual([m.income, m.spending, m.transfers]);
 
-      const curves = periodCurves(db, { ...range, categoryIds: [food, null] }, opts);
-      const byMonth = categoryCurves(db, { month, categoryIds: [food, null] }, opts);
-      expect(curves.map((c) => c.series.map((x) => x.amount))).toEqual(byMonth.map((c) => c.byDay.map((x) => x.amount)));
-      expect(curves.map((c) => c.previous.map((x) => x.amount))).toEqual(
-        byMonth.map((c) => c.previousByDay.map((x) => x.amount)),
-      );
+      const curves = periodCurves(db, { ...range, categoryIds: [food] }, opts);
+      expect(curves[0]?.series.at(-1)?.amount ?? 0).toBe(m.byParent.find((x) => x.categoryId === food)?.amount ?? 0);
 
       const { split, ...point } = periodTrend(db, range, opts).at(-1) ?? {};
       expect(point).toEqual(trend(db, 4, opts).find((t) => t.month === month));
@@ -184,9 +189,9 @@ describe("periodSummary", () => {
     expect(march.byDay).toHaveLength(20);
     expect(march.byDay.at(-1)).toEqual({ date: "2026-03-20", amount: 5500 });
     expect(monthSummary(db, "2026-02", opts).byDay).toHaveLength(28);
-    const [curve] = categoryCurves(db, { month: "2026-03", categoryIds: [categoryId(db, "Food")] }, opts);
-    expect(curve?.byDay).toHaveLength(20);
-    expect(curve?.previousByDay).toHaveLength(28);
+    const [curve] = periodCurves(db, { ...monthRange("2026-03"), categoryIds: [categoryId(db, "Food")] }, opts);
+    expect(curve?.series).toHaveLength(20);
+    expect(curve?.previous).toHaveLength(28);
     // February compared with March so far: by the 20th of February, all of it.
     expect(periodSummary(db, monthRange("2026-03"), opts).previous).toMatchObject({ spending: 465000, sameTime: 465000 });
   });
@@ -566,5 +571,111 @@ describe("money left this month (spec 22)", () => {
     ingest(fresh, [bank([txn({ date: "2026-04-01", amount: 100099, description: "משכורת" })])], { now: NOW });
     // 1,000.99 over 30 days is 33.37 a day: 33.
     expect(thisMonth(fresh, { now: new Date("2026-04-01T09:00:00Z") }).perDay).toBe(3300);
+  });
+});
+
+// ---- Spec 25: money math moved from the window to core ----
+// Each `window*` helper is the formula the window used before, kept here so
+// the numbers core now returns are proven to be the same.
+
+/** hero-card.tsx: income minus all spending minus savings moves, from the unfiltered summary. */
+const windowLeft = (all: { income: number; spending: number; transfers: number }) => all.income - all.spending - all.transfers;
+
+/** lib/categories.ts `groupByRoot`: each amount under its top-level category, positive ones only. */
+function windowGroups(db: Db, rows: { categoryId: number | null; amount: number }[]): Map<number | null, number> {
+  const parent = new Map(listCategories(db).map((c) => [c.id, c.parentId ?? c.id]));
+  const sums = new Map<number | null, number>();
+  for (const r of rows) {
+    const root = r.categoryId === null ? null : (parent.get(r.categoryId) ?? null);
+    sums.set(root, (sums.get(root) ?? 0) + r.amount);
+  }
+  return new Map([...sums].filter(([, amount]) => amount > 0));
+}
+
+/** lib/day-groups.ts `groupByDay`: per day, spending after refunds and income. */
+function windowDays(rows: TransactionRow[]): { date: string; spent: number; income: number }[] {
+  const days: { date: string; spent: number; income: number }[] = [];
+  for (const row of rows) {
+    let day = days.at(-1);
+    if (!day || day.date !== row.date) {
+      day = { date: row.date, spent: 0, income: 0 };
+      days.push(day);
+    }
+    if (row.flow === "spending" || row.flow === "refund") day.spent -= row.amount;
+    if (row.flow === "income") day.income += row.amount;
+  }
+  return days;
+}
+
+describe("money math the window used to do (spec 25)", () => {
+  let db: Db;
+  beforeAll(() => {
+    db = taggedLedger();
+  });
+  const ranges: DateRange[] = [
+    ...MONTHS.map(monthRange),
+    { from: "2026-03-14", to: "2026-03-20" },
+    { from: "2026-03-01", to: "2026-03-10" },
+    { from: "2025-12-20", to: "2026-01-10" },
+    { from: "2025-04-01", to: "2026-03-31" },
+  ];
+  const tags = [undefined, true, false];
+
+  it("left is the hero's income minus spending minus savings, whatever the filter", () => {
+    for (const range of ranges) {
+      const all = periodSummary(db, range, opts);
+      for (const essential of tags) {
+        const p = periodSummary(db, { ...range, essential }, opts);
+        expect(p.left, JSON.stringify(range)).toBe(windowLeft(all));
+      }
+    }
+    expect(periodSummary(db, monthRange("2026-02"), opts).left).toBe(400000 - 465000);
+  });
+
+  it("the comparison is the hero's: base, change and about the same", () => {
+    let seen = 0;
+    for (const range of ranges) {
+      for (const essential of tags) {
+        const p = periodSummary(db, { ...range, essential }, opts);
+        const base = p.previous.sameTime;
+        const diff = p.spending - base;
+        expect(p.comparison).toEqual({ base, change: diff, aboutSame: Math.abs(diff) < base * 0.02 });
+        if (base > 0) seen++;
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+    expect(compareSpending(10100, 10000)).toEqual({ base: 10000, change: 100, aboutSame: true });
+    expect(compareSpending(10200, 10000)).toEqual({ base: 10000, change: 200, aboutSame: false });
+    expect(compareSpending(0, 0)).toEqual({ base: 0, change: 0, aboutSame: false });
+  });
+
+  it("each trend month's byParent is the trend card's roll-up of byCategory", () => {
+    const range = { from: "2025-12-01", to: "2026-03-31" };
+    for (const essential of tags) {
+      for (const point of periodTrend(db, { ...range, essential }, opts)) {
+        const core = new Map(point.byParent.filter((p) => p.amount > 0).map((p) => [p.categoryId, p.amount]));
+        expect(core, point.month).toEqual(windowGroups(db, point.byCategory));
+        expect(point.byParent.reduce((a, p) => a + p.amount, 0)).toBe(point.spending);
+      }
+    }
+  });
+
+  it("day subtotals are the list's own, for every filter and sort", () => {
+    const filters: TransactionFilter[] = [
+      {},
+      { from: "2026-03-01", to: "2026-03-31" },
+      { flows: ["spending", "refund"] },
+      { categoryIds: [null] },
+      { search: "סופר" },
+      { sort: "amount_desc" },
+      { flows: ["income"] },
+    ];
+    for (const filter of filters) {
+      const list = listTransactionsWithDays(db, filter);
+      expect(list.rows).toEqual(listTransactions(db, filter));
+      const newestFirst = [...list.rows].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+      expect(list.days, JSON.stringify(filter)).toEqual(windowDays(newestFirst));
+    }
+    expect(dayTotals([])).toEqual([]);
   });
 });

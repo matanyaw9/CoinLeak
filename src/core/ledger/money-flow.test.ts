@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { MoneyFlow, ScrapedTransaction } from "@shared/types";
+import type { IsoMonth, PeriodFlow, ScrapedTransaction } from "@shared/types";
 import type { Db } from "../db";
 import { NOW, bank, categoryId, idOf, newDb, txn } from "../testing/ledger";
 import { ingest } from "./ingest";
-import { monthFlow } from "./money-flow";
+import { periodFlow } from "./money-flow";
+import { monthRange } from "./period";
 import { monthSummary, updateTransactions } from "./queries";
 
 // Synthetic rows: [day, amount in agorot, description, category name or null].
 type Row = [string, number, string, string | null, ("pending" | "completed")?];
+
+/** The flow over a month's days (the month-only channel is gone, spec 25). */
+const monthFlow = (db: Db, month: IsoMonth): PeriodFlow => periodFlow(db, monthRange(month));
 
 function ledger(rows: Row[]): Db {
   const db = newDb();
@@ -22,7 +26,7 @@ function ledger(rows: Row[]): Db {
 }
 
 /** Sum in equals sum out, every node matches its one link, and nothing is zero or negative. */
-function expectBalanced(flow: MoneyFlow): void {
+function expectBalanced(flow: PeriodFlow): void {
   const hub = flow.nodes.findIndex((n) => n.kind === "hub");
   const into = flow.links.filter((l) => l.target === hub).reduce((a, l) => a + l.amount, 0);
   const out = flow.links.filter((l) => l.source === hub).reduce((a, l) => a + l.amount, 0);
@@ -36,7 +40,7 @@ function expectBalanced(flow: MoneyFlow): void {
   }
 }
 
-const shape = (db: Db, flow: MoneyFlow) =>
+const shape = (db: Db, flow: PeriodFlow) =>
   flow.nodes.map((n) => [n.kind, n.categoryId === null ? null : nameOf(db, n.categoryId), n.amount]);
 
 function nameOf(db: Db, id: number): string {
@@ -155,7 +159,8 @@ describe("monthFlow", () => {
     const db = ledger([["05", -60000, "סופר", "Groceries"]]);
     updateTransactions(db, [idOf(db, "סופר")], { excluded: true });
     expect(monthFlow(db, "2026-03")).toEqual({
-      month: "2026-03",
+      from: "2026-03-01",
+      to: "2026-03-31",
       income: 0,
       spending: 0,
       transfers: 0,

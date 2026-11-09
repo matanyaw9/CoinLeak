@@ -8,6 +8,7 @@ import type {
   Agorot,
   Category,
   CategorySource,
+  DayTotal,
   ExcludedSource,
   ExclusionState,
   Flow,
@@ -17,6 +18,7 @@ import type {
   ReviewFlag,
   ScrapedStatus,
   TransactionFilter,
+  TransactionList,
   TransactionPatch,
   TransactionRow,
   TransactionSort,
@@ -220,6 +222,24 @@ export function listTransactions(db: Db, filter: TransactionFilter = {}): Transa
   const rows = (db.prepare(sql).all(...params) as unknown as LedgerRow[]).map((r) => toTransactionRow(r, wallet));
   // SQLite has no Hebrew-aware natural order, so names sort here.
   return sort === "name" ? rows.sort(byName) : rows;
+}
+
+/** The listed rows plus each day's spending and income over those same rows (spec 25). */
+export function listTransactionsWithDays(db: Db, filter: TransactionFilter = {}): TransactionList {
+  const rows = listTransactions(db, filter);
+  return { rows, days: dayTotals(rows) };
+}
+
+/** Per day, newest first: spending after refunds and income, by the flow each row has. */
+export function dayTotals(rows: TransactionRow[]): DayTotal[] {
+  const byDate = new Map<IsoDate, DayTotal>();
+  for (const row of rows) {
+    const day = byDate.get(row.date) ?? { date: row.date, spent: 0, income: 0 };
+    if (row.flow === "spending" || row.flow === "refund") day.spent -= row.amount;
+    if (row.flow === "income") day.income += row.amount;
+    byDate.set(row.date, day);
+  }
+  return [...byDate.values()].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
 const SORTS: readonly TransactionSort[] = ["date", "amount_desc", "amount_asc", "name"];

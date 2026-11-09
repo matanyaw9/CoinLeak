@@ -10,7 +10,7 @@ import type { IsoMonth } from "@shared/types";
 import { s } from "@/strings";
 import { ils } from "@/lib/format";
 import { useCategories, useFirstRun } from "@/lib/hooks";
-import { useMonth, usePeriod } from "@/lib/month-context";
+import { usePeriod } from "@/lib/month-context";
 import { indexCategories, type Slice } from "@/lib/categories";
 import { useShot } from "@/lib/shot";
 import { Page } from "@/components/layout/page";
@@ -41,8 +41,7 @@ function shotFilter(shot: string | null): SpendingFilter | undefined {
 }
 
 export function HomePage() {
-  const { choice, range, today } = usePeriod();
-  const { setMonth } = useMonth();
+  const { choice, range, today, showMonth } = usePeriod();
   const navigate = useNavigate();
   const shot = useShot();
   const [filter, setFilter] = useSpendingFilter(shotFilter(shot));
@@ -57,7 +56,7 @@ export function HomePage() {
   useOverspentShot(shot, left.data);
 
   const open = (slice: Slice, m?: IsoMonth) => {
-    if (m) setMonth(m);
+    if (m) showMonth(m);
     void navigate(sliceLink(slice));
   };
 
