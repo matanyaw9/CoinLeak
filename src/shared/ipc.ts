@@ -242,6 +242,12 @@ export const CHANNELS = [
   "profiles:wipeAll",
 ] as const satisfies readonly Channel[];
 
+// Main and preload register only CHANNELS, so a channel missing here would
+// fail only at runtime. This line stops the build instead, naming the
+// missing channel in the error.
+type Unlisted = Exclude<Channel, (typeof CHANNELS)[number]>;
+export const EVERY_CHANNEL_LISTED: [Unlisted] extends [never] ? true : Unlisted = true;
+
 export const EVENTS = ["sync:progress"] as const satisfies readonly EventName[];
 
 /** What the preload script exposes as `window.coinleak`. */
