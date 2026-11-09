@@ -64,9 +64,11 @@ Read first: `AGENTS.md`, `REQUIREMENTS.md` sections 3, 5 and 7,
    categories on the right, with a clear Back. Core provides the group
    flow (`summary:groupFlow` or similar); the window never sums rows.
 7. **One category over time (F43).** The bar chart (trend card) gets a
-   category filter: pick a category or group (or click its bar segment or
-   legend item) to see only that category's spending month by month, with
-   a clear way back to all spending. Core returns the per-category series.
+   category filter: tick one or more categories or groups (or click a bar
+   segment or legend item to add it) to see only their spending month by
+   month, stacked as today, with a clear "All spending" to go back. Core
+   returns one series per category; the window only hides the unticked
+   ones. Keep it one simple list of checkboxes, no extra modes.
 8. **This month stops at today (F44).** In the "this month vs last month"
    line chart, the current month's line ends at today's date, not at the
    end of the month. Last month's line stays full length.
@@ -81,6 +83,8 @@ Read first: `AGENTS.md`, `REQUIREMENTS.md` sections 3, 5 and 7,
   transfers minus income; balanced month: no shortfall.
 - Group flow: categories sum to the group's total in the main flow.
 - Per-category trend: each month equals that category's month total.
+- Custom from and to dates: both pickable by hand; from after to is
+  refused with a clear message, not silently swapped.
 - The current month's daily series ends at today; past months are full.
 - `npm run check` green. Screenshots light and dark: Home on This month,
   on Last 12 months, the picker open with Custom, the pie hover, an
