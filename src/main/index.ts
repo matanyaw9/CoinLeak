@@ -5,8 +5,11 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDatabase, type Db } from "@core/db";
+import { createDemoDatabase } from "@core/demo";
 import { ingest } from "@core/ledger";
+import { CodedError } from "@shared/errors";
 import { createHandlers } from "./handlers";
+import { currentProfile, databasePath, DEMO_PROFILE, readProfiles, writeProfiles } from "./profiles";
 import { emit, registerIpc } from "./ipc";
 import { runSync } from "./sync";
 import { createSyncService } from "./sync-service";
@@ -21,11 +24,13 @@ const here = import.meta.dirname;
 // Dev runs keep their own data so experiments never touch real data.
 if (dev) app.setPath("userData", join(app.getPath("appData"), "CoinLeak-dev"));
 const screenshotRun = dev && Boolean(process.env["COINLEAK_SCREENSHOT"]);
-// Screenshot runs show demo data and must never open (and migrate) the dev
-// database: a branch build once stamped a migration number main did not have.
+// Screenshot runs use a fresh temp folder with only a seeded Demo profile, and
+// never open (and migrate) the dev database: a branch build once stamped a
+// migration number main did not have.
 const dataDir =
-  process.env["COINLEAK_DATA_DIR"] ??
-  (screenshotRun ? mkdtempSync(join(tmpdir(), "coinleak-shot-")) : join(app.getPath("userData"), "data"));
+  screenshotRun
+    ? mkdtempSync(join(tmpdir(), "coinleak-shot-"))
+    : (process.env["COINLEAK_DATA_DIR"] ?? join(app.getPath("userData"), "data"));
 
 app.enableSandbox();
 registerAppScheme();
@@ -47,12 +52,33 @@ if (!screenshotRun && !app.requestSingleInstanceLock()) {
   app.whenReady().then(start);
 }
 
+// One database is open at a time: the current profile's (spec 19).
+function getDb(): Db {
+  if (!db) throw new CodedError("DATABASE");
+  return db;
+}
+
+function closeDb(): void {
+  db?.close();
+  db = undefined;
+}
+
+function openCurrentDb(): void {
+  closeDb();
+  db = openDatabase(databasePath(dataDir, currentProfile(readProfiles(dataDir))));
+}
+
 function start(): void {
   hardenSession(session.defaultSession, devServerUrl);
   serveAppFiles(join(here, "../renderer"));
-  db = openDatabase(join(dataDir, "coinleak.db"));
+  // Screenshot runs show the real app on made-up data: only a Demo profile.
+  if (screenshotRun) {
+    createDemoDatabase(databasePath(dataDir, DEMO_PROFILE), new Date());
+    writeProfiles(dataDir, { current: DEMO_PROFILE.id, profiles: [DEMO_PROFILE] });
+  }
+  openCurrentDb();
   const sync = createSyncService({
-    db,
+    getDb,
     runSync,
     ingest,
     emit: (progress) => {
@@ -60,9 +86,17 @@ function start(): void {
       if (mainWindow) emit(mainWindow.webContents, "sync:progress", progress);
     },
   });
-  registerIpc(createHandlers({ db, version: app.getVersion(), dataDir, dev, sync }), (url) =>
-    isAppUrl(url, devServerUrl),
-  );
+  const handlers = createHandlers({
+    version: app.getVersion(),
+    dataDir,
+    dev,
+    sync,
+    getDb,
+    openCurrentDb,
+    closeDb,
+    reloadWindow: () => mainWindow?.webContents.reload(),
+  });
+  registerIpc(handlers, (url) => isAppUrl(url, devServerUrl));
   mainWindow = createWindow();
 }
 
@@ -112,6 +146,6 @@ function createWindow(): BrowserWindow {
 }
 
 app.on("window-all-closed", () => {
-  db?.close();
+  closeDb();
   app.quit();
 });

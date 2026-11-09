@@ -9,7 +9,8 @@ import type { IngestOptions } from "@core/ledger";
 import type { SyncDownload, SyncOptions } from "./sync";
 
 export interface SyncServiceDeps {
-  db: Db;
+  /** The open profile's database at the moment of saving (spec 19). */
+  getDb(): Db;
   runSync(provider: ProviderId, options: SyncOptions): Promise<SyncDownload>;
   ingest(db: Db, accounts: ScrapedAccount[], options: IngestOptions): SyncResult;
   emit(progress: SyncProgress): void;
@@ -19,6 +20,8 @@ export interface SyncServiceDeps {
 export interface SyncService {
   start(provider: ProviderId): Promise<SyncResult>;
   cancel(): void;
+  /** True while a sync downloads or saves; switching profiles waits for it. */
+  isRunning(): boolean;
 }
 
 export function createSyncService(deps: SyncServiceDeps): SyncService {
@@ -37,7 +40,7 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
         const { accounts, since } = await deps.runSync(provider, { signal: controller.signal, onProgress: stage });
         stage("saving");
         const judgePending = trustsPending(provider, accounts);
-        const result = deps.ingest(deps.db, accounts, { now: now(), provider, since, judgePending });
+        const result = deps.ingest(deps.getDb(), accounts, { now: now(), provider, since, judgePending });
         stage("done");
         // Counts only: never row text or amounts in the log.
         console.log(
@@ -53,6 +56,9 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
     },
     cancel() {
       current?.abort();
+    },
+    isRunning() {
+      return current !== undefined;
     },
   };
 }

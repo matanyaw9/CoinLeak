@@ -33,6 +33,8 @@ import type {
   RulesApplied,
   StarterPreview,
   StartersAdded,
+  Profile,
+  ProfileList,
   SyncProgress,
   SyncResult,
   TransactionFilter,
@@ -120,6 +122,18 @@ export interface IpcContract {
   "rules:starters": { args: undefined; result: StarterPreview };
   /** Adds the chosen starter lists as ordinary list rules, then reapplies. */
   "rules:addStarters": { args: { keys: string[] }; result: StartersAdded };
+  // ---- spec 19: profiles, each with its own database file ----
+  "profiles:list": { args: undefined; result: ProfileList };
+  "profiles:add": { args: { name: string }; result: Profile };
+  "profiles:rename": { args: { id: string; name: string }; result: null };
+  /** Deletes the profile's database file too. Refused for the open profile and the last real one. */
+  "profiles:delete": { args: { id: string }; result: null };
+  /** Opens the other profile's database and reloads the window. Refused while a sync runs. */
+  "profiles:switch": { args: { id: string }; result: null };
+  /** Adds the Demo profile, filled with made-up data. Only when there is none. */
+  "profiles:addDemo": { args: undefined; result: Profile };
+  /** Throws the Demo data away and makes it fresh. */
+  "profiles:resetDemo": { args: undefined; result: null };
 }
 
 export interface IpcEvents {
@@ -173,6 +187,13 @@ export const CHANNELS = [
   "rules:addKnownPlace",
   "rules:starters",
   "rules:addStarters",
+  "profiles:list",
+  "profiles:add",
+  "profiles:rename",
+  "profiles:delete",
+  "profiles:switch",
+  "profiles:addDemo",
+  "profiles:resetDemo",
 ] as const satisfies readonly Channel[];
 
 export const EVENTS = ["sync:progress"] as const satisfies readonly EventName[];

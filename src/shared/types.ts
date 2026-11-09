@@ -523,3 +523,21 @@ export interface PeriodCurve {
   series: SeriesPoint[];
   previous: SeriesPoint[];
 }
+
+// ---- Profiles (spec 19) ----
+
+/** Separate data for one person or purpose: a name and its own database file. */
+export interface Profile {
+  id: string;
+  name: string;
+  /** The database file's name inside the data folder. */
+  file: string;
+  /** The Demo profile: made-up data, never syncs. */
+  demo: boolean;
+}
+
+export interface ProfileList {
+  /** Id of the profile that is open now. */
+  current: string;
+  profiles: Profile[];
+}
