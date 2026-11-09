@@ -1,204 +1,162 @@
-// "Where the money went": the month as a Sankey, from core's balanced nodes
-// and links (spec 14). Income on the left, categories, savings and what was
-// left on the right. Hover shows amounts and share of income; clicking a
-// category opens its transactions.
+// "Where the money went": the period as a Sankey, from core's balanced nodes
+// and links (specs 14 and 16). Income on the left, categories, savings and
+// what was left on the right; spending beyond income is its own warning node.
+// Clicking a group opens it (its categories, with Back); clicking a category
+// opens its transactions.
 
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { ResponsiveContainer, Sankey, type SankeyLinkProps as LinkProps, type SankeyNodeProps as NodeProps } from "recharts";
-import type { MoneyFlow, MoneyFlowNode } from "@shared/types";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import type { GroupFlow, MoneyFlowNode, PeriodFlow } from "@shared/types";
 import { s } from "@/strings";
 import { colorOf, OTHER_COLOR, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
-import { ils, percent } from "@/lib/format";
+import { usePeriod } from "@/lib/month-context";
 import { useShot } from "@/lib/shot";
 import { Card, CardHeader } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
-import { ChartTooltip } from "@/components/charts/chart-tooltip";
+import { Button } from "@/components/ui/button";
+import { FlowSankey, type FlowItem } from "./flow-sankey";
+import { useGroupFlow } from "./period-data";
 
 const HUB_COLOR = "var(--muted-foreground)";
 const LEFT_COLOR = "var(--status-on-track)";
+/** The same warning color as the hero's "more than you earned". */
+export const BEYOND_COLOR = "var(--status-over)";
 
-interface Item {
-  node: MoneyFlowNode;
-  name: string;
-  color: string;
-  /** Set when clicking opens that category's transactions. */
-  slice?: Slice;
-}
-
-function describe(index: CategoryIndex, flow: MoneyFlow): Item[] {
-  const mixed = flow.nodes.some((n) => n.kind === "refund" || n.kind === "from_savings");
-  return flow.nodes.map((node) => {
+function describe(index: CategoryIndex, nodes: MoneyFlowNode[], groupName?: string): FlowItem[] {
+  const mixed = nodes.some((n) => n.kind === "refund" || n.kind === "from_savings" || n.kind === "beyond_income");
+  return nodes.map((node) => {
     const c = node.categoryId == null ? null : (index.byId.get(node.categoryId) ?? null);
+    const parent = c?.parentId != null ? index.byId.get(c.parentId) : undefined;
+    const color = c ? (c.color ?? (parent ? colorOf(parent) : colorOf(c))) : UNCATEGORIZED_COLOR;
     const label = c ? `${c.emoji ? `${c.emoji} ` : ""}${c.name}` : null;
     const slice = (name: string): Slice => ({
       key: node.categoryId == null ? "none" : String(node.categoryId),
       categoryId: node.categoryId,
       name,
       emoji: c?.emoji ?? null,
-      color: colorOf(c),
+      color,
       amount: node.amount,
     });
     switch (node.kind) {
       case "income": {
         const name = label ?? s.flow.otherIncome;
-        return { node, name, color: colorOf(c), slice: slice(name) };
+        return { node, name, color, slice: slice(name) };
       }
       case "refund": {
         const name = s.flow.refunds(label ?? s.common.uncategorized);
-        return { node, name, color: colorOf(c), slice: slice(name) };
+        return { node, name, color, slice: slice(name) };
       }
       case "spending":
-      case "transfer": {
+      case "transfer":
+      case "group": {
         const name = label ?? s.common.uncategorized;
-        return { node, name, color: c ? colorOf(c) : UNCATEGORIZED_COLOR, slice: slice(name) };
+        const drill = node.kind === "spending" && !groupName && c != null && (index.children.get(c.id)?.length ?? 0) > 0;
+        return { node, name, color, slice: slice(name), drill };
       }
       case "from_savings":
-        return { node, name: s.flow.fromSavings, color: OTHER_COLOR };
+        return { node, name: s.periodHome.flowFromSavings, color: OTHER_COLOR };
+      case "beyond_income":
+        return { node, name: s.periodHome.flowBeyond, color: BEYOND_COLOR, warn: true };
       case "hub":
-        return { node, name: mixed ? s.flow.moneyIn : s.flow.income, color: HUB_COLOR };
+        return { node, name: groupName ?? (mixed ? s.flow.moneyIn : s.flow.income), color: HUB_COLOR };
       case "left":
         return { node, name: s.flow.left, color: LEFT_COLOR };
     }
   });
 }
 
-/** The hovered node (a link counts as its outer node), where the pointer is, and which way the tooltip opens. */
-type Hover = { index: number; x: number; y: number; flip: boolean };
-
 export function MoneyFlowCard({
   flow,
   index,
   onOpen,
 }: {
-  flow: MoneyFlow;
+  flow: PeriodFlow;
   index: CategoryIndex;
   onOpen: (slice: Slice) => void;
 }) {
-  const items = describe(index, flow);
-  const hub = flow.nodes.findIndex((n) => n.kind === "hub");
-  // Demo screenshots: `?shot=flow` scrolls here, `?shot=flow-hover` also hovers the first category.
+  const { range } = usePeriod();
   const shot = useShot();
-  const [hover, setHover] = useState<Hover | null>(() =>
-    shot === "flow-hover" && hub >= 0 ? { index: hub + 1, x: 760, y: 70, flip: true } : null,
-  );
+  const [group, setGroup] = useState<number | null>(() => {
+    if (shot !== "flow-group") return null;
+    const first = flow.nodes.find((n) => n.kind === "spending" && n.categoryId != null && index.children.has(n.categoryId));
+    return first?.categoryId ?? null;
+  });
+  const opened = useGroupFlow(range, group);
   const box = useRef<HTMLDivElement>(null);
+  // Demo screenshots: `?shot=flow...` and `?shot=overspent-flow` scroll here.
   useEffect(() => {
-    if (shot?.startsWith("flow")) box.current?.scrollIntoView({ block: "center" });
+    if (shot?.startsWith("flow") || shot === "overspent-flow") box.current?.scrollIntoView({ block: "center" });
   }, [shot]);
-  const empty = flow.income <= 0 || flow.spending <= 0 || hub < 0;
+  // A new period closes the group: its numbers belong to the old one.
+  const rangeKey = `${range.from}:${range.to}`;
+  const [seen, setSeen] = useState(rangeKey);
+  if (seen !== rangeKey) {
+    setSeen(rangeKey);
+    if (shot !== "flow-group") setGroup(null);
+  }
 
-  // A link stands for its outer end; the hub is in every link.
-  const outer = (link: number): number => {
-    const l = flow.links[link];
-    return l ? (l.source === hub ? l.target : l.source) : -1;
-  };
-  const hovered = hover ? items[hover.index] : undefined;
-  const at = (e: MouseEvent<SVGGraphicsElement>, i: number) => {
-    const r = (e.currentTarget.ownerSVGElement ?? e.currentTarget).getBoundingClientRect();
-    const x = e.clientX - r.left;
-    setHover({ index: i, x, y: e.clientY - r.top, flip: x > r.width / 2 });
-  };
-
-  const node = (p: NodeProps) => {
-    const item = items[p.index];
-    if (!item) return null;
-    const side = p.index < hub ? "start" : p.index > hub ? "end" : "hub";
-    const dim = hover && hover.index !== p.index && hover.index !== hub && p.index !== hub;
-    const tx = side === "start" ? p.x - 10 : side === "end" ? p.x + p.width + 10 : p.x + p.width / 2;
-    const ty = side === "hub" ? p.y - 10 : p.y + p.height / 2;
-    return (
-      <g
-        className={item.slice ? "cursor-pointer" : undefined}
-        opacity={dim ? 0.45 : 1}
-        onMouseMove={(e) => at(e, p.index)}
-        onMouseLeave={() => setHover(null)}
-        onClick={() => item.slice && onOpen(item.slice)}
-      >
-        <rect x={p.x} y={p.y} width={p.width} height={Math.max(p.height, 1)} rx={3} fill={item.color} />
-        <text
-          x={tx}
-          y={ty}
-          textAnchor={side === "start" ? "end" : side === "end" ? "start" : "middle"}
-          dominantBaseline="middle"
-          className="fill-foreground text-[13px]"
-        >
-          {item.name}
-          <tspan dx={8} className="num fill-muted-foreground text-[12px]">
-            {ils(item.node.amount, { decimals: false })}
-          </tspan>
-        </text>
-      </g>
-    );
-  };
-
-  const link = (p: LinkProps) => {
-    const end = outer(p.index);
-    const item = items[end];
-    const active = hover?.index === end;
-    return (
-      <path
-        d={`M${p.sourceX},${p.sourceY}C${p.sourceControlX},${p.sourceY} ${p.targetControlX},${p.targetY} ${p.targetX},${p.targetY}`}
-        fill="none"
-        stroke={item?.color ?? HUB_COLOR}
-        strokeWidth={Math.max(p.linkWidth, 1)}
-        strokeOpacity={active ? 0.55 : hover ? 0.14 : 0.3}
-        className={item?.slice ? "cursor-pointer transition-[stroke-opacity]" : "transition-[stroke-opacity]"}
-        onMouseMove={(e) => at(e, end)}
-        onMouseLeave={() => setHover(null)}
-        onClick={() => item?.slice && onOpen(item.slice)}
-      />
-    );
-  };
+  const groupCat = group != null ? index.byId.get(group) : undefined;
+  const empty = flow.nodes.length === 0;
 
   return (
-    <Card>
-      <CardHeader label={s.flow.title} action={empty ? undefined : s.flow.hint} />
-      {empty ? (
-        <EmptyState compact title={s.flow.empty} />
-      ) : (
-        <div ref={box} className="relative h-[360px]" data-testid="money-flow">
-          <ResponsiveContainer width="100%" height="100%">
-            <Sankey
-              data={{
-                nodes: items.map((x) => ({ name: x.name })),
-                links: flow.links.map((l) => ({ source: l.source, target: l.target, value: l.amount })),
-              }}
-              sort={false}
-              nodeWidth={10}
-              nodePadding={22}
-              linkCurvature={0.5}
-              iterations={0}
-              margin={{ top: 28, right: 230, bottom: 8, left: 230 }}
-              node={node}
-              link={link}
+    <div ref={box}>
+      <Card>
+        {group != null && groupCat ? (
+          <>
+            <CardHeader
+              label={s.periodHome.flowGroupTitle(groupCat.name)}
+              action={
+                <Button variant="outline" className="h-8 rounded-xl px-3" onClick={() => setGroup(null)}>
+                  <ArrowLeft />
+                  {s.periodHome.flowBack}
+                </Button>
+              }
             />
-          </ResponsiveContainer>
-          {hovered && hover && (
-            <div
-              className="pointer-events-none absolute z-10"
-              // Opens toward the middle, so it never spills out of the card.
-              style={{
-                left: hover.x,
-                top: hover.y + 14,
-                transform: hover.flip ? "translateX(calc(-100% - 14px))" : "translateX(14px)",
-              }}
-            >
-              <ChartTooltip
-                title={hovered.name}
-                rows={[
-                  {
-                    key: "amount",
-                    label: flow.income > 0 ? `${percent(hovered.node.amount, flow.income)} ${s.flow.shareOfIncome}` : s.flow.noIncome,
-                    amount: hovered.node.amount,
-                    color: hovered.color,
-                    strong: true,
-                  },
-                ]}
+            <GroupBody flow={opened.data} index={index} name={groupCat.name} onOpen={onOpen} />
+          </>
+        ) : (
+          <>
+            <CardHeader label={s.flow.title} action={empty ? undefined : `${s.periodHome.flowGroupHint} · ${s.flow.hint}`} />
+            {empty ? (
+              <EmptyState compact title={s.flow.empty} />
+            ) : (
+              <FlowSankey
+                items={describe(index, flow.nodes)}
+                links={flow.links}
+                share={{ of: flow.income, label: flow.income > 0 ? s.flow.shareOfIncome : s.periodHome.noIncome }}
+                hoverFirst={shot === "flow-hover"}
+                onPick={(item) => {
+                  if (item.drill && item.node.categoryId != null) setGroup(item.node.categoryId);
+                  else if (item.slice) onOpen(item.slice);
+                }}
               />
-            </div>
-          )}
-        </div>
-      )}
-    </Card>
+            )}
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function GroupBody({
+  flow,
+  index,
+  name,
+  onOpen,
+}: {
+  flow: GroupFlow | undefined;
+  index: CategoryIndex;
+  name: string;
+  onOpen: (slice: Slice) => void;
+}) {
+  if (!flow) return <div className="h-[360px]" />;
+  if (flow.nodes.length === 0) return <EmptyState compact title={s.periodHome.flowGroupEmpty} />;
+  return (
+    <FlowSankey
+      items={describe(index, flow.nodes, name)}
+      links={flow.links}
+      share={{ of: flow.total, label: s.periodHome.flowShareOfGroup(name) }}
+      onPick={(item) => item.slice && onOpen(item.slice)}
+    />
   );
 }

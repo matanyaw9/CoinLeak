@@ -30,6 +30,7 @@ import { ERROR_MESSAGES, type ErrorCode, type Result } from "@shared/errors";
 import { isEnabledProvider } from "@shared/providers";
 import { daysInMonth, parseMonth, shiftMonth, toIsoDate, toIsoMonth } from "./month";
 import { createDemoRules } from "./demo-rules";
+import { createDemoPeriods, isRange } from "./demo-flow-period";
 
 export interface Demo {
   invoke<C extends Channel>(channel: C, args: Args<C>): Promise<Result<Res<C>>>;
@@ -509,53 +510,13 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
     return ids.map((categoryId) => ({ categoryId, byDay: curve(categoryId, month), previousByDay: curve(categoryId, shiftMonth(month, -1)) }));
   }
 
-  // spec 14: the same flow core draws (ledger/money-flow.ts), from the demo rows.
+  // spec 16: periods answer like core (demo-flow-period.ts); a month's flow is its range's.
+  const periods = createDemoPeriods({ rows: () => rows, categories: () => catList, today: toIsoDate(today) });
   function moneyFlow(month: IsoMonth): MoneyFlow {
-    const sm = summary(month);
-    const rootOf = (id: number | null) => (id === null ? null : (byId.get(id)?.parentId ?? id));
-    const net = (flow: Flow, sign: 1 | -1) => {
-      const by = new Map<number | null, Agorot>();
-      for (const r of rows) {
-        if (!r.date.startsWith(month) || r.flow !== flow) continue;
-        by.set(rootOf(r.categoryId), (by.get(rootOf(r.categoryId)) ?? 0) + sign * r.amount);
-      }
-      return [...by].map(([categoryId, amount]) => ({ categoryId, amount })).sort((a, b) => b.amount - a.amount);
-    };
-    const sum = (xs: { amount: Agorot }[]) => xs.reduce((a, x) => a + x.amount, 0);
-    const income = net("income", 1);
-    const transfers = net("transfer", -1);
-    const refunds = sm.byParent.filter((p) => p.amount < 0).map((p) => ({ categoryId: p.categoryId, amount: -p.amount }));
-    const outSpending = sm.byParent.filter((p) => p.amount > 0);
-    const outTransfers = transfers.filter((p) => p.amount > 0);
-    const back = -sum(transfers.filter((p) => p.amount < 0));
-    const have = sum(income) + sum(refunds) + back;
-    const need = sum(outSpending) + sum(outTransfers);
-    const fromSavings = back + Math.max(0, need - have);
-    const left = Math.max(0, have - need);
-    type Kind = MoneyFlow["nodes"][number]["kind"];
-    const node = (kind: Kind) => (p: { categoryId: number | null; amount: Agorot }) => ({ kind, categoryId: p.categoryId, amount: p.amount });
-    const sources = [
-      ...income.map(node("income")),
-      ...refunds.map(node("refund")),
-      ...(fromSavings > 0 ? [node("from_savings")({ categoryId: null, amount: fromSavings })] : []),
-    ];
-    const targets = [
-      ...outSpending.map(node("spending")),
-      ...outTransfers.map(node("transfer")),
-      ...(left > 0 ? [node("left")({ categoryId: null, amount: left })] : []),
-    ];
-    const base = { month, income: sm.income, spending: sm.spending, transfers: sm.transfers };
-    const total = sum(sources);
-    if (total === 0) return { ...base, nodes: [], links: [] };
-    const hub = sources.length;
-    return {
-      ...base,
-      nodes: [...sources, node("hub")({ categoryId: null, amount: total }), ...targets],
-      links: [
-        ...sources.map((n, i) => ({ source: i, target: hub, amount: n.amount })),
-        ...targets.map((n, i) => ({ source: hub, target: hub + 1 + i, amount: n.amount })),
-      ],
-    };
+    const { from, to, ...flow } = periods.flow({ from: `${month}-01`, to: `${month}-${String(daysInMonth(month)).padStart(2, "0")}` });
+    void from;
+    void to;
+    return { month, ...flow };
   }
 
   function list(f: TransactionFilter): TransactionRow[] {
@@ -828,6 +789,23 @@ export function createDemo(today: Date = new Date(), opts: DemoOptions = {}): De
       case "summary:flow": {
         const month = (args as Args<"summary:flow">)?.month;
         return /^\d{4}-\d{2}$/.test(month ?? "") ? ok(moneyFlow(month)) : fail("BAD_REQUEST");
+      }
+      // spec 16
+      case "summary:period":
+        return isRange(args) ? ok(periods.summary(args)) : fail("BAD_REQUEST");
+      case "summary:periodFlow":
+        return isRange(args) ? ok(periods.flow(args)) : fail("BAD_REQUEST");
+      case "summary:groupFlow": {
+        const a = args as Args<"summary:groupFlow">;
+        return isRange(a) && Number.isInteger(a.categoryId) && a.categoryId > 0 ? ok(periods.group(a, a.categoryId)) : fail("BAD_REQUEST");
+      }
+      case "summary:periodTrend": {
+        const a = args as Args<"summary:periodTrend">;
+        return isRange(a) ? ok(periods.trend(a, a.categoryId)) : fail("BAD_REQUEST");
+      }
+      case "summary:periodCurves": {
+        const a = args as Args<"summary:periodCurves">;
+        return isRange(a) && Array.isArray(a.categoryIds) ? ok(periods.curves(a, a.categoryIds)) : fail("BAD_REQUEST");
       }
       case "sync:start":
         return startSync((args as Args<"sync:start">).provider);
