@@ -169,3 +169,15 @@ Nothing open.
   earlier), so making a wallet never removes years of past ATM spending.
   Lead accepted at merge, 2026-11-09; one line in `loadWallet`
   (`card-bills.ts`) if the owner wants otherwise.
+
+## From spec 21
+
+- "Also fits N transactions that rule X decides" refreshes when rules
+  change, not after a hand categorization on Transactions (`rules:list`
+  is not refreshed by ledger edits; `lib/hooks.ts`).
+- `findAction` in `components/transactions/find.ts` and the strings
+  `s.rules.order`, `s.categories.search`, `s.categories.noMatch` are no
+  longer used; remove in the cleanup spec.
+- A row counts as "decided by a higher rule" even when that rule sets the
+  same category (the lower rule is redundant there). Kept: it tells the
+  user the lower rule changes nothing for those rows.

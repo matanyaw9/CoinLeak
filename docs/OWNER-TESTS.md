@@ -87,3 +87,34 @@ Run `npm run dev`.
    greyed out everywhere. "Reset demo data" brings it back fresh.
 4. Rename "Test", then delete it (type its name to confirm). Delete is
    not offered for the profile that is open.
+
+## 5. Wave 8 (specs 20, 21, 22)
+
+Run `npm run dev`. Try the Demo profile first, then your own.
+
+1. **Left this month.** Top of Home: "₪X left for N days: about ₪Y a
+   day", with income, spent and moved to savings underneath. The hero's
+   "Left so far" and the Transactions bar show the same left (savings
+   subtracted). Does that match how you think about "left"?
+2. **Essentials vs extras.** Switch All / Essentials / Extras above the
+   headline: the headline, curves, donut and bars change; income and the
+   money flow do not. Under All, the month bars split into essential,
+   extra and neither; "By category" switches back.
+3. **Hover.** Hover a bar segment or a legend name: that category lights
+   up in every month, the rest fade. Click it: the filter applies.
+4. **Select all.** On Transactions, tick the box above the list, then a
+   day's box. Select two rows: both boxes show "partly".
+5. **Notes.** Add a note from the row's note icon, and another from the
+   right-click menu. Search for a word from the note. Clear it.
+6. **Cash.** Add cash (top right of the list): money out ₪20 at a cafe,
+   then money in ₪100 from family. Edit one, trash it, restore it.
+   Money accounts shows the Cash wallet.
+7. **ATM.** With real data: after you add any cash row, your ATM
+   withdrawals from that month on read "Moved to cash wallet" and leave
+   Spent. If one does not, tell the lead its wording (no amounts).
+   "Count it as spending" puts it back.
+8. **Find.** Ctrl+F on Categories (try a shop name), on Rules (try a
+   category name). While searching Rules, dragging is off.
+9. **Rule order.** Rules are numbered, "Checked from the top" above
+   them; a rule overlapping a higher one says "Also fits N transactions
+   that rule X decides". Drag one: a toast says where it went.
