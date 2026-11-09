@@ -2,20 +2,20 @@
 // switch to another profile (spec 19). In the Demo profile it says so.
 
 import { useState } from "react";
-import { toast } from "sonner";
 import { Link } from "react-router";
 import { Check, ChevronsUpDown, FlaskConical, Lock, Settings } from "lucide-react";
 import type { Profile } from "@shared/types";
 import { s } from "@/strings";
+import { showFailure } from "@/lib/failure";
 import { cn } from "@/lib/utils";
-import { ApiError, call } from "@/lib/api";
+import { call } from "@/lib/api";
 import { useShot } from "@/lib/shot";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCurrentProfile, useProfiles } from "./use-profiles";
 
 /** Asks main to switch; main reloads the window when it is done. */
 export function switchProfile(id: string): void {
-  call("profiles:switch", { id }).catch((e: unknown) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody));
+  call("profiles:switch", { id }).catch((e: unknown) => showFailure(e, s.errors.failed.switchProfile));
 }
 
 export function ProfileSwitcher() {

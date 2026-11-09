@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import { StickyNote } from "lucide-react";
 import type { TransactionRow } from "@shared/types";
 import { s } from "@/strings";
+import { showFailure } from "@/lib/failure";
 import { cn } from "@/lib/utils";
-import { ApiError } from "@/lib/api";
 import { useUpdateTransactions } from "@/lib/hooks";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -55,7 +55,7 @@ function NoteBox({ row, onDone }: { row: TransactionRow; onDone: () => void }) {
           toast.success(note ? s.note.saved : s.note.cleared);
           onDone();
         },
-        onError: (e) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody),
+        onError: (e) => showFailure(e, s.errors.failed.note),
       },
     );
   const save = () => send(text.trim() || null);

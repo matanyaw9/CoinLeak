@@ -8,12 +8,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Account, CardMode, TransactionRow } from "@shared/types";
 import { s } from "@/strings";
-import { ApiError, call } from "./api";
+import { showFailure } from "@/lib/failure";
+import { call } from "./api";
 import { refreshLedger } from "./hooks";
 import { answerCardBill, deleteGone, switchCardMode, type InternalChoice } from "./review";
 import { restoreRows, setIgnored, trashRows } from "./review-rows";
 
-const failed = (e: unknown) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody);
+const failed = (e: unknown) => showFailure(e, s.errors.failed.update);
 
 function answeredText(internal: InternalChoice): { title: string; description?: string } {
   const a = s.review.answered;

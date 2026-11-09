@@ -7,7 +7,8 @@ import { CreditCard, Landmark, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { Account, ProviderId } from "@shared/types";
 import { s } from "@/strings";
-import { ApiError, call } from "@/lib/api";
+import { showFailure } from "@/lib/failure";
+import { call } from "@/lib/api";
 import { useSync } from "@/lib/sync";
 import { useAccounts } from "@/lib/hooks";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ export function useSetSyncing() {
   return useMutation({
     mutationFn: (args: { ids: number[]; enabled: boolean }) => call("accounts:setSyncing", args),
     onSettled: () => client.invalidateQueries({ queryKey: ["accounts:list"] }),
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody),
+    onError: (e) => showFailure(e, s.errors.failed.syncing),
   });
 }
 

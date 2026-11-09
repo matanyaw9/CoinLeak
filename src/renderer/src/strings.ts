@@ -275,8 +275,24 @@ export const s = {
     notFoundTitle: "Page not found",
     notFoundBody: "That page does not exist. Let's go home.",
     crashTitle: "Something went wrong",
-    crashBody: "This screen hit a problem. Your data is safe.",
+    crashBody: "CoinLeak couldn't show this screen. Go home and try again.",
     goHome: "Go home",
+    // What failed, said plainly. Shown when the app gives no coded reason.
+    loadFailed: "Failed to load this.",
+    tryAgain: "Try again. If it keeps happening, restart CoinLeak.",
+    failed: {
+      addCash: "Failed to add the transaction.",
+      editCash: "Failed to save the transaction.",
+      note: "Failed to save the note.",
+      update: "Failed to change the transactions.",
+      profiles: "Failed to change the profile.",
+      switchProfile: "Failed to switch profiles.",
+      syncing: "Failed to change which accounts sync.",
+      sync: "The sync failed.",
+      banksList: "Failed to save your list of banks.",
+      rules: "Failed to change the rules.",
+      categories: "Failed to change the categories.",
+    },
   },
 
   rules: {

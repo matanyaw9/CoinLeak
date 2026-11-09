@@ -13,8 +13,8 @@ import { toast } from "sonner";
 import { ArrowLeftRight, CircleCheck, Eye, EyeOff, ListPlus, Pencil, Plus, Search, SearchX, StickyNote, Trash2, WandSparkles } from "lucide-react";
 import type { Category, TransactionFilter, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
+import { showFailure } from "@/lib/failure";
 import { cn } from "@/lib/utils";
-import { ApiError } from "@/lib/api";
 import {
   useAccounts,
   useCategories,
@@ -56,7 +56,7 @@ const NONE = new Set<number>();
 // The offer's X sits inside the top right corner, not on sonner's outer edge.
 const OFFER_CLOSE =
   "!left-auto !right-2 !top-2 !size-6 !transform-none !border-0 !bg-transparent !text-muted-foreground hover:!bg-accent hover:!text-foreground [&>svg]:!size-3.5";
-const failed = (e: unknown) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody);
+const failed = (e: unknown) => showFailure(e, s.errors.failed.update);
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);

@@ -7,11 +7,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Category, Rule, RuleInput } from "@shared/types";
 import { s } from "@/strings";
-import { ApiError, call } from "./api";
+import { showFailure } from "@/lib/failure";
+import { call } from "./api";
 import { refreshRules } from "./hooks";
 import { restoreRule, toInput } from "./rules";
 
-const failed = (e: unknown) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody);
+const failed = (e: unknown) => showFailure(e, s.errors.failed.rules);
 const LIST = ["rules:list"];
 
 export function useRuleActions() {

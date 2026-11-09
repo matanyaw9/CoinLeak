@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import type { TransactionRow } from "@shared/types";
 import { s } from "@/strings";
+import { showFailure } from "@/lib/failure";
 import { cn } from "@/lib/utils";
-import { ApiError } from "@/lib/api";
 import { toIsoDate } from "@/lib/month";
 import { pathOf, type CategoryIndex } from "@/lib/categories";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -61,7 +61,7 @@ function Form({ row, index, onDone }: { row: TransactionRow | null; index: Categ
           toast.success(row ? s.cash.updated : s.cash.added);
           onDone();
         },
-        onError: (err) => toast.error(err instanceof ApiError ? err.message : s.errors.crashBody),
+        onError: (err) => showFailure(err, row ? s.errors.failed.editCash : s.errors.failed.addCash),
       },
     );
   };

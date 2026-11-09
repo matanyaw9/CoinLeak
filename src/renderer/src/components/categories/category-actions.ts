@@ -2,10 +2,10 @@
 // kinds the editor offers and the friendly text for each refusal code.
 
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import type { CategoryChange, CategoryDeleteResult, CategoryInput, CategoryKind, CategoryPatch } from "@shared/types";
 import { s } from "@/strings";
-import { ApiError, call } from "@/lib/api";
+import { showFailure } from "@/lib/failure";
+import { call } from "@/lib/api";
 import { refreshRules } from "@/lib/hooks";
 
 // Every kind of `CategoryKind`, and whether the editor offers it. A new kind
@@ -16,7 +16,7 @@ export const KINDS = (Object.keys(KIND_OFFERED) as CategoryKind[]).filter((k) =>
 export const kindLabel = (kind: CategoryKind): string => s.catEdit.kinds[kind] ?? kind;
 
 /** Friendly text for a refusal code; a code we do not know gets a generic line. */
-export const problemText = (problem: string): string => s.catEdit.problem[problem] ?? s.errors.crashBody;
+export const problemText = (problem: string): string => s.catEdit.problem[problem] ?? s.errors.failed.categories;
 
 /** Moving or deleting a category changes totals per group and can move rules. */
 function refreshAll(client: QueryClient): Promise<void> {
@@ -27,7 +27,7 @@ function refreshAll(client: QueryClient): Promise<void> {
   ]).then(() => undefined);
 }
 
-const showError = (e: unknown) => toast.error(e instanceof ApiError ? e.message : s.errors.crashBody);
+const showError = (e: unknown) => showFailure(e, s.errors.failed.categories);
 
 export function useCategoryActions() {
   const client = useQueryClient();

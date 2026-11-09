@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { FlaskConical, Plus } from "lucide-react";
 import type { Profile } from "@shared/types";
 import { s } from "@/strings";
-import { ApiError, call } from "@/lib/api";
+import { showFailure } from "@/lib/failure";
+import { call } from "@/lib/api";
 import { Card, Label } from "@/components/common/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -20,7 +21,7 @@ type Open = { kind: "add" } | { kind: "rename"; profile: Profile } | { kind: "de
 const p = s.profiles;
 
 function showError(e: unknown): void {
-  toast.error(e instanceof ApiError ? e.message : s.errors.crashBody);
+  showFailure(e, s.errors.failed.profiles);
 }
 
 export function ProfilesSection() {

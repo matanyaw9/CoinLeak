@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ProviderId, SyncStage } from "@shared/types";
 import { s } from "@/strings";
+import { showFailure } from "@/lib/failure";
 import { loadAddedProviders, type AddedStore } from "@/components/sync/added-providers";
 import { IDLE, elapsedMs, formatElapsed, onClock, ticking, type ClockEvent, type SyncClock } from "@/components/sync/sync-clock";
 import { ApiError, call, listen } from "./api";
@@ -46,7 +47,7 @@ function legacyStorage(): Storage | null {
 }
 
 function saveAdded(list: ProviderId[]): void {
-  addedStore.set(list).catch(() => toast.error(s.errors.crashBody));
+  addedStore.set(list).catch((e: unknown) => showFailure(e, s.errors.failed.banksList));
 }
 
 const SyncContext = createContext<SyncState | null>(null);
@@ -98,7 +99,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         })
         .catch((e: unknown) => {
           if (e instanceof ApiError && e.code === "LOGIN_CANCELLED") toast(e.message);
-          else toast.error(e instanceof ApiError ? e.message : s.errors.crashBody);
+          else showFailure(e, s.errors.failed.sync);
         })
         .finally(() => {
           active.current = false;

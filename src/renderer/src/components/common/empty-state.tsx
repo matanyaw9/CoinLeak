@@ -59,7 +59,7 @@ export function QueryError({ error, compact, className }: { error: unknown; comp
       compact={compact}
       className={className}
       title={s.empty.errorTitle}
-      body={error instanceof ApiError ? error.message : s.errors.crashBody}
+      body={error instanceof ApiError ? error.message : `${s.errors.loadFailed} ${s.errors.tryAgain}`}
     />
   );
 }
