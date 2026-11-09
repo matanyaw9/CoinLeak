@@ -23,7 +23,7 @@ import {
   updateCategory,
   updateTransactions,
 } from "@core/ledger";
-import { groupFlow, periodCurves, periodFlow, periodSummary, periodTrend } from "@core/ledger";
+import { groupFlow, periodCurves, periodFlow, periodSummary, periodTrend, thisMonth } from "@core/ledger";
 import {
   addKnownPlace,
   addStarters,
@@ -99,6 +99,7 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "summary:groupFlow": (args) => groupFlow(getDb(), args),
     "summary:periodTrend": (args) => periodTrend(getDb(), args),
     "summary:periodCurves": (args) => periodCurves(getDb(), args),
+    "summary:thisMonth": () => thisMonth(getDb()),
     "sync:start": ({ provider }) => {
       // The Demo profile holds made-up data and never talks to a bank.
       if (currentProfile(readProfiles(dataDir)).demo) throw new CodedError("BAD_REQUEST");

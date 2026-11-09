@@ -1,7 +1,9 @@
-// Month by month: the months the period covers (at least three) as bars
-// stacked by top-level category (spec 16). Ticking categories (in the list,
-// or by clicking a bar segment or legend name) shows only theirs, stacked,
-// with a clear way back. Core sends one series per ticked category.
+// Month by month: the months the period covers (at least three) as stacked
+// bars (specs 16 and 22). Under All they split into essential, extra and
+// neither, or by top-level category; under Essentials or Extras, by category
+// with core's filter. Ticking categories (in the list, or by clicking a bar
+// segment or legend name) shows only theirs, with a clear way back. Pointing
+// at a segment or a legend name lights that series in every bar (F60).
 
 import { useEffect, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarShapeProps } from "recharts";
@@ -16,59 +18,101 @@ import { useShot } from "@/lib/shot";
 import { Card, CardHeader } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
 import { Money } from "@/components/common/money";
+import { Segmented } from "@/components/common/segmented";
 import { Button } from "@/components/ui/button";
 import { chartAnimation, ChartTooltip } from "@/components/charts/chart-tooltip";
 import { TrendCategoryPicker } from "./trend-category-picker";
 import { toggleTick, type TrendTicks } from "./trend-filter";
 import { usePeriodTrend } from "./period-data";
+import type { SpendingFilter } from "./spending-filter";
 
 type Row = { month: IsoMonth; label: string; total: number; top?: string } & Record<string, number | string | undefined>;
+type View = "split" | "groups";
 
 const MAX_SERIES = 6;
+
+/** The three parts of all spending under the split view, keyed like core's `split`. */
+const SPLIT: Slice[] = [
+  { key: "essential", categoryId: undefined, name: s.essentials.essential, emoji: null, color: "var(--chart-5)", amount: 0 },
+  { key: "extra", categoryId: undefined, name: s.essentials.extra, emoji: null, color: "var(--chart-2)", amount: 0 },
+  { key: "untagged", categoryId: null, name: s.essentials.untaggedName, emoji: null, color: UNCATEGORIZED_COLOR, amount: 0 },
+];
 
 export function TrendCard({
   range,
   index,
+  filter,
+  onFilter,
   onOpen,
 }: {
   range: DateRange;
   index: CategoryIndex;
+  filter: SpendingFilter;
+  onFilter: (filter: SpendingFilter) => void;
   onOpen: (slice: Slice, month: IsoMonth) => void;
 }) {
   const shot = useShot();
   const [ticks, setTicks] = useState<TrendTicks>(() => (shot === "trend-some" || shot === "trend-picker" ? firstGroups(index, 2) : []));
+  const [view, setView] = useState<View>(shot === "trend-hover" ? "groups" : "split");
   const [hover, setHover] = useState<number | null>(null);
+  // The series under the pointer; demo screenshots (`?shot=trend-hover`) light the first group.
+  const [lit, setLit] = useState<string | null>(shot === "trend-hover" ? String(firstGroups(index, 1)[0]) : null);
   const box = useRef<HTMLDivElement>(null);
   // Demo screenshots: `?shot=trend...` scroll here.
   useEffect(() => {
     if (shot?.startsWith("trend")) box.current?.scrollIntoView({ block: "center" });
   }, [shot]);
-  const trend = usePeriodTrend(range, ticks);
+  const trend = usePeriodTrend(range, ticks, filter);
   const points = trend.data ?? [];
   const inPeriod = (m: IsoMonth) => m >= monthOf(range.from) && m <= monthOf(range.to);
 
   const filtered = ticks.length > 0;
+  const canSplit = filter === "all" && !filtered;
+  const split = canSplit && view === "split";
   const toggle = (id: number | null) => setTicks((t) => toggleTick(t, id, index));
-  const series = filtered ? ticks.map((id) => sliceOf(index, id)) : topGroups(index, points);
-  const data = points.map((t) => rowOf(t, series, filtered, index));
+  const series = split ? SPLIT : filtered ? ticks.map((id) => sliceOf(index, id)) : topGroups(index, points);
+  const data = points.map((t) => rowOf(t, series, split, filtered, index));
 
   const focus = hover != null ? data[hover] : (data.findLast((d) => inPeriod(d.month)) ?? data.at(-1));
   const hasData = points.some((t) => t.spending > 0);
 
-  // Clicking a segment of all spending ticks its group; when filtered, it opens that month's rows.
-  const clickSegment = (x: Slice, month: IsoMonth | undefined) => {
+  /** Essential and extra switch Home's filter; anything else is a category. */
+  const pick = (x: Slice, month: IsoMonth | undefined) => {
+    if (x.key === "essential" || x.key === "extra") return onFilter(x.key);
     if (!month) return;
-    if (filtered || x.categoryId === undefined) onOpen(x, month);
+    if (filtered || split || x.categoryId === undefined) onOpen(x, month);
     else toggle(x.categoryId);
+  };
+  const legendClickable = (x: Slice) => (split ? x.key !== "untagged" : x.categoryId !== undefined);
+  const legendClick = (x: Slice) => {
+    if (split) pick(x, undefined);
+    else if (x.categoryId !== undefined) toggle(x.categoryId);
+  };
+
+  const cellOpacity = (key: string, month: IsoMonth) => {
+    if (lit !== null) return lit === key ? 1 : 0.22;
+    if (hover != null) return data[hover]?.month === month ? 1 : 0.4;
+    return inPeriod(month) ? 1 : 0.55;
   };
 
   return (
     <div ref={box}>
       <Card>
         <CardHeader
-          label={s.periodHome.trendTitle}
+          label={filter === "all" ? s.periodHome.trendTitle : `${s.periodHome.trendTitle} · ${s.essentials[filter]}`}
           action={
             <span className="flex items-center gap-2">
+              {canSplit && (
+                <Segmented<View>
+                  label={s.essentials.viewLabel}
+                  value={view}
+                  onChange={setView}
+                  options={[
+                    { value: "split", label: s.essentials.splitView },
+                    { value: "groups", label: s.essentials.groupView },
+                  ]}
+                />
+              )}
               {filtered && (
                 <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.periodHome.trendBackHint} onClick={() => setTicks([])}>
                   <ArrowLeft />
@@ -105,7 +149,10 @@ export function TrendCard({
                   barCategoryGap="28%"
                   maxBarSize={72}
                   onMouseMove={(st) => setHover(typeof st.activeTooltipIndex === "number" ? st.activeTooltipIndex : null)}
-                  onMouseLeave={() => setHover(null)}
+                  onMouseLeave={() => {
+                    setHover(null);
+                    setLit(null);
+                  }}
                 >
                   <CartesianGrid vertical={false} stroke="var(--border)" />
                   <XAxis
@@ -139,14 +186,22 @@ export function TrendCard({
                       if (!active || !row) return null;
                       const rows = series
                         .map((x) => ({ x, amount: Number(row[x.key] ?? 0) }))
-                        .filter((r) => r.amount > 0)
-                        .sort((a, b) => b.amount - a.amount)
-                        .map(({ x, amount }) => ({ key: x.key, label: x.name, amount, color: x.color, note: percent(amount, row.total) }));
+                        // The split view always names all three parts.
+                        .filter((r) => split || r.amount > 0)
+                        .sort((a, b) => (split ? 0 : b.amount - a.amount))
+                        .map(({ x, amount }) => ({
+                          key: x.key,
+                          label: x.name,
+                          amount,
+                          color: x.color,
+                          note: percent(amount, row.total),
+                          strong: x.key === lit,
+                        }));
                       return (
                         <ChartTooltip
                           title={formatMonth(row.month)}
                           rows={rows}
-                          hint={filtered ? s.periodHome.trendFilterHint : s.periodHome.trendPickHint}
+                          hint={split ? s.essentials.splitHint : filtered ? s.periodHome.trendFilterHint : s.periodHome.trendPickHint}
                         />
                       );
                     }}
@@ -162,14 +217,12 @@ export function TrendCard({
                       )}
                       {...chartAnimation()}
                       className="cursor-pointer"
-                      onClick={(entry: { payload?: Row }) => clickSegment(x, entry.payload?.month)}
+                      onMouseEnter={() => setLit(x.key)}
+                      onMouseLeave={() => setLit(null)}
+                      onClick={(entry: { payload?: Row }) => pick(x, entry.payload?.month)}
                     >
                       {data.map((d) => (
-                        <Cell
-                          key={d.month}
-                          opacity={hover != null ? (data[hover]?.month === d.month ? 1 : 0.4) : inPeriod(d.month) ? 1 : 0.55}
-                          className="transition-opacity"
-                        />
+                        <Cell key={d.month} opacity={cellOpacity(x.key, d.month)} className="transition-opacity" />
                       ))}
                     </Bar>
                   ))}
@@ -181,12 +234,16 @@ export function TrendCard({
                 <button
                   key={x.key}
                   type="button"
-                  disabled={x.categoryId === undefined}
-                  title={x.categoryId === undefined ? undefined : filtered ? s.periodHome.trendUntickHint : s.periodHome.trendPickHint}
-                  onClick={() => x.categoryId !== undefined && toggle(x.categoryId)}
+                  disabled={!legendClickable(x)}
+                  title={!legendClickable(x) ? undefined : split ? s.essentials.splitHint : filtered ? s.periodHome.trendUntickHint : s.periodHome.trendPickHint}
+                  onClick={() => legendClick(x)}
+                  onMouseEnter={() => setLit(x.key)}
+                  onMouseLeave={() => setLit(null)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-colors",
-                    x.categoryId !== undefined && "hover:bg-accent/60 hover:text-foreground",
+                    "flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-[color,background-color,opacity]",
+                    legendClickable(x) && "cursor-pointer hover:bg-accent/60 hover:text-foreground",
+                    lit !== null && lit !== x.key && "opacity-55",
+                    lit === x.key && "bg-accent/60 text-foreground",
                   )}
                 >
                   <span className="size-2.5 rounded-full" style={{ backgroundColor: x.color }} />
@@ -223,13 +280,15 @@ function topGroups(index: CategoryIndex, points: TrendPoint[]): Slice[] {
   return [...groups.slice(0, MAX_SERIES), other];
 }
 
-/** One bar: each series' amount under its key. Core already split the month by series when filtered. */
-function rowOf(t: TrendPoint, series: Slice[], filtered: boolean, index: CategoryIndex): Row {
+/** One bar: each series' amount under its key. Core already split the month by tag, or by series when filtered. */
+function rowOf(t: TrendPoint, series: Slice[], split: boolean, filtered: boolean, index: CategoryIndex): Row {
   const row: Row = { month: t.month, label: formatMonthShort(t.month), total: t.spending };
   const keys = new Set(series.map((x) => x.key));
-  const parts = filtered
-    ? t.byCategory.map((c) => ({ key: c.categoryId === null ? "none" : String(c.categoryId), amount: c.amount }))
-    : groupByRoot(index, t.byCategory);
+  const parts = split
+    ? Object.entries(t.split ?? {}).map(([key, amount]) => ({ key, amount }))
+    : filtered
+      ? t.byCategory.map((c) => ({ key: c.categoryId === null ? "none" : String(c.categoryId), amount: c.amount }))
+      : groupByRoot(index, t.byCategory);
   for (const part of parts) {
     const key = keys.has(part.key) ? part.key : "other";
     row[key] = Number(row[key] ?? 0) + Math.max(0, part.amount);
@@ -239,7 +298,7 @@ function rowOf(t: TrendPoint, series: Slice[], filtered: boolean, index: Categor
   return row;
 }
 
-/** The first spending groups, for the demo screenshot of a filtered chart. */
+/** The first spending groups, for the demo screenshots of a filtered or hovered chart. */
 function firstGroups(index: CategoryIndex, n: number): TrendTicks {
   return index.roots
     .filter((r) => r.kind === "expense")

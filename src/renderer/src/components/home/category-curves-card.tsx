@@ -19,6 +19,7 @@ import { chartAnimation, ChartTooltip, type TooltipRow } from "@/components/char
 import { CurveCategoryPicker } from "./curve-category-picker";
 import { usePeriodCurves } from "./period-data";
 import { axisOf } from "./period-axis";
+import type { SpendingFilter } from "./spending-filter";
 import type { PeriodWords } from "./period-words";
 
 type Mode = "one" | "top";
@@ -31,12 +32,15 @@ export function CategoryCurvesCard({
   choice,
   words,
   summary,
+  filter,
   index,
   onOpen,
 }: {
   choice: PeriodChoice;
   words: PeriodWords;
+  /** Already essentials or extras only when Home says so; the curves follow (spec 22). */
   summary: PeriodSummary;
+  filter: SpendingFilter;
   index: CategoryIndex;
   onOpen: (slice: Slice) => void;
 }) {
@@ -55,7 +59,9 @@ export function CategoryCurvesCard({
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   const ids = mode === "one" ? [chosen ?? null] : top.map((x) => x.categoryId ?? null);
-  const curves = usePeriodCurves(range, ids);
+  const curves = usePeriodCurves(range, ids, filter);
+  // F60: the category under the pointer (a line or a legend name) stands out.
+  const [lit, setLit] = useState<string | null>(null);
   const byId = new Map((curves.data ?? []).map((c) => [c.categoryId, c]));
 
   const chosenCat = chosen === null ? null : (index.byId.get(chosen) ?? null);
@@ -153,9 +159,13 @@ export function CategoryCurvesCard({
                   aria-pressed={!off}
                   title={s.curves.legendHint}
                   onClick={() => toggle(x.key)}
+                  onMouseEnter={() => setLit(off ? null : x.key)}
+                  onMouseLeave={() => setLit(null)}
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-colors hover:bg-accent/60 hover:text-foreground",
                     off && "opacity-45 line-through",
+                    !off && lit !== null && lit !== x.key && "opacity-55",
+                    lit === x.key && "bg-accent/60 text-foreground",
                   )}
                 >
                   <span className="size-2.5 rounded-full" style={{ backgroundColor: x.color }} />
@@ -171,7 +181,7 @@ export function CategoryCurvesCard({
         ) : (
           <div className="-mx-2 min-h-60 flex-1">
             <ResponsiveContainer width="100%" height="100%" minHeight={240}>
-              <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 12 }}>
+              <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 12 }} onMouseLeave={() => setLit(null)}>
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis
                   dataKey="i"
@@ -230,6 +240,8 @@ export function CategoryCurvesCard({
                       dot={endDot(chosenSlice.color)}
                       activeDot={dot(chosenSlice, chosenSlice.color)}
                       connectNulls={false}
+                      className="cursor-pointer"
+                      onClick={() => onOpen(chosenSlice)}
                       {...chartAnimation()}
                     />,
                   ]
@@ -242,10 +254,15 @@ export function CategoryCurvesCard({
                         type="monotone"
                         dataKey={x.key}
                         stroke={x.color}
-                        strokeWidth={2}
+                        strokeWidth={lit === x.key ? 3 : 2}
+                        strokeOpacity={lit !== null && lit !== x.key ? 0.2 : 1}
                         dot={endDot(x.color)}
-                        activeDot={dot(x, x.color)}
+                        activeDot={lit !== null && lit !== x.key ? false : dot(x, x.color)}
                         connectNulls={false}
+                        className="cursor-pointer"
+                        onMouseEnter={() => setLit(x.key)}
+                        onMouseLeave={() => setLit(null)}
+                        onClick={() => onOpen(x)}
                         {...chartAnimation()}
                       />
                     ))

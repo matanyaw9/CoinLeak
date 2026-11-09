@@ -13,6 +13,7 @@ import type {
   CategoryInput,
   CategoryPatch,
   DateRange,
+  EssentialFilter,
   ExclusionState,
   GroupFlow,
   PeriodCurve,
@@ -40,6 +41,7 @@ import type {
   TransactionFilter,
   TransactionPatch,
   TransactionRow,
+  ThisMonth,
   TrendPoint,
 } from "./types";
 import type { Result } from "./errors";
@@ -71,7 +73,8 @@ export interface IpcContract {
   /** Where the month's money came from and went, for the Sankey (spec 14). */
   "summary:flow": { args: { month: IsoMonth }; result: MoneyFlow };
   // ---- spec 16: the same summaries for any range of days ----
-  "summary:period": { args: DateRange; result: PeriodSummary };
+  /** With `essential`, every spending number is essentials or extras only (spec 22). */
+  "summary:period": { args: DateRange & EssentialFilter; result: PeriodSummary };
   /** Spending above income shows as `beyond_income`, never as savings. */
   "summary:periodFlow": { args: DateRange; result: PeriodFlow };
   /** One spending group opened up, for the Sankey drill-down. */
@@ -81,8 +84,13 @@ export interface IpcContract {
    * With `categoryIds`, `byCategory` has one entry per id in that order, each
    * with its subcategories (null: uncategorized), and `spending` is their sum.
    */
-  "summary:periodTrend": { args: DateRange & { categoryIds?: (number | null)[] }; result: TrendPoint[] };
-  "summary:periodCurves": { args: DateRange & { categoryIds: (number | null)[] }; result: PeriodCurve[] };
+  "summary:periodTrend": {
+    args: DateRange & EssentialFilter & { categoryIds?: (number | null)[] };
+    result: TrendPoint[];
+  };
+  "summary:periodCurves": { args: DateRange & EssentialFilter & { categoryIds: (number | null)[] }; result: PeriodCurve[] };
+  /** Money left this calendar month (Israel time) and per day until its end (spec 22). */
+  "summary:thisMonth": { args: undefined; result: ThisMonth };
   "sync:start": { args: { provider: ProviderId }; result: SyncResult };
   "sync:cancel": { args: undefined; result: null };
   /** Rules in evaluation order. Every change below reapplies all rules to all rows. */
@@ -166,6 +174,7 @@ export const CHANNELS = [
   "summary:groupFlow",
   "summary:periodTrend",
   "summary:periodCurves",
+  "summary:thisMonth",
   "sync:start",
   "sync:cancel",
   "rules:list",
