@@ -35,6 +35,14 @@ describe("openDatabase", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM categories WHERE kind = 'transfer'").get()).toEqual({ n: 3 });
   });
 
+  it("overwrites deleted rows: secure_delete is on for a new database file", () => {
+    const dir = mkdtempSync(join(process.env["TMPDIR"] ?? tmpdir(), "coinleak-"));
+    dirs.push(dir);
+    const db = openDatabase(join(dir, "new.db"));
+    expect(db.prepare("PRAGMA secure_delete").get()).toEqual({ secure_delete: 1 });
+    db.close();
+  });
+
   it("creates the file and its folder private to the user", () => {
     if (process.platform === "win32") return;
     const dir = mkdtempSync(join(tmpdir(), "coinleak-"));
