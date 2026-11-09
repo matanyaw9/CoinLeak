@@ -379,7 +379,7 @@ export const s = {
       matches: (n: number) => (n === 0 ? "No matches yet" : `Matches ${plural(n, "transaction", "transactions")}`),
       typeSomething: "Type some text, and the transactions it fits show up here.",
       none: "Nothing fits right now. That's fine: it will sort new ones after a sync.",
-      yours: "Transactions you sorted by hand keep their category.",
+      yours: "Sync and Apply now never change a category you set by hand.",
       newest: (shown: number, all: number) => (shown < all ? `The newest ${shown}` : ""),
       setByYou: "Sorted by you",
       broken: "Fix the pattern to see a preview.",
@@ -623,9 +623,12 @@ export const s = {
       suggestedHint: "From the transactions you picked. Add any that help.",
     },
     handSet: {
-      question: (n: number) =>
-        n === 1 ? "Also change 1 transaction you categorized by hand?" : `Also change ${n} transactions you categorized by hand?`,
-      hint: "You put them in another category. Left unticked, they stay as you set them.",
+      // F45: saving always hands these rows to the rule; the list says so first.
+      willChange: (n: number) =>
+        n === 1
+          ? "This rule will also change 1 transaction you categorized by hand"
+          : `This rule will also change ${n} transactions you categorized by hand`,
+      hint: "You put them in another category. Saving moves them to this rule's category.",
       more: (n: number) => `and ${n} more`,
     },
     saved: (name: string) => `Saved “${name}”`,
@@ -645,7 +648,8 @@ export const s = {
         supermarkets: "Supermarkets",
         cafes: "Cafes",
         restaurants: "Restaurants and delivery",
-        fuel: "Fuel and parking",
+        fuel: "Fuel",
+        parking: "Parking",
         pharmacies: "Pharmacies",
         publicTransport: "Public transport",
         telecom: "Phone and internet",
@@ -782,6 +786,22 @@ export const s = {
     flowGroupTitle: (name: string) => `Inside ${name}`,
     flowGroupEmpty: "Nothing spent here on balance in this period.",
     flowShareOfGroup: (name: string) => `of ${name}`,
+  },
+
+  // spec 18
+  essential: {
+    label: "Essential or extra",
+    hint: "Extras are where a month can be cut",
+    essential: "Essential",
+    extra: "Extra",
+    badge: "Extra",
+    badgeTitle: "Extra spending: where a month can be cut",
+  },
+  syncLive: {
+    working: (provider: string) => `Syncing ${provider}`,
+    keepOpen: "Keep the bank window open. CoinLeak is downloading; this can take a minute or two.",
+    elapsed: (time: string) => `Running for ${time}`,
+    button: (provider: string, stage: string) => `${provider}: ${stage}`,
   },
 };
 

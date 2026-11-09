@@ -66,7 +66,7 @@ export function listAccounts(db: Db): Account[] {
 export function listCategories(db: Db): Category[] {
   const rows = db
     .prepare(
-      `SELECT c.id, c.parent_id, c.name, c.kind, c.emoji, c.color, c.archived,
+      `SELECT c.id, c.parent_id, c.name, c.kind, c.emoji, c.color, c.archived, c.essential,
          (SELECT COUNT(*) FROM transactions t WHERE t.category_id = c.id) AS row_count,
          (SELECT COUNT(*) FROM rules r WHERE r.set_category_id = c.id) AS rule_count
        FROM categories c
@@ -82,6 +82,7 @@ export function listCategories(db: Db): Category[] {
     emoji: string | null;
     color: string | null;
     archived: number;
+    essential: number | null;
     row_count: number;
     rule_count: number;
   }[];
@@ -95,6 +96,7 @@ export function listCategories(db: Db): Category[] {
     archived: r.archived === 1,
     rowCount: r.row_count,
     ruleCount: r.rule_count,
+    essential: r.essential === null ? null : r.essential === 1,
   }));
 }
 

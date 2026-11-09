@@ -1,46 +1,29 @@
-// "Also change 4 transactions you categorized by hand?" (spec 13, F21): the
-// rows the rule matches that the user put in another category, listed, with
-// a box left unticked. Ticking hands exactly those rows to the rule, once.
+// "This rule will also change 4 transactions you categorized by hand" (F45):
+// the rows the rule matches that the user put in another category, listed
+// before saving. Saving always hands them to the rule; there is no tick box.
 
 import type { TransactionRow } from "@shared/types";
 import { s } from "@/strings";
-import { cn } from "@/lib/utils";
 import type { CategoryIndex } from "@/lib/categories";
 import { formatDayShort } from "@/lib/format";
-import { Checkbox } from "@/components/ui/misc";
 import { CategoryBubble } from "@/components/common/chips";
 import { Money } from "@/components/common/money";
 
 const SHOWN = 6;
 
-export function HandSetPrompt({
-  rows,
-  ticked,
-  onTick,
-  index,
-}: {
-  rows: TransactionRow[];
-  ticked: boolean;
-  onTick: (ticked: boolean) => void;
-  index: CategoryIndex;
-}) {
+/** The ids a save sends as `alsoChange`: every listed row, never a subset. */
+export function handSetIds(rows: TransactionRow[]): number[] {
+  return rows.map((row) => row.id);
+}
+
+export function HandSetList({ rows, index }: { rows: TransactionRow[]; index: CategoryIndex }) {
   const h = s.rulesV2.handSet;
+  if (rows.length === 0) return null;
   return (
-    <div
-      data-hand-set
-      className={cn(
-        "rounded-2xl border px-4 py-3.5 transition-colors",
-        ticked ? "border-primary/40 bg-primary/[0.06]" : "border-status-heads-up/45 bg-status-heads-up/[0.08]",
-      )}
-    >
-      <label className="flex cursor-pointer items-start gap-3">
-        <Checkbox className="mt-0.5" checked={ticked} onClick={() => onTick(!ticked)} aria-label={h.question(rows.length)} />
-        <span>
-          <span className="block text-sm font-medium">{h.question(rows.length)}</span>
-          <span className="mt-0.5 block text-xs text-muted-foreground">{h.hint}</span>
-        </span>
-      </label>
-      <ul className="mt-2.5 space-y-0.5 ps-7">
+    <div data-hand-set className="rounded-2xl border border-status-heads-up/45 bg-status-heads-up/[0.08] px-4 py-3.5">
+      <p className="text-sm font-medium">{h.willChange(rows.length)}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{h.hint}</p>
+      <ul className="mt-2.5 space-y-0.5">
         {rows.slice(0, SHOWN).map((row) => {
           const category = row.categoryId != null ? index.byId.get(row.categoryId) : undefined;
           return (
@@ -57,7 +40,7 @@ export function HandSetPrompt({
           );
         })}
       </ul>
-      {rows.length > SHOWN && <p className="mt-1 ps-7 text-xs text-muted-foreground">{h.more(rows.length - SHOWN)}</p>}
+      {rows.length > SHOWN && <p className="mt-1 text-xs text-muted-foreground">{h.more(rows.length - SHOWN)}</p>}
     </div>
   );
 }

@@ -94,6 +94,9 @@ export interface Category {
   rowCount?: number;
   /** Rules whose action sets it (spec 15). Set by core. */
   ruleCount?: number;
+  /** Spending subcategories: true essential, false extra (spec 18). Null for
+   *  groups, income and transfer categories. Set by core. */
+  essential?: boolean | null;
 }
 
 export interface TransactionRow {
@@ -408,6 +411,8 @@ export interface CategoryInput {
   emoji: string | null;
   /** `#RRGGBB`. */
   color: string | null;
+  /** Spending subcategories only (spec 18); left out means essential. */
+  essential?: boolean;
 }
 
 /** Fields left out stay as they are. The kind never changes after creation. */
@@ -416,6 +421,8 @@ export interface CategoryPatch {
   emoji?: string | null;
   color?: string | null;
   parentId?: number | null;
+  /** Spending subcategories only (spec 18). */
+  essential?: boolean;
 }
 
 /**

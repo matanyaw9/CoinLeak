@@ -39,6 +39,7 @@ describe("starter lists", () => {
       "cafes",
       "restaurants",
       "fuel",
+      "parking",
       "publicTransport",
       "pharmacies",
       "telecom",
@@ -71,7 +72,7 @@ describe("starter lists", () => {
     db.prepare("UPDATE categories SET name = 'Cafes' WHERE name = 'Coffee & Cafes'").run();
     db.prepare("UPDATE categories SET archived = 1 WHERE name = 'Subscriptions'").run();
     db.prepare("DELETE FROM categories WHERE name = 'Health'").run();
-    expect(keys(db)).toEqual(["supermarkets", "restaurants", "fuel", "publicTransport", "telecom"]);
+    expect(keys(db)).toEqual(["supermarkets", "restaurants", "fuel", "parking", "publicTransport", "telecom"]);
     addStarters(db, { keys: ["cafes", "streaming", "pharmacies"] });
     expect(listRules(db)).toEqual([]);
   });
@@ -130,12 +131,17 @@ describe("starter lists", () => {
     expect(keys(db)).not.toContain("cafes");
   });
 
-  it("merge two lists of one category into one list rule", () => {
+  it("sort fuel into Fuel and parking into Parking (spec 18)", () => {
     const db = ledger();
-    expect(addStarters(db, { keys: ["fuel", "publicTransport"] }).rules).toBe(1);
-    const rules = listRules(db);
-    expect(rules).toHaveLength(1);
-    expect(rules[0]?.setCategoryId).toBe(categoryId(db, "Transport"));
+    const preview = starterPreview(db).lists;
+    expect(preview.find((l) => l.key === "fuel")?.categoryId).toBe(categoryId(db, "Fuel"));
+    expect(preview.find((l) => l.key === "parking")?.categoryId).toBe(categoryId(db, "Parking"));
+    expect(addStarters(db, { keys: ["fuel", "parking"] }).rules).toBe(2);
+    expect(listRules(db).map((r) => r.setCategoryId)).toEqual([categoryId(db, "Fuel"), categoryId(db, "Parking")]);
+    // Parking apps belong to the parking list only.
+    const transit = STARTER_LISTS.find((l) => l.key === "publicTransport")?.names ?? [];
+    expect(transit).not.toContain("Pango");
+    expect(transit).not.toContain("Cellopark");
   });
 
   it("reject malformed keys", () => {
