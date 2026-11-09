@@ -9,6 +9,7 @@ import type { Account, ProviderId } from "@shared/types";
 import { s } from "@/strings";
 import { showFailure } from "@/lib/failure";
 import { call } from "@/lib/api";
+import { refreshAccounts } from "@/lib/query-keys";
 import { useSync } from "@/lib/sync";
 import { useAccounts } from "@/lib/hooks";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ export function useSetSyncing() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (args: { ids: number[]; enabled: boolean }) => call("accounts:setSyncing", args),
-    onSettled: () => client.invalidateQueries({ queryKey: ["accounts:list"] }),
+    onSettled: () => refreshAccounts(client),
     onError: (e) => showFailure(e, s.errors.failed.syncing),
   });
 }

@@ -10,7 +10,7 @@ import type { Account, CardMode, TransactionRow } from "@shared/types";
 import { s } from "@/strings";
 import { showFailure } from "@/lib/failure";
 import { call } from "./api";
-import { refreshLedger } from "./hooks";
+import { refreshLedger } from "./query-keys";
 import { answerCardBill, deleteGone, switchCardMode, type InternalChoice } from "./review";
 import { restoreRows, setIgnored, trashRows } from "./review-rows";
 

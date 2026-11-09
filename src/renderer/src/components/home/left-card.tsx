@@ -9,7 +9,7 @@ import { TriangleAlert } from "lucide-react";
 import type { ThisMonth } from "@shared/types";
 import { s } from "@/strings";
 import { call } from "@/lib/api";
-import { refreshLedger } from "@/lib/hooks";
+import { refreshLedger } from "@/lib/query-keys";
 import { ils } from "@/lib/format";
 import { Card, Label } from "@/components/common/card";
 

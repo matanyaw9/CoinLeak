@@ -11,7 +11,8 @@ export const queryKey = <C extends Channel>(channel: C, args?: Args<C>): unknown
 /**
  * A row changed (edit, sync, trash, cash, card bill): every money view, plus
  * the views that count rows: categories (row counts), rules ("Also fits N",
- * the preview, starter lists), the cash wallet and the money accounts.
+ * the preview, starter lists), the cash wallet, and the money accounts
+ * with their balance checks.
  */
 export const LEDGER_VIEWS: Channel[] = [
   "transactions:list",
@@ -27,6 +28,7 @@ export const LEDGER_VIEWS: Channel[] = [
   "rules:starters",
   "cash:wallet",
   "accounts:list",
+  "accounts:balanceChecks",
 ];
 
 /** A rule changed: every rule is reapplied to every row, so the ledger views too. */
@@ -36,7 +38,7 @@ export const RULE_VIEWS: Channel[] = ["rules:knownPlaces", ...LEDGER_VIEWS];
 export const CATEGORY_VIEWS: Channel[] = RULE_VIEWS;
 
 /** A money account was removed from syncing or added back: rows stay and count. */
-export const ACCOUNT_VIEWS: Channel[] = ["accounts:list", "cash:wallet"];
+export const ACCOUNT_VIEWS: Channel[] = ["accounts:list", "accounts:balanceChecks", "cash:wallet"];
 
 function refresh(client: QueryClient, channels: Channel[]): Promise<void> {
   return Promise.all(channels.map((c) => client.invalidateQueries({ queryKey: [c] }))).then(() => undefined);

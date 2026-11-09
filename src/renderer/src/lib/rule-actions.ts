@@ -9,11 +9,11 @@ import type { Category, Rule, RuleInput } from "@shared/types";
 import { s } from "@/strings";
 import { showFailure } from "@/lib/failure";
 import { call } from "./api";
-import { refreshRules } from "./hooks";
+import { queryKey, refreshRules } from "./query-keys";
 import { restoreRule, toInput } from "./rules";
 
 const failed = (e: unknown) => showFailure(e, s.errors.failed.rules);
-const LIST = ["rules:list"];
+const LIST = queryKey("rules:list");
 
 export function useRuleActions() {
   const client = useQueryClient();
@@ -115,7 +115,7 @@ export function useRuleActions() {
 
 /** The starter lists on offer and what they would sort. Saves nothing. */
 export const useStarters = (enabled = true) =>
-  useQuery({ queryKey: ["rules:starters"], queryFn: () => call("rules:starters", undefined), enabled, staleTime: 0 });
+  useQuery({ queryKey: queryKey("rules:starters"), queryFn: () => call("rules:starters", undefined), enabled, staleTime: 0 });
 
 export function useAddStarters() {
   const client = useQueryClient();

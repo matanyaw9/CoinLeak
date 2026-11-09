@@ -1,19 +1,18 @@
-// Query hooks for the channels many screens read. Keys and what to refresh
-// after a change live in query-keys.ts; screens with their own queries
-// (Home's charts, rules, the cash wallet) build keys there too.
+// Query hooks for the channels many screens read. Keys, and what to refresh
+// after each kind of change, live in query-keys.ts.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RuleInput, TransactionFilter, TransactionPatch } from "@shared/types";
 import { call } from "./api";
 import { queryKey, refreshLedger } from "./query-keys";
 
-// Kept for callers that still import these from here.
-export { refreshLedger, refreshRules } from "./query-keys";
-
 export const useAppInfo = () => useQuery({ queryKey: queryKey("app:info"), queryFn: () => call("app:info", undefined) });
 
 export const useAccounts = () =>
   useQuery({ queryKey: queryKey("accounts:list"), queryFn: () => call("accounts:list", undefined) });
+
+/** The profile's cash wallet, or null before the first cash row. */
+export const useCashWallet = () => useQuery({ queryKey: queryKey("cash:wallet"), queryFn: () => call("cash:wallet", undefined) });
 
 /**
  * True when no account has been synced yet, so screens greet instead of
