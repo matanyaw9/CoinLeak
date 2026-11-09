@@ -58,6 +58,13 @@ Read first: `AGENTS.md`, `REQUIREMENTS.md` sections 4 and 7,
    - Under Essentials or Extras, a small line says how much spending is
      untagged or uncategorized and links to it on Transactions.
    - The money flow (Sankey) is not filtered; leave it as is.
+3. **Hover highlights what a click will do (F60).** On every Home chart,
+   hovering a clickable category (a bar segment, a donut slice, a curve, a
+   legend entry, a Sankey stream) highlights that category in the chart:
+   the others fade, and its parts in every bar light up together. The
+   pointer becomes a hand. Leaving the chart restores it. Owner,
+   2026-11-09: clicking a bar segment filters to that category, so the
+   hover should show which category that is.
 
 ## Tests (definition of done)
 
