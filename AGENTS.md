@@ -21,8 +21,10 @@ what it says, prove it with the tests it lists, stop at its boundary.
   and renders; it never computes totals or holds rules.
 - **Never silently drop or hide spending.** Every automatic decision
   (card-bill match, rule, status change) is visible and reversible.
-- **User edits win.** Category set by the user, notes and exclusions are
-  never overwritten by sync or rules unless the user explicitly asks.
+- **User edits win, except for rules the user saves.** Notes and exclusions
+  set by the user are never overwritten. A category set by hand is never
+  changed by sync; a rule the user saves also changes matching hand-set
+  rows (owner, F45), and the editor lists those rows before saving.
 - **Do not weaken the window security** in `src/main/security.ts`,
   `policy.ts`, `protocol.ts`, or the `webPreferences` in `src/main/index.ts`.
   Their tests must keep passing.
@@ -44,6 +46,13 @@ screenshots and look at them (see "Working in the sandbox").
 Commands run inside Claude Code's sandbox. To never wait on a permission
 prompt:
 
+- **No `cd` prefixes:** never start a command with `cd <dir>;` or
+  `cd <dir> &&`. The shell already starts in your working directory. Use
+  paths relative to it, absolute paths, or `git -C <dir>` and
+  `npm --prefix <dir>`. A leading `cd` makes every command ask the owner.
+- **No inline scripts:** do not run `python3 - <<EOF` or `node -e` to edit
+  files. Use the Edit tool, or `sed -i` for one-line changes. Inline
+  scripts also make the command ask the owner.
 - **Dependencies:** in a fresh worktree, do not run `npm ci`. Link the main
   checkout's packages instead:
   `ln -s /home/matanya/Projects/CoinLeak/node_modules node_modules`.
@@ -72,6 +81,10 @@ prompt:
 
 ## Code style
 
+- **Simple first.** Write code a new human developer can read, understand
+  and fix on the first pass: plain functions, clear names, no clever
+  abstractions, no generic frameworks for one use. When two designs work,
+  pick the one with fewer moving parts.
 - Short, readable modules. Each file starts with a 1 to 3 line comment on
   what it owns. No doc comments unless the logic is surprising.
 - TypeScript strict. No `any` without a comment saying why.
