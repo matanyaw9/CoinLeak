@@ -138,7 +138,8 @@ interface LedgerRow {
 /**
  * Newest first unless `sort` says otherwise (spec 17). Empty arrays in the
  * filter mean "no constraint". A parent
- * category id also matches its children; `null` matches uncategorized rows.
+ * category id also matches its children; `null` matches the rows Needs review
+ * calls uncategorized (spending or income with no category).
  * Trashed rows show only when `flows` asks for them.
  */
 export function listTransactions(db: Db, filter: TransactionFilter = {}): TransactionRow[] {
@@ -170,7 +171,7 @@ export function listTransactions(db: Db, filter: TransactionFilter = {}): Transa
   if (filter.categoryIds?.length) {
     const ids = filter.categoryIds.filter(isId);
     const parts: string[] = [];
-    if (filter.categoryIds.includes(null)) parts.push("ledger.category_id IS NULL");
+    if (filter.categoryIds.includes(null)) parts.push("ledger.flag_uncategorized");
     if (ids.length) {
       parts.push(`ledger.category_id IN (${marks(ids.length)}) OR ledger.category_parent_id IN (${marks(ids.length)})`);
       params.push(...ids, ...ids);

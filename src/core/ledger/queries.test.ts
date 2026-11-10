@@ -199,14 +199,18 @@ describe("listTransactions", () => {
   });
 
   it("filters by category: a parent includes its children, null is uncategorized", () => {
-    expect(names({ categoryIds: [null] })).toEqual(["מתנה לחבר", "ישראכרט 9999", "חיוב לכרטיס ויזה 4321"]);
+    // Uncategorized uses the Needs review rule: counted rows with no category,
+    // so an ignored row or a move between own accounts is not in it.
+    expect(names({ categoryIds: [null] })).toEqual(["ישראכרט 9999"]);
+    const review = listTransactions(db, { needsReview: true }).filter((r) => r.flags.includes("uncategorized"));
+    expect(listTransactions(db, { categoryIds: [null] }).map((r) => r.id)).toEqual(review.map((r) => r.id));
     expect(names({ categoryIds: [categoryId(db, "Food")] })).toEqual([
       "מסעדה",
       "סופר שכונתי",
       "קפה הפינה",
       "סופר שכונתי",
     ]);
-    expect(listTransactions(db, { categoryIds: [categoryId(db, "Groceries"), null] })).toHaveLength(5);
+    expect(listTransactions(db, { categoryIds: [categoryId(db, "Groceries"), null] })).toHaveLength(3);
   });
 
   it("filters by flow and by needing review", () => {
@@ -325,7 +329,7 @@ describe("listTransactions", () => {
     expect(names({ search: "סופר", pending: true })).toEqual([]);
     expect(names({ search: "9999", needsReview: true })).toEqual(["ישראכרט 9999"]);
     expect(names({ search: "חיוב", hideInternal: true })).toEqual([]);
-    expect(names({ search: "מתנה", flows: ["excluded"], categoryIds: [null], accountIds: [card4321], sort: "name" })).toEqual([
+    expect(names({ search: "מתנה", flows: ["excluded"], accountIds: [card4321], sort: "name" })).toEqual([
       "מתנה לחבר",
     ]);
   });
