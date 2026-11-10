@@ -9,13 +9,29 @@ Status: early development. See `REQUIREMENTS.md` for the plan.
 
 ## Run it (developers)
 
+You need Node 22.13 or newer (the database uses `node:sqlite`) and, for
+syncing, a system Chrome, Chromium or Edge: the sync opens your installed
+browser so you log in to the bank yourself.
+
 ```bash
 npm ci
 npm run setup      # downloads the Electron binary (install scripts are off)
 npm run dev
 ```
 
-`npm run check` runs types, lint, tests and the build.
+`npm run check` runs types, lint, tests and the build. After pulling new
+code, stop `npm run dev` and start it again: a running dev window keeps
+the old main process and database code.
+
+## Where to start reading
+
+1. `REQUIREMENTS.md`: what and why, the money model (section 4) and the
+   layers (section 7).
+2. `docs/ARCHITECTURE.md`: the path of a request, adding a channel, flows
+   and `LEDGER_SQL`, migrations, the Demo profile and screenshots.
+3. `AGENTS.md`: the rules every change follows.
+4. `docs/STATUS.md`: where the project stands now.
+5. `docs/specs/`: one spec per piece of work, newest last.
 
 ### Linux dock icon
 
