@@ -193,3 +193,14 @@ Nothing open.
   rows the older balance already counted show too.
 - `useBalanceChecks` lives in `components/accounts/balance-check.tsx`;
   move it next to the other query hooks after spec 25.
+
+## From spec 25
+
+- The trend card and the donut still sum `byParent` across months to pick
+  their top groups and fold the rest into "Other".
+- `monthSummary`, `trend` and `MonthSummary` stay in core as test helpers;
+  no channel reaches them.
+- A failed save of `homeSpendingFilter` is silent (the choice still shows
+  for the session).
+- REQUIREMENTS section 4 glossary lists fewer flows than exist;
+  `docs/ARCHITECTURE.md` has all 8.
