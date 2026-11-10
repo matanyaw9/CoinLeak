@@ -13,7 +13,8 @@ import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { call } from "@/lib/api";
 import { indexCategories } from "@/lib/categories";
-import { refreshRules, useCategories, useRules } from "@/lib/hooks";
+import { useCategories, useRules } from "@/lib/hooks";
+import { refreshRules } from "@/lib/query-keys";
 import { useRuleActions, useStarters } from "@/lib/rule-actions";
 import { moveId, placeAfterMove } from "@/lib/rules";
 import { useShot } from "@/lib/shot";
@@ -282,7 +283,7 @@ function useDemoShot(
         }, 1500);
       }
       if (shot === "suggest") {
-        void call("transactions:list", { search: "שופרסל" }).then(async (rows) => {
+        void call("transactions:list", { search: "שופרסל" }).then(async ({ rows }) => {
           const picked = [...new Map(rows.map((r) => [r.description, r.id])).values()];
           openEditor({ draft: await call("rules:suggest", { ids: picked }), optIn: true });
         });

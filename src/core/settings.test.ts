@@ -6,7 +6,7 @@ import { SETTING_KEYS, getSetting, setSetting } from "./settings";
 
 describe("settings", () => {
   it("knows a fixed list of keys", () => {
-    expect(SETTING_KEYS).toEqual(["addedProviders", "syncFrom"]);
+    expect(SETTING_KEYS).toEqual(["addedProviders", "syncFrom", "homeSpendingFilter"]);
   });
 
   it("returns the default until set, then the saved value", () => {
@@ -68,5 +68,16 @@ describe("syncFrom (spec 23)", () => {
       expect(() => setSetting(db, { key: "syncFrom", value } as SettingEntry)).toThrow(CodedError);
     }
     expect(getSetting(db, "syncFrom")).toBe("max");
+  });
+
+  it("keeps Home's spending filter: all until set, only the three choices", () => {
+    const db = newDb();
+    expect(getSetting(db, "homeSpendingFilter")).toBe("all");
+    setSetting(db, { key: "homeSpendingFilter", value: "extra" });
+    expect(getSetting(db, "homeSpendingFilter")).toBe("extra");
+    for (const value of ["Essential", "", null, 1, ["all"]]) {
+      expect(() => setSetting(db, { key: "homeSpendingFilter", value } as SettingEntry)).toThrow(CodedError);
+    }
+    expect(getSetting(db, "homeSpendingFilter")).toBe("extra");
   });
 });

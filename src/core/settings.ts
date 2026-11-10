@@ -22,6 +22,10 @@ const SPECS: { [K in SettingKey]: SettingSpec<K> } = {
     fallback: "max",
     valid: (v): v is AppSettings["syncFrom"] => v === "max" || isSyncStartDay(v),
   },
+  homeSpendingFilter: {
+    fallback: "all",
+    valid: (v): v is AppSettings["homeSpendingFilter"] => v === "all" || v === "essential" || v === "extra",
+  },
 };
 
 const FIRST_SYNC_DAY = "2000-01-01";

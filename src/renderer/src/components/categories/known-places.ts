@@ -4,6 +4,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { KnownPlaces as ChannelPlaces } from "@shared/types";
 import { call } from "@/lib/api";
+import { queryKey } from "@/lib/query-keys";
 
 export interface KnownPlaces {
   categoryId: number;
@@ -21,4 +22,4 @@ export function byCategory(list: ChannelPlaces[]): Map<number, KnownPlaces> {
 }
 
 export const useKnownPlaces = () =>
-  useQuery({ queryKey: ["rules:knownPlaces"], queryFn: async () => byCategory(await call("rules:knownPlaces", undefined)) });
+  useQuery({ queryKey: queryKey("rules:knownPlaces"), queryFn: async () => byCategory(await call("rules:knownPlaces", undefined)) });

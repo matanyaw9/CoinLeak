@@ -6,9 +6,9 @@ import { s } from "@/strings";
 import { Money } from "@/components/common/money";
 import { Skeleton } from "@/components/ui/misc";
 
-export function SummaryBar({ summary, current }: { summary: { income: Agorot; spending: Agorot; transfers: Agorot } | undefined; current: boolean }) {
+export function SummaryBar({ summary, current }: { summary: { income: Agorot; spending: Agorot; left: Agorot } | undefined; current: boolean }) {
   if (!summary) return <Skeleton className="mb-4 h-[76px] w-full rounded-3xl" />;
-  const left = summary.income - summary.spending - summary.transfers;
+  const { left } = summary;
   return (
     <div className="mb-4 grid grid-cols-3 divide-x divide-border rounded-3xl border border-border bg-card py-4 rtl:divide-x-reverse">
       <Stat label={s.home.income}>

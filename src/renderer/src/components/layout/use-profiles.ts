@@ -5,9 +5,10 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Profile } from "@shared/types";
 import { call } from "@/lib/api";
+import { queryKey } from "@/lib/query-keys";
 
 export const useProfiles = () =>
-  useQuery({ queryKey: ["profiles:list"], queryFn: () => call("profiles:list", undefined) });
+  useQuery({ queryKey: queryKey("profiles:list"), queryFn: () => call("profiles:list", undefined) });
 
 export function useCurrentProfile(): Profile | undefined {
   const list = useProfiles().data;

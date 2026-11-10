@@ -102,4 +102,10 @@ describe("list view", () => {
     expect(chips[4]?.remove).toEqual({ ...v, pending: false });
     expect(chipsFor(view("review=1"), index, new Map())).toEqual([]);
   });
+
+  it("names the cash wallet Cash, and filters it by its account id", () => {
+    const v = view("account=7,9");
+    expect(chipsFor(v, index, new Map([[7, account]]), 9).map((c) => c.text)).toEqual(["My card", "Cash"]);
+    expect(toFilter(v, index, { ...month, showBills: false }).accountIds).toEqual([7, 9]);
+  });
 });

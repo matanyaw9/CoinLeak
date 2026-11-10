@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TRANSACTIONS_PATH, findAction, isFindKey, onFind, requestFind, takeFindRequest } from "./find";
+import { isFindKey, onFind, requestFind, takeFindRequest } from "./find";
 
 const key = (patch: Partial<Parameters<typeof isFindKey>[0]>) => ({
   key: "f",
@@ -26,12 +26,6 @@ describe("Ctrl+F", () => {
     expect(isFindKey(key({}), false)).toBe(false);
     expect(isFindKey(key({ ctrlKey: true, shiftKey: true }), false)).toBe(false);
     expect(isFindKey(key({ ctrlKey: true, key: "g" }), false)).toBe(false);
-  });
-
-  it("focuses on Transactions and goes there from Home", () => {
-    expect(findAction(TRANSACTIONS_PATH)).toBe("focus");
-    expect(findAction("/")).toBe("navigate");
-    expect(findAction("/rules")).toBe("navigate");
   });
 
   it("an open Transactions page focuses at once", () => {

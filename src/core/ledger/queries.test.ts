@@ -144,7 +144,7 @@ describe("monthSummary and trend on a hand-built ledger", () => {
 
   it("trend lists the last months oldest first with the same totals", () => {
     expect(trend(db, 3, { now: NOW })).toEqual([
-      { month: "2026-01", income: 0, spending: 0, byCategory: [] },
+      { month: "2026-01", income: 0, spending: 0, byCategory: [], byParent: [] },
       {
         month: "2026-02",
         income: 1400000,
@@ -153,12 +153,14 @@ describe("monthSummary and trend on a hand-built ledger", () => {
           { categoryId: categoryId(db, "Groceries"), amount: 20000 },
           { categoryId: categoryId(db, "Coffee & Cafes"), amount: 5000 },
         ],
+        byParent: [{ categoryId: categoryId(db, "Food"), amount: 25000 }],
       },
       {
         month: "2026-03",
         income: 1500000,
         spending: 509345,
         byCategory: monthSummary(db, "2026-03").byCategory.map(({ categoryId, amount }) => ({ categoryId, amount })),
+        byParent: monthSummary(db, "2026-03").byParent.map(({ categoryId, amount }) => ({ categoryId, amount })),
       },
     ]);
   });

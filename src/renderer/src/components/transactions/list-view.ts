@@ -98,7 +98,12 @@ export interface FilterChip {
 }
 
 /** The active filters, one chip each. Needs review shows in its own switch. */
-export function chipsFor(view: ListView, index: CategoryIndex, accountById: Map<number, Account>): FilterChip[] {
+export function chipsFor(
+  view: ListView,
+  index: CategoryIndex,
+  accountById: Map<number, Account>,
+  walletId: number | null = null,
+): FilterChip[] {
   const chips: FilterChip[] = [];
   for (const id of view.categories) {
     const category = id === null ? null : (index.byId.get(id) ?? null);
@@ -111,7 +116,8 @@ export function chipsFor(view: ListView, index: CategoryIndex, accountById: Map<
   }
   for (const id of view.accounts) {
     const a = accountById.get(id);
-    chips.push({ key: `a${id}`, text: a ? accountLabel(a) : String(id), remove: { ...view, accounts: view.accounts.filter((x) => x !== id) } });
+    const text = id === walletId ? s.cash.chip : a ? accountLabel(a) : String(id);
+    chips.push({ key: `a${id}`, text, remove: { ...view, accounts: view.accounts.filter((x) => x !== id) } });
   }
   for (const flow of view.flows) {
     chips.push({ key: `f${flow}`, text: s.txTools.flows[flow] ?? flow, remove: { ...view, flows: view.flows.filter((x) => x !== flow) } });

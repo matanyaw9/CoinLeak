@@ -19,11 +19,6 @@ export function isFindKey(e: KeyLike, mac: boolean): boolean {
   return mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
 }
 
-/** What the frame does: focus the box here, or go to Transactions first. */
-export function findAction(pathname: string): "focus" | "navigate" {
-  return pathname === TRANSACTIONS_PATH ? "focus" : "navigate";
-}
-
 /** Asks the Transactions page to focus its search box, now or once it opens. */
 export function requestFind(): void {
   waiting = true;

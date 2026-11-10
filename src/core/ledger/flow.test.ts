@@ -194,7 +194,7 @@ describe("flows in the totals", () => {
     expect(after.byCategory).toEqual([{ categoryId: null, amount: 4000, count: 1 }]);
     expect(after.byDay.at(-1)).toEqual({ date: "2026-03-31", amount: 4000 });
     expect(trend(db, 1, { now: NOW })).toEqual([
-      { month: "2026-03", income: 0, spending: 4000, byCategory: [{ categoryId: null, amount: 4000 }] },
+      { month: "2026-03", income: 0, spending: 4000, byCategory: [{ categoryId: null, amount: 4000 }], byParent: [{ categoryId: null, amount: 4000 }] },
     ]);
     expect(listTransactions(db, { flows: ["excluded"] })).toHaveLength(2);
   });

@@ -15,6 +15,7 @@ import type {
   PeriodSummary,
   SeriesBucket,
   SeriesPoint,
+  SpendingComparison,
   ThisMonth,
   TrendPoint,
 } from "@shared/types";
@@ -260,11 +261,13 @@ export function periodSummary(db: Db, args: DateRange & EssentialFilter, opts: {
       ? prevSpending
       : 0;
 
+  const spending = tag === undefined ? t.spending : taggedSpending(db, range.from, until, tag);
+
   return {
     from: range.from,
     to: range.to,
     income: t.income,
-    spending: tag === undefined ? t.spending : taggedSpending(db, range.from, until, tag),
+    spending,
     transfers: t.transfers,
     needsReview: t.needsReview,
     byCategory: spendingByCategory(db, range.from, until, undefined, tag),
@@ -274,7 +277,20 @@ export function periodSummary(db: Db, args: DateRange & EssentialFilter, opts: {
     inProgress,
     previous: { ...before, spending: prevSpending, sameTime, series: prev.series },
     untagged: taggedSpending(db, range.from, until, null),
+    left: t.income - t.spending - t.transfers,
+    comparison: compareSpending(spending, sameTime),
   };
+}
+
+/** Under 2% apart counts as "about the same" on Home. */
+export function compareSpending(spending: Agorot, base: Agorot): SpendingComparison {
+  const change = spending - base;
+  return { base, change, aboutSame: Math.abs(change) < base * 0.02 };
+}
+
+/** A month's spending by top-level category, without the row counts. */
+function parentsOf(db: Db, from: IsoDate, until: IsoDate, tag: Tag): TrendPoint["byParent"] {
+  return spendingByParent(db, from, until, tag).map(({ categoryId, amount }) => ({ categoryId, amount }));
 }
 
 /** One month of the trend: spending by category, all of it or one tag's. */
@@ -283,7 +299,7 @@ export function trendPoint(db: Db, month: IsoMonth, tag: Tag = undefined): Trend
   const t = totals(db, from, until);
   const byCategory = spendingByCategory(db, from, until, undefined, tag).map(({ categoryId, amount }) => ({ categoryId, amount }));
   const spending = tag === undefined ? t.spending : taggedSpending(db, from, until, tag);
-  return { month, income: t.income, spending, byCategory };
+  return { month, income: t.income, spending, byCategory, byParent: parentsOf(db, from, until, tag) };
 }
 
 /** All of a month's spending, by category and split by tag, for Home's bars. */
@@ -305,7 +321,7 @@ function chosenTrendPoint(db: Db, month: IsoMonth, categoryIds: (number | null)[
     return { categoryId, amount: rows.reduce((sum, r) => sum + r.amount, 0) };
   });
   const spending = byCategory.reduce((sum, c) => sum + c.amount, 0);
-  return { month, income: t.income, spending, byCategory };
+  return { month, income: t.income, spending, byCategory, byParent: parentsOf(db, from, until, tag) };
 }
 
 /** The months the range covers, never past this month, padded back to at least three. */

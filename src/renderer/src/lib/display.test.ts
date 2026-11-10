@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Category, TransactionRow } from "@shared/types";
-import { groupByRoot, indexCategories, parentSlices, topSlices } from "./categories";
+import { indexCategories, parentSlices, topSlices } from "./categories";
 import { groupByDay } from "./day-groups";
 import { awaitingShekels, formatForeign, ils } from "./format";
 
@@ -12,15 +12,13 @@ const cat = (id: number, parentId: number | null): Category => ({
 });
 
 describe("display helpers", () => {
-  it("rolls subcategories into their parent and keeps uncategorized apart", () => {
-    const index = indexCategories([cat(1, null), cat(11, 1), cat(12, 1), cat(2, null)]);
-    const slices = groupByRoot(index, [
-      { categoryId: 11, amount: 300 },
-      { categoryId: 12, amount: 200 },
+  it("keeps the biggest slices and folds the rest into Other", () => {
+    const index = indexCategories([cat(1, null), cat(2, null)]);
+    const slices = parentSlices(index, [
+      { categoryId: 1, amount: 500 },
       { categoryId: 2, amount: 100 },
       { categoryId: null, amount: 50 },
     ]);
-    expect(slices.map((x) => [x.key, x.amount])).toEqual([["1", 500], ["2", 100], ["none", 50]]);
     expect(topSlices(slices, 2).map((x) => [x.key, x.amount])).toEqual([["1", 500], ["other", 150]]);
   });
 
@@ -35,14 +33,15 @@ describe("display helpers", () => {
     expect(slices.map((x) => [x.key, x.categoryId, x.amount])).toEqual([["1", 1, 500], ["2", 2, 100], ["none", null, 50]]);
   });
 
-  it("groups rows by day with spending after refunds and income apart", () => {
-    const row = (id: number, date: string, amount: number, flow: TransactionRow["flow"]) => ({ id, date, amount, flow }) as TransactionRow;
-    const days = groupByDay([
-      row(1, "2026-11-07", -1000, "spending"),
-      row(2, "2026-11-07", 300, "refund"),
-      row(3, "2026-11-07", -5000, "internal"),
-      row(4, "2026-11-06", 900000, "income"),
-    ]);
+  it("groups rows by day and shows core's day totals as they are", () => {
+    const row = (id: number, date: string) => ({ id, date }) as TransactionRow;
+    const days = groupByDay(
+      [row(1, "2026-11-07"), row(2, "2026-11-07"), row(3, "2026-11-07"), row(4, "2026-11-06")],
+      [
+        { date: "2026-11-07", spent: 700, income: 0 },
+        { date: "2026-11-06", spent: 0, income: 900000 },
+      ],
+    );
     expect(days.map((d) => [d.date, d.spent, d.income, d.rows.length])).toEqual([
       ["2026-11-07", 700, 0, 3],
       ["2026-11-06", 0, 900000, 1],

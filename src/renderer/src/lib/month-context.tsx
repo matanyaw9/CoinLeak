@@ -1,28 +1,23 @@
-// The month and the period every page looks at, shared by the top bar picker
-// and pages. The period (spec 16) lasts for the session; `useMonth` stays the
-// calendar month it always was, and choosing a month makes it the period.
+// The period every page looks at (spec 16), shared by the top bar picker and
+// pages. It lasts for the session. Choosing a calendar month (a chart bar,
+// a screenshot aid) makes that month the period.
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import type { DateRange, IsoDate, IsoMonth } from "@shared/types";
 import { periodRange, toIsoDate, toIsoMonth, type PeriodChoice } from "./month";
-
-interface MonthState {
-  month: IsoMonth;
-  /** The calendar month today falls in. */
-  current: IsoMonth;
-  setMonth: (month: IsoMonth) => void;
-}
 
 interface PeriodState {
   choice: PeriodChoice;
   /** The days the period covers, both ends included. */
   range: DateRange;
   today: IsoDate;
+  /** The calendar month today falls in. */
   current: IsoMonth;
   setChoice: (choice: PeriodChoice) => void;
+  /** Shows one calendar month, never past the current one. */
+  showMonth: (month: IsoMonth) => void;
 }
 
-const MonthContext = createContext<MonthState | null>(null);
 const PeriodContext = createContext<PeriodState | null>(null);
 
 export function MonthProvider({ children }: { children: ReactNode }) {
@@ -35,14 +30,6 @@ export function MonthProvider({ children }: { children: ReactNode }) {
     custom: { from: `${current}-01`, to: today },
   }));
 
-  const month = useMemo<MonthState>(
-    () => ({
-      month: choice.month,
-      current,
-      setMonth: (m) => setChoiceRaw((c) => ({ ...c, kind: "month", month: m > current ? current : m })),
-    }),
-    [choice.month, current],
-  );
   const period = useMemo<PeriodState>(
     () => ({
       choice,
@@ -50,20 +37,11 @@ export function MonthProvider({ children }: { children: ReactNode }) {
       today,
       current,
       setChoice: (c) => setChoiceRaw({ ...c, month: c.month > current ? current : c.month }),
+      showMonth: (m) => setChoiceRaw((c) => ({ ...c, kind: "month", month: m > current ? current : m })),
     }),
     [choice, today, current],
   );
-  return (
-    <MonthContext.Provider value={month}>
-      <PeriodContext.Provider value={period}>{children}</PeriodContext.Provider>
-    </MonthContext.Provider>
-  );
-}
-
-export function useMonth(): MonthState {
-  const ctx = useContext(MonthContext);
-  if (!ctx) throw new Error("useMonth outside MonthProvider");
-  return ctx;
+  return <PeriodContext.Provider value={period}>{children}</PeriodContext.Provider>;
 }
 
 export function usePeriod(): PeriodState {

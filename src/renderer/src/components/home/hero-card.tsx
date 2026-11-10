@@ -36,9 +36,8 @@ export function HeroCard({
   shortfall: Agorot;
 }) {
   const { ongoing, calendar } = words;
-  const base = summary.previous.sameTime;
-  const diff = summary.spending - base;
-  const left = all.income - all.spending - all.transfers;
+  const { base, change: diff, aboutSame } = summary.comparison;
+  const left = summary.left;
   const spent = summary.spending > 0;
   const moved = summary.transfers;
   const isThisMonth = calendar && ongoing && summary.from.endsWith("-01") && monthOf(summary.from) === monthOf(summary.to);
@@ -84,7 +83,7 @@ export function HeroCard({
 
       {spent && base > 0 && (
         <p className="mt-3 font-heading text-2xl tracking-tight text-muted-foreground">
-          {Math.abs(diff) < base * 0.02 ? (
+          {aboutSame ? (
             s.home.vsSame(words.before)
           ) : (
             <>

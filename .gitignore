@@ -18,3 +18,16 @@ fixtures/raw/
 *.tsbuildinfo
 .claude/screenshots/
 .claude/shots/
+
+# Placeholders the Claude Code sandbox mounts in the repo root
+/.bashrc
+/.bash_profile
+/.zshrc
+/.zprofile
+/.profile
+/.gitconfig
+/.gitmodules
+/.ripgreprc
+/.mcp.json
+/.idea
+/.vscode
