@@ -365,6 +365,17 @@ describe("periodTrend", () => {
     expect(points.map((p) => p.spending)).toEqual([305000, 0, 465000, 5500]);
   });
 
+  it("a chosen group comes split into its subcategories in parts", () => {
+    const range = { from: "2026-02-01", to: "2026-02-28" };
+    const food = categoryId(db, "Food");
+    const feb = periodTrend(db, { ...range, categoryIds: [food] }, opts).at(-1);
+    expect(feb?.parts).toEqual([
+      { categoryId: categoryId(db, "Restaurants"), amount: 9000 },
+      { categoryId: categoryId(db, "Groceries"), amount: 6000 },
+    ]);
+    expect((feb?.parts ?? []).reduce((a, p) => a + p.amount, 0)).toBe(feb?.spending);
+  });
+
   it("refuses repeated or malformed category ids", () => {
     const range = { from: "2026-03-01", to: "2026-03-31" };
     expect(() => periodTrend(db, { ...range, categoryIds: [1, 1] }, opts)).toThrow();

@@ -202,6 +202,9 @@ export interface TrendPoint {
   /** All spending split by the categories' essential tag (spec 22). Only on
    *  unfiltered points; the three add up to `spending`. */
   split?: EssentialSplit;
+  /** With chosen categories: their spending by the category each row is on,
+   *  so a chosen group comes split into its subcategories. */
+  parts?: { categoryId: number | null; amount: Agorot }[];
 }
 
 /** Spending by the essential tag: untagged is uncategorized rows and rows on

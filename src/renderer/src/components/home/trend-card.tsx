@@ -84,7 +84,7 @@ export function TrendCard({
   };
   const split = canSplit && view === "split";
   const toggle = (id: number | null) => setTicks((t) => toggleTick(t, id, index));
-  const series = split ? SPLIT : filtered ? ticks.map((id) => sliceOf(index, id)) : topGroups(index, points);
+  const series = split ? SPLIT : filtered ? tickedSeries(index, ticks, points) : topGroups(index, points);
   const data = points.map((t) => rowOf(t, series, split, filtered));
 
   const focus = hover != null ? data[hover] : (data.findLast((d) => inPeriod(d.month)) ?? data.at(-1));
@@ -300,6 +300,21 @@ function sliceOf(index: CategoryIndex, id: number | null): Slice {
   };
 }
 
+/**
+ * The ticked categories as series. A ticked group shows its subcategories
+ * (and itself, for rows set on the group), keeping only those with spending
+ * in these months, so its bars say where the money went.
+ */
+function tickedSeries(index: CategoryIndex, ticks: TrendTicks, points: TrendPoint[]): Slice[] {
+  const spent = new Set(points.flatMap((t) => t.parts ?? []).filter((p) => p.amount > 0).map((p) => p.categoryId));
+  return ticks.flatMap((id) => {
+    const children = id === null ? [] : (index.children.get(id) ?? []);
+    if (children.length === 0) return [sliceOf(index, id)];
+    const parts = [...children.map((c) => c.id), id].filter((x) => spent.has(x));
+    return parts.length > 0 ? parts.map((x) => sliceOf(index, x)) : [sliceOf(index, id)];
+  });
+}
+
 /** All spending: the groups that are biggest over these months (by core's roll-up), the rest as "Other". */
 function topGroups(index: CategoryIndex, points: TrendPoint[]): Slice[] {
   const size = new Map<number | null, number>();
@@ -317,7 +332,7 @@ function rowOf(t: TrendPoint, series: Slice[], split: boolean, filtered: boolean
   const parts = split
     ? Object.entries(t.split ?? {}).map(([key, amount]) => ({ key, amount }))
     : filtered
-      ? t.byCategory.map((c) => ({ key: c.categoryId === null ? "none" : String(c.categoryId), amount: c.amount }))
+      ? (t.parts ?? t.byCategory).map((c) => ({ key: c.categoryId === null ? "none" : String(c.categoryId), amount: c.amount }))
       : t.byParent.map((g) => ({ key: g.categoryId === null ? "none" : String(g.categoryId), amount: g.amount }));
   for (const part of parts) {
     const key = keys.has(part.key) ? part.key : "other";

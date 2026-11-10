@@ -310,18 +310,21 @@ function splitTrendPoint(db: Db, month: IsoMonth): TrendPoint {
 
 /**
  * One month of the trend for chosen categories: one entry per id, in the
- * order asked, each with its subcategories (null is uncategorized).
+ * order asked, each with its subcategories (null is uncategorized), and
+ * `parts` by the category each row is on.
  * `spending` is their sum, so the ids should not overlap.
  */
 function chosenTrendPoint(db: Db, month: IsoMonth, categoryIds: (number | null)[], tag: Tag): TrendPoint {
   const { from, until } = monthBounds(month);
   const t = totals(db, from, until);
+  const parts: TrendPoint["parts"] = [];
   const byCategory = categoryIds.map((categoryId) => {
     const rows = spendingByCategory(db, from, until, categoryId, tag);
+    for (const r of rows) parts.push({ categoryId: r.categoryId, amount: r.amount });
     return { categoryId, amount: rows.reduce((sum, r) => sum + r.amount, 0) };
   });
   const spending = byCategory.reduce((sum, c) => sum + c.amount, 0);
-  return { month, income: t.income, spending, byCategory, byParent: parentsOf(db, from, until, tag) };
+  return { month, income: t.income, spending, byCategory, byParent: parentsOf(db, from, until, tag), parts };
 }
 
 /** The months the range covers, never past this month, padded back to at least three. */
