@@ -48,7 +48,9 @@ Read first: `AGENTS.md`, `REQUIREMENTS.md` sections 3, 5 and 7,
    Core says which bucket it used.
 3. **Home follows the period.** Every card uses it. Labels say the period
    ("Spent in the last 7 days", "Spent this year"). The trend card shows
-   the months the period covers (at least 3).
+   the last 12 months up to the period's end, more when the period is
+   longer. Clicking Neither shows only that spending, by category; "All
+   spending" in its category list always goes back to everything.
 4. **Pie chart hover (F40).** One tooltip at a time that never covers the
    slice under the pointer; no labels drawn on top of each other. Small
    slices group into "Other" in the chart, but the list beside it shows

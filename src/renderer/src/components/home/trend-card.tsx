@@ -1,6 +1,6 @@
-// Month by month: the months the period covers (at least three) as stacked
+// Month by month: the last 12 months up to the period (more if it is longer) as stacked
 // bars (specs 16 and 22). Under All they split into essential, extra and
-// neither, or by top-level category; under Essentials or Extras, by category
+// neither, or by top-level category; under Essentials, Extras or Neither, by category
 // with core's filter. Ticking categories (in the list, or by clicking a bar
 // segment or legend name) shows only theirs, with a clear way back. Pointing
 // at a segment or a legend name lights that series in every bar (F60).
@@ -12,7 +12,7 @@ import type { DateRange, IsoMonth, TrendPoint } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { colorOf, OTHER_COLOR, parentSlices, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
-import { monthOf } from "@/lib/month";
+import { monthOf, shiftMonth, toIsoMonth } from "@/lib/month";
 import { formatMonth, formatMonthShort, percent } from "@/lib/format";
 import { useShot } from "@/lib/shot";
 import { Card, CardHeader } from "@/components/common/card";
@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { chartAnimation, ChartTooltip } from "@/components/charts/chart-tooltip";
 import { TrendCategoryPicker } from "./trend-category-picker";
 import { toggleTick, type TrendTicks } from "./trend-filter";
-import { usePeriodTrend } from "./period-data";
+import { usePeriodTrend, type TrendFilter } from "./period-data";
 import type { SpendingFilter } from "./spending-filter";
 
 type Row = { month: IsoMonth; label: string; total: number; top?: string } & Record<string, number | string | undefined>;
@@ -62,12 +62,26 @@ export function TrendCard({
   useEffect(() => {
     if (shot?.startsWith("trend")) box.current?.scrollIntoView({ block: "center" });
   }, [shot]);
-  const trend = usePeriodTrend(range, ticks, filter);
+  // Clicking "Neither" shows only that spending here; it is not one of Home's filters.
+  const [neither, setNeither] = useState(false);
+  // A change of Home's filter leaves Neither (React's "adjust state while rendering").
+  const [seenFilter, setSeenFilter] = useState(filter);
+  if (filter !== seenFilter) {
+    setSeenFilter(filter);
+    setNeither(false);
+  }
+  const tag: TrendFilter = filter === "all" && neither ? "untagged" : filter;
+  const trend = usePeriodTrend(trendRange(range), ticks, tag);
   const points = trend.data ?? [];
   const inPeriod = (m: IsoMonth) => m >= monthOf(range.from) && m <= monthOf(range.to);
 
   const filtered = ticks.length > 0;
-  const canSplit = filter === "all" && !filtered;
+  const canSplit = tag === "all" && !filtered;
+  const showAll = () => {
+    setTicks([]);
+    setNeither(false);
+    if (filter !== "all") onFilter("all");
+  };
   const split = canSplit && view === "split";
   const toggle = (id: number | null) => setTicks((t) => toggleTick(t, id, index));
   const series = split ? SPLIT : filtered ? ticks.map((id) => sliceOf(index, id)) : topGroups(index, points);
@@ -76,14 +90,16 @@ export function TrendCard({
   const focus = hover != null ? data[hover] : (data.findLast((d) => inPeriod(d.month)) ?? data.at(-1));
   const hasData = points.some((t) => t.spending > 0);
 
-  /** Essential and extra switch Home's filter; anything else is a category. */
+  /** Essential and extra switch Home's filter, neither shows its own bars; anything else is a category. */
   const pick = (x: Slice, month: IsoMonth | undefined) => {
     if (x.key === "essential" || x.key === "extra") return onFilter(x.key);
+    if (split && x.key === "untagged") return setNeither(true);
     if (!month) return;
     if (filtered || split || x.categoryId === undefined) onOpen(x, month);
     else toggle(x.categoryId);
   };
-  const legendClickable = (x: Slice) => (split ? x.key !== "untagged" : x.categoryId !== undefined);
+  const legendClickable = (x: Slice) => split || x.categoryId !== undefined;
+  const tagName = tag === "untagged" ? s.essentials.untaggedName : tag === "all" ? null : s.essentials[tag];
   const legendClick = (x: Slice) => {
     if (split) pick(x, undefined);
     else if (x.categoryId !== undefined) toggle(x.categoryId);
@@ -99,7 +115,7 @@ export function TrendCard({
     <div ref={box}>
       <Card>
         <CardHeader
-          label={filter === "all" ? s.periodHome.trendTitle : `${s.periodHome.trendTitle} · ${s.essentials[filter]}`}
+          label={tagName ? `${s.periodHome.trendTitle} · ${tagName}` : s.periodHome.trendTitle}
           action={
             <span className="flex items-center gap-2">
               {canSplit && (
@@ -113,8 +129,8 @@ export function TrendCard({
                   ]}
                 />
               )}
-              {filtered && (
-                <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.periodHome.trendBackHint} onClick={() => setTicks([])}>
+              {(filtered || tag === "untagged") && (
+                <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.periodHome.trendBackHint} onClick={showAll}>
                   <ArrowLeft />
                   {s.periodHome.trendBack}
                 </Button>
@@ -123,7 +139,7 @@ export function TrendCard({
                 index={index}
                 ticks={ticks}
                 onToggle={toggle}
-                onClear={() => setTicks([])}
+                onClear={showAll}
                 defaultOpen={shot === "trend-picker"}
               />
             </span>
@@ -234,9 +250,10 @@ export function TrendCard({
                 <button
                   key={x.key}
                   type="button"
-                  disabled={!legendClickable(x)}
+                  // aria-disabled, not disabled: a disabled button gets no hover, so it could not light its bars.
+                  aria-disabled={!legendClickable(x)}
                   title={!legendClickable(x) ? undefined : split ? s.essentials.splitHint : filtered ? s.periodHome.trendUntickHint : s.periodHome.trendPickHint}
-                  onClick={() => legendClick(x)}
+                  onClick={() => legendClickable(x) && legendClick(x)}
                   onMouseEnter={() => setLit(x.key)}
                   onMouseLeave={() => setLit(null)}
                   className={cn(
@@ -256,6 +273,17 @@ export function TrendCard({
       </Card>
     </div>
   );
+}
+
+/**
+ * The bars always show the last 12 months up to the period's end (or this
+ * month, if the period runs past it), and more when the period is longer.
+ */
+function trendRange(range: DateRange): DateRange {
+  const thisMonth = toIsoMonth(new Date());
+  const end = monthOf(range.to) < thisMonth ? monthOf(range.to) : thisMonth;
+  const from = `${shiftMonth(end, -11)}-01`;
+  return { from: from < range.from ? from : range.from, to: range.to };
 }
 
 /** A ticked category (or uncategorized) as a chart series, keyed like core's `byParent`. */

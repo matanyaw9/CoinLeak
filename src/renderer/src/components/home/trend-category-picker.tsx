@@ -1,6 +1,6 @@
 // The trend card's category filter (spec 16, F43): one list of checkboxes,
 // groups with their categories under them, and uncategorized. Nothing ticked
-// is all spending.
+// is all spending; "All spending" at the top always goes back to it.
 
 import { useEffect, useState } from "react";
 import { ChevronDown, Layers } from "lucide-react";
@@ -76,9 +76,11 @@ export function TrendCategoryPicker({
         <div className="max-h-80 overflow-y-auto p-1.5">
           <button
             type="button"
-            onClick={onClear}
-            disabled={ticks.length === 0}
-            className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm font-medium transition-colors hover:bg-accent disabled:text-muted-foreground disabled:hover:bg-transparent"
+            onClick={() => {
+              onClear();
+              setOpen(false);
+            }}
+            className="mb-1 flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm font-medium transition-colors hover:bg-accent"
           >
             <Layers className="size-3.5 text-muted-foreground" />
             {s.periodHome.trendAll}

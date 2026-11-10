@@ -491,6 +491,15 @@ describe("essentials and extras (spec 22)", () => {
     expect(curve?.previous.at(-1)?.amount).toBe(6000);
   });
 
+  it("the trend under neither: each month is that month's untagged split", () => {
+    const range = { from: "2025-12-01", to: "2026-03-31" };
+    const all = periodTrend(db, range, opts);
+    const neither = periodTrend(db, { ...range, essential: null }, opts);
+    expect(neither.map((p) => p.spending)).toEqual(all.map((p) => p.split?.untagged));
+    const sum = (xs: { amount: number }[]) => xs.reduce((a, x) => a + x.amount, 0);
+    for (const p of neither) expect(sum(p.byParent)).toBe(p.spending);
+  });
+
   it("refuses a malformed filter", () => {
     const bad = { ...monthRange("2026-03"), essential: "yes" as unknown as boolean };
     expect(() => periodSummary(db, bad)).toThrow("BAD_REQUEST");

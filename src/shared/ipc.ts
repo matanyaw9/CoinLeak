@@ -79,6 +79,7 @@ export interface IpcContract {
   "summary:groupFlow": { args: DateRange & { categoryId: number }; result: GroupFlow };
   /**
    * The calendar months the range covers (at least 3, never past this month).
+   * `essential: null` is spending that is neither essential nor extra.
    * With `categoryIds`, `byCategory` has one entry per id in that order, each
    * with its subcategories (null: uncategorized), and `spending` is their sum.
    */

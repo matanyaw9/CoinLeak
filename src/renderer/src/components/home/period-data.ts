@@ -23,9 +23,13 @@ export const useGroupFlow = (range: DateRange, categoryId: number | null) =>
     enabled: categoryId !== null,
   });
 
+/** The trend card can also show only the spending that is neither essential nor extra. */
+export type TrendFilter = SpendingFilter | "untagged";
+
 /** No ids is all spending by category (split by tag under All); else one entry per id (null is uncategorized). */
-export const usePeriodTrend = (range: DateRange, categoryIds: (number | null)[], filter: SpendingFilter = "all") => {
-  const args = { ...range, ...essentialArg(filter), ...(categoryIds.length > 0 ? { categoryIds } : {}) };
+export const usePeriodTrend = (range: DateRange, categoryIds: (number | null)[], filter: TrendFilter = "all") => {
+  const tag = filter === "untagged" ? { essential: null } : essentialArg(filter);
+  const args = { ...range, ...tag, ...(categoryIds.length > 0 ? { categoryIds } : {}) };
   return useQuery({ queryKey: queryKey("summary:periodTrend", args), queryFn: () => call("summary:periodTrend", args), placeholderData: (p) => p });
 };
 

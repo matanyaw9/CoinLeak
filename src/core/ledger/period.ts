@@ -232,7 +232,7 @@ function seriesOf(db: Db, range: DateRange, bucket: SeriesBucket, match: Match, 
 
 /** The optional `essential` arg of the period channels. */
 function tagOf(args: EssentialFilter): Tag {
-  check(args.essential === undefined || typeof args.essential === "boolean");
+  check(args.essential === undefined || args.essential === null || typeof args.essential === "boolean");
   return args.essential;
 }
 

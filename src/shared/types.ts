@@ -573,11 +573,12 @@ export interface SpendingComparison {
 }
 
 /**
- * Essentials or extras only (spec 22): true essential spending, false extra.
- * Left out means all spending. Income lines never change with it.
+ * Essentials or extras only (spec 22): true essential spending, false extra,
+ * null neither (spec 22 follow-up). Left out means all spending. Income
+ * lines never change with it.
  */
 export interface EssentialFilter {
-  essential?: boolean;
+  essential?: boolean | null;
 }
 
 /** Money left this calendar month in Israel time, whatever period Home shows (spec 22). */
