@@ -7,6 +7,20 @@ No cloud, no AI, no telemetry, and the app never asks for your bank password.
 
 Status: early development. See `REQUIREMENTS.md` for the plan.
 
+## Install on Windows
+
+1. Get `CoinLeak-Setup-<version>.exe` from whoever built it (see
+   `docs/RELEASE.md`).
+2. Double click it. It installs for your Windows user only, with no admin
+   prompt, and adds CoinLeak to the Start menu and the desktop.
+3. The installer is not code-signed, so Windows shows "Windows protected
+   your PC". Click "More info", then "Run anyway".
+4. Open CoinLeak from the Start menu. Sync uses Chrome if it is installed,
+   otherwise Microsoft Edge, which every Windows has.
+
+Your data lives in `%APPDATA%\CoinLeak\data`. Uninstalling from Windows
+Settings keeps it.
+
 ## Run it (developers)
 
 You need Node 22.13 or newer (the database uses `node:sqlite`) and, for
