@@ -15,6 +15,7 @@ import {
   txn,
 } from "../testing/ledger";
 import { recomputeCardBills, setCardMode, setInternalByUser } from "./card-bills";
+import { restoreExclusions } from "./exclusions";
 import { ingest } from "./ingest";
 import { listTransactions, monthSummary, restoreTransactions, trashTransactions, updateTransactions } from "./queries";
 
@@ -354,5 +355,95 @@ describe("trashed rows (spec 11)", () => {
     ingest(db, [card("4321", cycle())], { now: NOW });
     recomputeCardBills(db);
     expect(stored(db, bill)).toEqual(before);
+  });
+});
+
+// Spec 28: a line marked "This pays a card I track" and then undone is back
+// to automatic: flagged again when no tracked card matches, so one click
+// marks it again. A matched line stays internal.
+describe("undoing 'This pays a card I track' (spec 28)", () => {
+  const UNTRACKED = "מקס איט פיננסים";
+  const AUTO = { internal: 0, internal_by_user: 0, possible_card_bill: 1 };
+
+  function untrackedLine(): { db: Db; id: number } {
+    const db = newDb();
+    ingest(db, [bank([line("2026-03-01", -128460, UNTRACKED)])], { now: NOW });
+    const id = idOf(db, UNTRACKED);
+    expect(row(db, id).flags).toContain("possible_card_bill");
+    return { db, id };
+  }
+
+  function markedLine(): { db: Db; id: number } {
+    const { db, id } = untrackedLine();
+    setInternalByUser(db, [id], true, NOW);
+    expect(row(db, id)).toMatchObject({ flow: "internal", flags: [] });
+    return { db, id };
+  }
+
+  function expectFlagged(db: Db, id: number): void {
+    expect(stored(db, id)).toMatchObject(AUTO);
+    expect(row(db, id).flow).toBe("spending");
+    expect(row(db, id).flags).toContain("possible_card_bill");
+  }
+
+  it("the toast's Undo and 'Let CoinLeak decide' hand the line back to the matcher", () => {
+    const { db, id } = markedLine();
+    setInternalByUser(db, [id], null, NOW);
+    expectFlagged(db, id);
+  });
+
+  it("Ignore, then Count again, hands a marked line back to the matcher", () => {
+    const { db, id } = markedLine();
+    updateTransactions(db, [id], { excluded: true }, NOW);
+    expect(row(db, id).flow).toBe("excluded");
+    updateTransactions(db, [id], { excluded: false }, NOW);
+    expectFlagged(db, id);
+  });
+
+  it("Ignore on a flagged line, then its Undo, flags it again", () => {
+    const { db, id } = untrackedLine();
+    const { before } = updateTransactions(db, [id], { excluded: true }, NOW);
+    restoreExclusions(db, before ?? [], NOW);
+    expectFlagged(db, id);
+  });
+
+  it("Trash and Restore bring a flagged line back flagged, and a marked one back as it was", () => {
+    const flaggedOne = untrackedLine();
+    trashTransactions(flaggedOne.db, [flaggedOne.id], NOW);
+    restoreTransactions(flaggedOne.db, [flaggedOne.id], NOW);
+    expectFlagged(flaggedOne.db, flaggedOne.id);
+
+    const { db, id } = markedLine();
+    trashTransactions(db, [id], NOW);
+    restoreTransactions(db, [id], NOW);
+    expect(stored(db, id)).toMatchObject({ internal: 1, internal_by_user: 1 });
+    setInternalByUser(db, [id], null, NOW);
+    expectFlagged(db, id);
+  });
+
+  it("a matched line stays internal after each undo path", () => {
+    const db = newDb();
+    ingest(db, [card("4321", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321)])], { now: NOW });
+    const id = idOf(db, BILL_4321);
+    const matched = { internal: 1, internal_by_user: 0, possible_card_bill: 0, card_bill_style: "credit" };
+
+    setInternalByUser(db, [id], false, NOW);
+    setInternalByUser(db, [id], null, NOW);
+    expect(stored(db, id)).toMatchObject(matched);
+
+    setInternalByUser(db, [id], true, NOW);
+    updateTransactions(db, [id], { excluded: true }, NOW);
+    updateTransactions(db, [id], { excluded: false }, NOW);
+    expect(stored(db, id)).toMatchObject(matched);
+  });
+
+  it("'Count it' stays the user's word, through Ignore and Count again too", () => {
+    const { db, id } = untrackedLine();
+    setInternalByUser(db, [id], false, NOW);
+    updateTransactions(db, [id], { excluded: true }, NOW);
+    updateTransactions(db, [id], { excluded: false }, NOW);
+    expect(stored(db, id)).toMatchObject({ internal: 0, internal_by_user: 1, possible_card_bill: 0 });
+    expect(row(db, id).flags).not.toContain("possible_card_bill");
   });
 });
