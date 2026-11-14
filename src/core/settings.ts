@@ -26,6 +26,18 @@ const SPECS: { [K in SettingKey]: SettingSpec<K> } = {
     fallback: "all",
     valid: (v): v is AppSettings["homeSpendingFilter"] => v === "all" || v === "essential" || v === "extra",
   },
+  homeCurveCompare: {
+    fallback: "previous",
+    valid: (v): v is AppSettings["homeCurveCompare"] => v === "previous" || v === "average",
+  },
+  homeCurveCategories: {
+    fallback: [],
+    valid: (v): v is AppSettings["homeCurveCategories"] =>
+      Array.isArray(v) &&
+      v.length <= 30 &&
+      v.every((id) => id === null || (Number.isSafeInteger(id) && id > 0)) &&
+      new Set(v).size === v.length,
+  },
 };
 
 const FIRST_SYNC_DAY = "2000-01-01";

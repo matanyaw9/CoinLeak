@@ -6,7 +6,7 @@ import { SETTING_KEYS, getSetting, setSetting } from "./settings";
 
 describe("settings", () => {
   it("knows a fixed list of keys", () => {
-    expect(SETTING_KEYS).toEqual(["addedProviders", "syncFrom", "homeSpendingFilter"]);
+    expect(SETTING_KEYS).toEqual(["addedProviders", "syncFrom", "homeSpendingFilter", "homeCurveCompare", "homeCurveCategories"]);
   });
 
   it("returns the default until set, then the saved value", () => {
@@ -79,5 +79,21 @@ describe("syncFrom (spec 23)", () => {
       expect(() => setSetting(db, { key: "homeSpendingFilter", value } as SettingEntry)).toThrow(CodedError);
     }
     expect(getSetting(db, "homeSpendingFilter")).toBe("extra");
+  });
+
+  it("keeps Home's curve choices (spec 26): last month and top 5 until set", () => {
+    const db = newDb();
+    expect(getSetting(db, "homeCurveCompare")).toBe("previous");
+    expect(getSetting(db, "homeCurveCategories")).toEqual([]);
+    setSetting(db, { key: "homeCurveCompare", value: "average" });
+    setSetting(db, { key: "homeCurveCategories", value: [3, null, 7] });
+    expect(getSetting(db, "homeCurveCompare")).toBe("average");
+    expect(getSetting(db, "homeCurveCategories")).toEqual([3, null, 7]);
+    for (const value of ["last", null, 1]) {
+      expect(() => setSetting(db, { key: "homeCurveCompare", value } as SettingEntry)).toThrow(CodedError);
+    }
+    for (const value of [[1, 1], [0], [1.5], ["2"], Array.from({ length: 31 }, (_, i) => i + 1), null]) {
+      expect(() => setSetting(db, { key: "homeCurveCategories", value } as SettingEntry)).toThrow(CodedError);
+    }
   });
 });

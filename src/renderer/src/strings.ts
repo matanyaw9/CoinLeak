@@ -1038,6 +1038,27 @@ export const s = {
     invalid: "Type an amount above ₪0",
     saveFailed: "Failed to save the budget.",
   },
+
+  // spec 26
+  average: {
+    line: (amount: string) => `Avg ${amount}`,
+    months: (count: number, first: string, last: string) => `Average of ${count} full months, ${first} to ${last}`,
+    none: "Not enough history for an average yet",
+    compareLabel: "Compare with",
+    lastMonth: "Last month",
+    averageMonth: "Average month",
+    byDay: (day: number) => `Average month by day ${day}`,
+  },
+  curvePick: {
+    viewLabel: "Categories",
+    top: "Top 5",
+    choose: "Choose",
+    showTop: "Show top 5",
+    pick: "Choose categories",
+    chosen: (n: number) => (n === 1 ? "1 category" : `${n} categories`),
+    limit: (max: number) => `Up to ${max} categories at once`,
+    empty: "Choose categories to draw their curves.",
+  },
 };
 
 export type Strings = typeof s;

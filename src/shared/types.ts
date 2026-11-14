@@ -502,10 +502,17 @@ export interface AppSettings {
   syncFrom: SyncFrom;
   /** Home's All / Essentials / Extras choice, kept per profile (spec 25). */
   homeSpendingFilter: HomeSpendingFilter;
+  /** What Home's month curves compare with, kept per profile (spec 26). */
+  homeCurveCompare: HomeCurveCompare;
+  /** The categories Home's category curves draw (null: uncategorized); empty is the top 5 (spec 26, F61). */
+  homeCurveCategories: (number | null)[];
 }
 
 /** What Home's spending charts show: all spending, essentials or extras. */
 export type HomeSpendingFilter = "all" | "essential" | "extra";
+
+/** The dashed line on Home's month curves: last month or the average month. */
+export type HomeCurveCompare = "previous" | "average";
 
 export type SettingKey = keyof AppSettings;
 export type SettingEntry = { [K in SettingKey]: { key: K; value: AppSettings[K] } }[SettingKey];
@@ -563,6 +570,40 @@ export interface PeriodSummary extends DateRange {
   left: Agorot;
   /** This period's spending against the period before by the same point. */
   comparison: SpendingComparison;
+  /** The average month's curve (spec 26); null for other periods or without enough history. */
+  average?: AverageCurve | null;
+}
+
+/**
+ * The months an average month is taken over (spec 26): the full calendar
+ * months of the chart's 12-month window, without this month and months
+ * before the profile's first transaction. Always at least 2.
+ */
+export interface AverageMonths {
+  from: IsoMonth;
+  to: IsoMonth;
+  count: number;
+}
+
+/** The average month's spending, rounded to whole agorot. */
+export interface MonthAverage extends AverageMonths {
+  amount: Agorot;
+}
+
+/**
+ * The average month's cumulative spending per day of the period's month. A
+ * shorter month adds its month-end total; the last point is always the
+ * average month's whole spending.
+ */
+export interface AverageCurve extends AverageMonths {
+  series: SeriesPoint[];
+}
+
+/** The month-by-month bars with their average month (spec 26). */
+export interface PeriodTrend {
+  points: TrendPoint[];
+  /** Null with fewer than 2 average months. */
+  average: MonthAverage | null;
 }
 
 /** How this period's spending compares with the period before (Home's hero). */
@@ -623,6 +664,8 @@ export interface PeriodCurve {
   bucket: SeriesBucket;
   series: SeriesPoint[];
   previous: SeriesPoint[];
+  /** The average month per day, same category and filter (spec 26); null for other periods or without enough history. */
+  average?: AverageCurve | null;
 }
 
 // ---- Profiles (spec 19) ----

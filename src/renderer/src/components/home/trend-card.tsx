@@ -6,14 +6,26 @@
 // at a segment or a legend name lights that series in every bar (F60).
 
 import { useEffect, useRef, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarShapeProps } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Rectangle,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  type BarShapeProps,
+} from "recharts";
 import { ArrowLeft } from "lucide-react";
 import type { DateRange, IsoMonth, TrendPoint } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { colorOf, OTHER_COLOR, parentSlices, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
 import { monthOf, shiftMonth, toIsoMonth } from "@/lib/month";
-import { formatMonth, formatMonthShort, percent } from "@/lib/format";
+import { formatMonth, formatMonthShort, ils, percent } from "@/lib/format";
 import { useShot } from "@/lib/shot";
 import { Card, CardHeader } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
@@ -52,7 +64,7 @@ export function TrendCard({
   onOpen: (slice: Slice, month: IsoMonth) => void;
 }) {
   const shot = useShot();
-  const [ticks, setTicks] = useState<TrendTicks>(() => (shot === "trend-some" || shot === "trend-picker" ? firstGroups(index, 2) : []));
+  const [ticks, setTicks] = useState<TrendTicks>(() => (shot === "trend-some" || shot === "trend-picker" ? firstGroups(index, 2) : shot === "trend-one" ? firstGroups(index, 1) : []));
   const [view, setView] = useState<View>(shot === "trend-hover" ? "groups" : "split");
   const [hover, setHover] = useState<number | null>(null);
   // The series under the pointer; demo screenshots (`?shot=trend-hover`) light the first group.
@@ -72,7 +84,9 @@ export function TrendCard({
   }
   const tag: TrendFilter = filter === "all" && neither ? "untagged" : filter;
   const trend = usePeriodTrend(trendRange(range), ticks, tag);
-  const points = trend.data ?? [];
+  const points = trend.data?.points ?? [];
+  const average = trend.data?.average ?? null;
+  const averageNote = average && s.average.months(average.count, formatMonth(average.from), formatMonth(average.to));
   const inPeriod = (m: IsoMonth) => m >= monthOf(range.from) && m <= monthOf(range.to);
 
   const filtered = ticks.length > 0;
@@ -217,7 +231,16 @@ export function TrendCard({
                         <ChartTooltip
                           title={formatMonth(row.month)}
                           rows={rows}
-                          hint={split ? s.essentials.splitHint : filtered ? s.periodHome.trendFilterHint : s.periodHome.trendPickHint}
+                          hint={
+                            <>
+                              {averageNote && (
+                                <div className="mb-1">
+                                  {s.average.line(ils(average?.amount ?? 0, { decimals: false }))} · {averageNote}
+                                </div>
+                              )}
+                              {split ? s.essentials.splitHint : filtered ? s.periodHome.trendFilterHint : s.periodHome.trendPickHint}
+                            </>
+                          }
                         />
                       );
                     }}
@@ -242,6 +265,20 @@ export function TrendCard({
                       ))}
                     </Bar>
                   ))}
+                  {average && (
+                    <ReferenceLine
+                      y={average.amount}
+                      // The line stays inside the chart even above every bar.
+                      ifOverflow="extendDomain"
+                      stroke="var(--foreground)"
+                      strokeOpacity={0.55}
+                      strokeWidth={1.5}
+                      strokeDasharray="6 5"
+                      label={(p: { viewBox?: { x?: number; y?: number; width?: number } }) => (
+                        <AverageLabel viewBox={p.viewBox} text={s.average.line(ils(average.amount, { decimals: false }))} note={averageNote ?? ""} />
+                      )}
+                    />
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -267,11 +304,42 @@ export function TrendCard({
                   {x.name}
                 </button>
               ))}
+              {average ? (
+                <span title={averageNote ?? undefined} className="flex items-center gap-1.5 px-1.5 py-1">
+                  <span className="w-4 border-t-2 border-dashed border-foreground/55" />
+                  {s.average.averageMonth}
+                </span>
+              ) : (
+                <span className="px-1.5 py-1">{s.average.none}</span>
+              )}
             </div>
           </>
         )}
       </Card>
     </div>
+  );
+}
+
+/** "Avg ₪X" at the line's right end, above it; pointing at it names the months (spec 26). */
+function AverageLabel({ viewBox, text, note }: { viewBox?: { x?: number; y?: number; width?: number }; text: string; note: string }) {
+  const x = (viewBox?.x ?? 0) + (viewBox?.width ?? 0);
+  const y = (viewBox?.y ?? 0) - 6;
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor="end"
+      fontSize={12}
+      fontWeight={500}
+      fill="var(--foreground)"
+      stroke="var(--card)"
+      strokeWidth={4}
+      paintOrder="stroke"
+      style={{ pointerEvents: "auto", cursor: "default" }}
+    >
+      <title>{note}</title>
+      {text}
+    </text>
   );
 }
 

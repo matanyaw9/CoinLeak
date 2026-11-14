@@ -20,7 +20,7 @@ import {
   updateCategory,
   updateTransactions,
 } from "@core/ledger";
-import { groupFlow, periodCurves, periodFlow, periodSummary, periodTrend, thisMonth } from "@core/ledger";
+import { groupFlow, periodCurves, periodFlow, periodSummary, periodTrendWithAverage, thisMonth } from "@core/ledger";
 import { addManualTransaction, editManualTransaction, getCashWallet } from "@core/ledger";
 import { balanceChecks } from "@core/ledger";
 import { budgetStatus, israelToday, setBudget } from "@core/ledger";
@@ -99,7 +99,7 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "summary:period": (range) => periodSummary(getDb(), range),
     "summary:periodFlow": (range) => periodFlow(getDb(), range),
     "summary:groupFlow": (args) => groupFlow(getDb(), args),
-    "summary:periodTrend": (args) => periodTrend(getDb(), args),
+    "summary:periodTrend": (args) => periodTrendWithAverage(getDb(), args),
     "summary:periodCurves": (args) => periodCurves(getDb(), args),
     "summary:thisMonth": () => thisMonth(getDb()),
     "sync:start": ({ provider }) => {

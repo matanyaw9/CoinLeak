@@ -46,7 +46,7 @@ import type {
   TransactionPatch,
   TransactionList,
   ThisMonth,
-  TrendPoint,
+  PeriodTrend,
 } from "./types";
 import type { Result } from "./errors";
 
@@ -85,10 +85,11 @@ export interface IpcContract {
    * `essential: null` is spending that is neither essential nor extra.
    * With `categoryIds`, `byCategory` has one entry per id in that order, each
    * with its subcategories (null: uncategorized), and `spending` is their sum.
+   * `average` is the average month over the full months shown (spec 26).
    */
   "summary:periodTrend": {
     args: DateRange & EssentialFilter & { categoryIds?: (number | null)[] };
-    result: TrendPoint[];
+    result: PeriodTrend;
   };
   "summary:periodCurves": { args: DateRange & EssentialFilter & { categoryIds: (number | null)[] }; result: PeriodCurve[] };
   /** Money left this calendar month (Israel time) and per day until its end (spec 22). */
