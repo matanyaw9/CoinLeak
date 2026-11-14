@@ -800,12 +800,12 @@ export const s = {
 
   // spec 18
   essential: {
-    label: "Essential or extra",
-    hint: "Extras are where a month can be cut",
-    essential: "Essential",
-    extra: "Extra",
-    badge: "Extra",
-    badgeTitle: "Extra spending: where a month can be cut",
+    label: "Routine or treat",
+    hint: "Treats are where a month can be cut",
+    essential: "Routine",
+    extra: "Treat",
+    badge: "Treat",
+    badgeTitle: "A treat: where a month can be cut",
   },
   syncLive: {
     working: (provider: string) => `Syncing ${provider}`,
@@ -858,13 +858,13 @@ export const s = {
   essentials: {
     label: "Which spending",
     all: "All",
-    essential: "Essentials",
-    extra: "Extras",
-    /** After the amount in the hero: "You've spent ₪X on essentials so far this month." */
-    on: { essential: "on essentials", extra: "on extras" },
-    untagged: (amount: string) => `${amount} of spending is neither essential nor extra, so it shows only under All.`,
+    essential: "Routine",
+    extra: "Treats",
+    /** After the amount in the hero: "You've spent ₪X on routine spending so far this month." */
+    on: { essential: "on routine spending", extra: "on treats" },
+    untagged: (amount: string) => `${amount} of spending is neither routine nor a treat, so it shows only under All.`,
     untaggedLink: "See uncategorized rows",
-    splitView: "Essential or extra",
+    splitView: "Routine or treat",
     groupView: "By category",
     viewLabel: "Split the bars",
     untaggedName: "Neither",
