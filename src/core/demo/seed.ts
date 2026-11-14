@@ -14,11 +14,12 @@ import {
   listCategories,
   listTransactions,
   setAccountsSyncing,
+  setBudget,
   trashTransactions,
   updateTransactions,
 } from "../ledger";
-import { addMonths, dayNumber, daysOfMonth, toIsoDate } from "../ledger/dates";
-import { israelToday } from "../ledger/period";
+import { addMonths, dayNumber, daysOfMonth, monthBounds, toIsoDate } from "../ledger/dates";
+import { israelToday, spendingByCategory } from "../ledger/period";
 import { createRule } from "../rules";
 import { ACCOUNTS, CARD_SPENDS, RULES, type DemoAccount, type DemoRule } from "./shops";
 
@@ -94,6 +95,25 @@ export function seedDemo(db: Db, today: Date): void {
     const category = c.category ? categoryId(db, c.category) : null;
     addManualTransaction(db, { date, amount: c.amount, description: c.description, categoryId: category, note: c.note ?? null }, now);
   }
+
+  addBudgets(db, todayIso);
+}
+
+/**
+ * spec 27: budgets on this month's three biggest spending subcategories, set
+ * from what they spent so far: the first over budget, the second near it,
+ * the third well under. Round ₪10 amounts, like a person would type.
+ */
+function addBudgets(db: Db, today: IsoDate): void {
+  const { from, until } = monthBounds(today.slice(0, 7));
+  const subcategories = new Set(listCategories(db).filter((c) => c.kind === "expense" && c.parentId !== null).map((c) => c.id));
+  const [over, near, under] = spendingByCategory(db, from, until).filter(
+    (r) => r.categoryId !== null && subcategories.has(r.categoryId) && r.amount > 0,
+  );
+  const tens = (agorot: number, round: (x: number) => number): Agorot => Math.max(1, round(agorot / 1000)) * 1000;
+  if (over) setBudget(db, over.categoryId as number, tens(over.amount * 0.85, Math.floor));
+  if (near) setBudget(db, near.categoryId as number, tens(near.amount / 0.9, Math.ceil));
+  if (under) setBudget(db, under.categoryId as number, tens(under.amount * 3, Math.ceil));
 }
 
 /** Rows typed into the cash wallet, the days after the ATM withdrawal (`ATM_DAYS_AGO`). */

@@ -23,6 +23,7 @@ import {
 import { groupFlow, periodCurves, periodFlow, periodSummary, periodTrend, thisMonth } from "@core/ledger";
 import { addManualTransaction, editManualTransaction, getCashWallet } from "@core/ledger";
 import { balanceChecks } from "@core/ledger";
+import { budgetStatus, israelToday, setBudget } from "@core/ledger";
 import {
   addKnownPlace,
   addStarters,
@@ -126,6 +127,8 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "categories:create": (input) => createCategory(getDb(), input),
     "categories:update": ({ id, patch }) => updateCategory(getDb(), id, patch),
     "categories:delete": ({ id, moveTo }) => deleteCategory(getDb(), id, moveTo),
+    "budgets:status": ({ month }) => budgetStatus(getDb(), { month, today: israelToday(now()) }),
+    "budgets:set": ({ categoryId, monthlyBudget }) => setBudget(getDb(), categoryId, monthlyBudget),
     "accounts:setSyncing": ({ ids, enabled }) => setAccountsSyncing(getDb(), ids, enabled),
     "settings:get": ({ key }) => getSetting(getDb(), key),
     "settings:set": (entry) => {

@@ -707,3 +707,27 @@ export interface SyncRange {
   /** The first day the next sync asks for: the later of `syncFrom` and the bank's limit. */
   from: IsoDate;
 }
+
+// ---- spec 27: budgets ----
+
+/** One budgeted spending category. A group's spent includes its subcategories. */
+export interface BudgetLine {
+  categoryId: number;
+  monthlyBudget: Agorot;
+  /** Spending inside the chosen month only. */
+  spentMonth: Agorot;
+  /** `monthlyBudget / 4`, rounded down to whole agorot. */
+  weeklyBudget: Agorot;
+  /** Spending in `BudgetStatus.week`, all seven days, even outside the month. */
+  spentWeek: Agorot;
+}
+
+export interface BudgetStatus {
+  month: IsoMonth;
+  /** Sunday to Saturday: the week holding today, or the month's last week for any other month. */
+  week: DateRange;
+  /** True when `month` is the month today is in. */
+  currentMonth: boolean;
+  /** Every category with a budget, in category list order. */
+  lines: BudgetLine[];
+}
