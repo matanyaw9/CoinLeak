@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { migrate } from "./index";
+import { migrateKeepingFirstCategories } from "../testing/migrations";
 import { MIGRATIONS } from "./migrations";
 
 // A database as it stood before 0006, with users' data in it.
@@ -42,7 +42,7 @@ describe("migration 0006 (transfers)", () => {
     // 0007 (spec 13) reshapes rules after this; their category links must hold.
     const rules = all(db, "SELECT id, name, set_category_id FROM rules ORDER BY id");
 
-    migrate(db);
+    migrateKeepingFirstCategories(db);
 
     const after = all(db, CATEGORY_COLUMNS);
     expect(after.slice(0, categories.length)).toEqual(categories);
@@ -54,7 +54,7 @@ describe("migration 0006 (transfers)", () => {
 
   it("seeds Savings & Investments as a transfer category with two children", () => {
     const db = databaseAt5();
-    migrate(db);
+    migrateKeepingFirstCategories(db);
     const rows = all(
       db,
       `SELECT c.name, c.kind, p.name AS parent FROM categories c LEFT JOIN categories p ON p.id = c.parent_id
@@ -69,7 +69,7 @@ describe("migration 0006 (transfers)", () => {
 
   it("keeps the indexes, the two-level triggers and the foreign keys", () => {
     const db = databaseAt5();
-    migrate(db);
+    migrateKeepingFirstCategories(db);
     const names = all(db, "SELECT name FROM sqlite_schema WHERE tbl_name = 'categories' AND type <> 'table' ORDER BY name");
     expect(names).toEqual([
       { name: "categories_name" },

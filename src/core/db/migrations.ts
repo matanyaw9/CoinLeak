@@ -12,6 +12,7 @@ import m0008 from "./migrations/0008_accounts_settings.sql?raw";
 import m0009 from "./migrations/0009_essential_categories.sql?raw";
 import m0010 from "./migrations/0010_cash_wallet.sql?raw";
 import m0011 from "./migrations/0011_balance_snapshots.sql?raw";
+import m0013 from "./migrations/0013_routine_treat_categories.sql?raw";
 
 export interface Migration {
   version: number;
@@ -30,4 +31,6 @@ export const MIGRATIONS: Migration[] = [
   { version: 9, sql: m0009 },
   { version: 10, sql: m0010 },
   { version: 11, sql: m0011 },
+  // 12 is spec 27's (budgets); 13 does not depend on it.
+  { version: 13, sql: m0013 },
 ];
