@@ -24,13 +24,39 @@ version: **you decide and test, the lead plans and reviews, agents build.**
    - reads the diff against the spec and `AGENTS.md`,
    - looks at screenshots for UI work,
    - sends it back with concrete fixes if anything is off.
-4. **Merge.** Clean branches go into `main`, one at a time, with checks
+4. **Merge.** Clean branches go into `dev`, one at a time, with checks
    rerun after each merge.
 5. **You test.** The lead tells you exactly what to try (for example
    "run `npm run sync:try -- discount` and log in"). You report what you
    saw. This is the step only you can do and the most important one.
-6. **Decide.** Update `REQUIREMENTS.md` if anything changed, then plan the
+6. **Release.** When your tests pass, the lead merges `dev` into `main`.
+7. **Decide.** Update `REQUIREMENTS.md` if anything changed, then plan the
    next wave.
+
+## Branches
+
+| Branch | What it holds |
+|--------|---------------|
+| `main` | Work you have tested. Only `dev` merges into it. |
+| `dev` | Day-to-day work. Every feature branch starts here and merges back here. `HANDOFF.md` lives here. |
+| `wave9/...`, `fix/...` | One piece of work, branched from `dev`. Deleted after merging. |
+
+## Working from more than one computer
+
+GitHub is the meeting point. The rule: **pull when you sit down, push when
+you get up.**
+
+- **Start of a session:** `git switch dev && git pull`, then
+  `/back-to-business`.
+- **End of a session:** `/call-it-a-day` writes `HANDOFF.md`; commit it
+  on `dev` and push `dev` (and `main` if it moved).
+- **First time on a new computer:** clone the repo, `git switch dev`, then
+  follow "Run it" in `README.md`. The `/call-it-a-day` and
+  `/back-to-business` skills live in your user folder
+  (`~/.claude/skills/`), not in the repo; copy them over too.
+- **What does not travel:** your app data (`CoinLeak` and `CoinLeak-dev`
+  folders) stays on each computer. That is on purpose: real data never
+  goes to GitHub. Each computer syncs its own bank data.
 
 ## What "reviewing" means for you
 
@@ -47,10 +73,11 @@ You do not review code. You review **behavior** and **feel**:
 
 - **Repository (repo)**: the project folder with its full history (git).
 - **Commit**: one saved change with a message, like `feat: add month picker`.
-- **Branch**: a separate line of work. `main` is the one that always works.
+- **Branch**: a separate line of work. `main` holds tested work, `dev`
+  the work in progress.
 - **Worktree**: a second folder checked out from the same repo on another
   branch, so agents can work in parallel without touching each other.
-- **Merge**: bringing a branch's commits into `main`.
+- **Merge**: bringing a branch's commits into another, usually `dev`.
 - **Spec**: a short document that tells one agent exactly what to build,
   which files it owns, and which tests prove it is done.
 - **Migration**: a numbered SQL file that changes the database layout.

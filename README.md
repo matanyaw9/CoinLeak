@@ -14,6 +14,7 @@ syncing, a system Chrome, Chromium or Edge: the sync opens your installed
 browser so you log in to the bank yourself.
 
 ```bash
+git switch dev     # day-to-day work lives on dev; main holds tested work
 npm ci
 npm run setup      # downloads the Electron binary (install scripts are off)
 npm run dev
