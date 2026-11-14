@@ -88,3 +88,16 @@ Read first: `AGENTS.md`, `docs/ARCHITECTURE.md`, `periodTrend` and
 
 What you built, how the API carries the average, commits, anything
 outside Owns, screenshot paths, doubts.
+
+## Addition (owner, 2026-11-14): choose the categories on the curves (F61)
+
+The category curves card lets the owner pick what is drawn: "Top 5"
+(today's top view) or "Choose", a multi-select of any spending
+categories (groups, subcategories, Uncategorized) up to core's
+`MAX_CURVES`, with a quiet note at the limit. It replaces today's "one
+category or top categories" switch. A visible "Top 5" button clears a
+chosen set. The choice is remembered per profile. In Average month mode
+every drawn category gets its own dashed average curve in its color.
+Owns also `curve-category-picker.tsx`. Tests: the picker's selection
+logic (toggle, limit, clear); a screenshot with 3 chosen categories in
+Average month mode.
