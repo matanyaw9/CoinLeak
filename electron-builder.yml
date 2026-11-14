@@ -1,0 +1,51 @@
+# Packaging (spec 29): `npm run dist:win` builds an unsigned per-user NSIS
+# installer into release/. See docs/RELEASE.md.
+
+appId: app.coinleak.desktop
+productName: CoinLeak
+copyright: Copyright (c) CoinLeak contributors
+
+directories:
+  output: release
+  buildResources: build
+
+# Only the built app and the window icon. Production dependencies are added
+# by electron-builder on its own.
+files:
+  - out/**
+  - build/icon.png
+  - package.json
+
+asar: true
+
+# node:sqlite is built into Electron's Node: nothing native to rebuild.
+npmRebuild: false
+nodeGypRebuild: false
+
+# REQUIREMENTS section 3: no run-as-Node, no NODE_OPTIONS, no inspector
+# flags, and only the integrity-checked app.asar may load.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+  icon: build/icon.ico
+
+# Per-user install (no admin prompt), Start menu and desktop shortcuts.
+nsis:
+  oneClick: true
+  perMachine: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: CoinLeak
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  deleteAppDataOnUninstall: false
+  artifactName: CoinLeak-Setup-${version}.${ext}

@@ -115,7 +115,9 @@ function createWindow(): BrowserWindow {
     title: "CoinLeak",
     backgroundColor: "#FCF7ED",
     autoHideMenuBar: true,
-    // The logo for the window and the Linux dock (spec 15); build/ sits next to out/.
+    // The logo for the window and the Linux dock (spec 15). build/ sits next to
+    // out/ in the repo, and electron-builder.yml packs build/icon.png into app.asar
+    // at the same place (spec 29), so this one path works in both.
     icon: join(here, "../../build/icon.png"),
     webPreferences: {
       preload: join(here, "../preload/index.cjs"),

@@ -21,6 +21,7 @@
     "check": "npm run typecheck && npm run lint && npm test && npm run build",
     "sync:try": "tsx --tsconfig tsconfig.node.json scripts/sync-try.ts",
     "desktop:install": "tsx --tsconfig tsconfig.node.json scripts/desktop-install.ts",
+    "dist:win": "bash scripts/dist-win.sh",
     "shot": "electron . --no-sandbox --ozone-platform=headless --ozone-override-screen-size=1440,900"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
     "electron": "45.2.3",
+    "electron-builder": "26.18.0",
     "electron-vite": "6.0.0",
     "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",
