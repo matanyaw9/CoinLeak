@@ -1015,6 +1015,26 @@ export const s = {
     confirm: "Delete for good",
     failed: "Failed to delete the data.",
   },
+
+  // spec 27
+  budgets: {
+    title: "Budgets",
+    periodLabel: "Budget period",
+    month: "This month",
+    week: "This week",
+    of: (spent: string, budget: string) => `${spent} of ${budget}`,
+    over: (amount: string) => `${amount} over`,
+    percent: (p: number) => `${p}%`,
+    empty: "Set a monthly budget on any category",
+    open: (name: string) => `Open ${name}'s transactions for this period`,
+    field: "Budget",
+    fieldLabel: (name: string) => `Monthly budget for ${name}`,
+    fieldPlaceholder: "No budget",
+    perMonth: "a month",
+    perWeek: (amount: string) => `≈ ${amount} a week`,
+    invalid: "Type an amount above ₪0",
+    saveFailed: "Failed to save the budget.",
+  },
 };
 
 export type Strings = typeof s;

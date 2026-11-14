@@ -100,13 +100,19 @@ export function seedDemo(db: Db, today: Date): void {
 }
 
 /**
- * spec 27: budgets on this month's three biggest spending subcategories, set
+ * spec 27: budgets on this month's three biggest spending subcategories (not bills), set
  * from what they spent so far: the first over budget, the second near it,
  * the third well under. Round ₪10 amounts, like a person would type.
  */
 function addBudgets(db: Db, today: IsoDate): void {
   const { from, until } = monthBounds(today.slice(0, 7));
-  const subcategories = new Set(listCategories(db).filter((c) => c.kind === "expense" && c.parentId !== null).map((c) => c.id));
+  // Rent and bills are fixed amounts, a poor show for a budget.
+  const bills = categoryId(db, "Home & Bills");
+  const subcategories = new Set(
+    listCategories(db)
+      .filter((c) => c.kind === "expense" && c.parentId !== null && c.parentId !== bills)
+      .map((c) => c.id),
+  );
   const [over, near, under] = spendingByCategory(db, from, until).filter(
     (r) => r.categoryId !== null && subcategories.has(r.categoryId) && r.amount > 0,
   );

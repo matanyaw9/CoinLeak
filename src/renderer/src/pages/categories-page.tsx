@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "re
 import { FolderPlus, Plus, Shapes } from "lucide-react";
 import type { Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
-import { useCategories } from "@/lib/hooks";
+import { useBudgetStatus, useCategories } from "@/lib/hooks";
 import { usePeriod } from "@/lib/month-context";
 import { monthRange } from "@/lib/month";
 import { usePeriodSummary } from "@/components/home/period-data";
@@ -26,6 +26,7 @@ import { Card } from "@/components/common/card";
 import { KINDS, kindLabel } from "@/components/categories/category-actions";
 import { CategoryEditor, type EditorRequest } from "@/components/categories/category-editor";
 import { CategoryLine, GroupActions } from "@/components/categories/category-line";
+import { BudgetField } from "@/components/categories/budget-field";
 import { DeleteDialog } from "@/components/categories/delete-dialog";
 import { MoveDialog, useMoveCategory } from "@/components/categories/move-dialog";
 import { useKnownPlaces } from "@/components/categories/known-places";
@@ -45,6 +46,13 @@ export function CategoriesPage() {
   const categories = useCategories();
   const summary = usePeriodSummary(monthRange(month));
   const places = useKnownPlaces();
+  const budgets = useBudgetStatus(month);
+  const budgetOf = (id: number) => budgets.data?.lines.find((l) => l.categoryId === id);
+  // spec 27: spending categories get a budget field; it remounts when the saved amount changes.
+  const budgetField = (c: Category) =>
+    c.kind === "expense" && budgets.data ? (
+      <BudgetField key={`${c.id}-${budgetOf(c.id)?.monthlyBudget ?? "none"}`} category={c} budget={budgetOf(c.id)} />
+    ) : undefined;
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
   const all = useMemo(() => (categories.data ?? []).filter((c) => !c.archived), [categories.data]);
   const [dialog, setDialog] = useState<Open | null>(null);
@@ -124,6 +132,7 @@ export function CategoriesPage() {
       onMove={() => show({ name: "move", category: c })}
       dragProps={dragProps(c)}
       dropProps={c.parentId === null ? dropProps(c) : undefined}
+      budget={budgetField(c)}
     />
   );
 
@@ -190,6 +199,7 @@ export function CategoriesPage() {
                     <span className="text-[11px] text-muted-foreground/70">{root.emoji}</span>
                     {over === root.id && <span className="text-xs text-primary">{s.catEdit.dropHere}</span>}
                     <GroupActions group={root} onEdit={() => edit(root)} onAdd={() => add(root.id, false)} />
+                    {budgetField(root)}
                   </div>
                   <List>{kids.map(line)}</List>
                 </section>

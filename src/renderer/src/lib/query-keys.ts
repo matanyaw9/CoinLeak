@@ -29,6 +29,7 @@ export const LEDGER_VIEWS: Channel[] = [
   "cash:wallet",
   "accounts:list",
   "accounts:balanceChecks",
+  "budgets:status",
 ];
 
 /** A rule changed: every rule is reapplied to every row, so the ledger views too. */
@@ -48,3 +49,7 @@ export const refreshLedger = (client: QueryClient) => refresh(client, LEDGER_VIE
 export const refreshRules = (client: QueryClient) => refresh(client, RULE_VIEWS);
 export const refreshCategories = (client: QueryClient) => refresh(client, CATEGORY_VIEWS);
 export const refreshAccounts = (client: QueryClient) => refresh(client, ACCOUNT_VIEWS);
+
+/** spec 27: a budget was set or cleared. Only the budget views read it. */
+export const BUDGET_VIEWS: Channel[] = ["budgets:status"];
+export const refreshBudgets = (client: QueryClient) => refresh(client, BUDGET_VIEWS);

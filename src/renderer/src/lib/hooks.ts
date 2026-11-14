@@ -2,9 +2,9 @@
 // after each kind of change, live in query-keys.ts.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { RuleInput, TransactionFilter, TransactionPatch } from "@shared/types";
+import type { Agorot, IsoMonth, RuleInput, TransactionFilter, TransactionPatch } from "@shared/types";
 import { call } from "./api";
-import { queryKey, refreshLedger } from "./query-keys";
+import { queryKey, refreshBudgets, refreshLedger } from "./query-keys";
 
 export const useAppInfo = () => useQuery({ queryKey: queryKey("app:info"), queryFn: () => call("app:info", undefined) });
 
@@ -55,6 +55,23 @@ export function useUpdateTransactions() {
 }
 
 export const useRules = () => useQuery({ queryKey: queryKey("rules:list"), queryFn: () => call("rules:list", undefined) });
+
+/** spec 27: every budgeted category's spending in the month and its week. */
+export const useBudgetStatus = (month: IsoMonth) =>
+  useQuery({
+    queryKey: queryKey("budgets:status", { month }),
+    queryFn: () => call("budgets:status", { month }),
+    placeholderData: (prev) => prev,
+  });
+
+/** Sets (agorot) or clears (null) a category's monthly budget, then refreshes Home's card. */
+export function useSetBudget() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { categoryId: number; monthlyBudget: Agorot | null }) => call("budgets:set", args),
+    onSettled: () => refreshBudgets(client),
+  });
+}
 
 /** What a rule being edited would match today. Waits while `rule` is null. */
 export const useRulePreview = (rule: RuleInput | null) =>
