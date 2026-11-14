@@ -6,6 +6,7 @@
 import type { SQLInputValue } from "node:sqlite";
 import type {
   Agorot,
+  AverageCurve,
   DateRange,
   EssentialFilter,
   EssentialSplit,
@@ -13,6 +14,7 @@ import type {
   IsoMonth,
   PeriodCurve,
   PeriodSummary,
+  PeriodTrend,
   SeriesBucket,
   SeriesPoint,
   SpendingComparison,
@@ -21,6 +23,7 @@ import type {
 } from "@shared/types";
 import type { Db } from "../db";
 import { addMonths, dayNumber, isIsoDate, israelMonth, monthBounds, toIsoDate } from "./dates";
+import { averageCurve, averageMonths, firstMonth, monthAverage, monthWindow, rangeOfMonths } from "./average";
 import { LEDGER_SQL, SPENDING_FLOWS_SQL } from "./flow";
 import { check, isId } from "./validate";
 
@@ -279,6 +282,7 @@ export function periodSummary(db: Db, args: DateRange & EssentialFilter, opts: {
     untagged: taggedSpending(db, range.from, until, null),
     left: t.income - t.spending - t.transfers,
     comparison: compareSpending(spending, sameTime),
+    average: monthAverageCurve(db, range, undefined, tag, opts.now),
   };
 }
 
@@ -373,7 +377,34 @@ export function periodCurves(
     bucket,
     series: seriesOf(db, range, bucket, categoryId, tag, today).series,
     previous: seriesOf(db, before, bucket, categoryId, tag).series,
+    average: monthAverageCurve(db, range, categoryId, tag, opts.now),
   }));
+}
+
+/** The bars with the average month over their full months (spec 26), with the same filter and categories. */
+export function periodTrendWithAverage(
+  db: Db,
+  args: DateRange & EssentialFilter & { categoryIds?: (number | null)[] },
+  opts: { now?: Date } = {},
+): PeriodTrend {
+  const points = periodTrend(db, args, opts);
+  const thisMonth = israelMonth(opts.now ?? new Date());
+  const counted = new Set(averageMonths(points.map((p) => p.month), thisMonth, firstMonth(db)));
+  const average = monthAverage(points.filter((p) => counted.has(p.month)).map((p) => ({ month: p.month, spending: p.spending })));
+  return { points, average };
+}
+
+/**
+ * The average month's curve for a one-month range (spec 26), over the full
+ * months of the bars' 12-month window. Null for other ranges, or with fewer
+ * than 2 such months.
+ */
+function monthAverageCurve(db: Db, range: DateRange, match: Match, tag: Tag, now: Date | undefined): AverageCurve | null {
+  if (wholeMonths(range) !== 1) return null;
+  const thisMonth = israelMonth(now ?? new Date());
+  const months = averageMonths(monthWindow(range.from.slice(0, 7), thisMonth), thisMonth, firstMonth(db));
+  if (months.length === 0) return null;
+  return averageCurve(spentByDate(db, rangeOfMonths(months), match, tag), months, bucketsOf(range, "day"));
 }
 
 /**

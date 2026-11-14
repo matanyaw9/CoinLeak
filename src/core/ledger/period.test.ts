@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { DateRange, TransactionFilter, TransactionRow } from "@shared/types";
 import type { Db } from "../db";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testing/ledger";
+import { addMonths } from "./dates";
 import { ingest } from "./ingest";
 import { groupFlow, periodFlow } from "./money-flow";
 import {
@@ -12,6 +13,7 @@ import {
   periodCurves,
   periodSummary,
   periodTrend,
+  periodTrendWithAverage,
   previousRange,
   thisMonth,
 } from "./period";
@@ -697,5 +699,149 @@ describe("money math the window used to do (spec 25)", () => {
       expect(list.days, JSON.stringify(filter)).toEqual(windowDays(newestFirst));
     }
     expect(dayTotals([])).toEqual([]);
+  });
+});
+
+// ---- Spec 26: the average month ----
+
+describe("the average month on the bars (spec 26)", () => {
+  // In April, March is a full month; in March it is not finished yet.
+  const APRIL = { now: new Date("2026-04-20T09:00:00Z") };
+  const year = { from: "2025-05-01", to: "2026-04-30" };
+
+  it("excludes this month and months before the first transaction", () => {
+    const db = ledger();
+    // March 20th: Dec, Jan and Feb count; March is unfinished, April to November 2025 had no data yet.
+    const march = periodTrendWithAverage(db, { from: "2025-04-01", to: "2026-03-31" }, opts);
+    expect(march.points).toHaveLength(12);
+    expect(march.average).toEqual({ from: "2025-12", to: "2026-02", count: 3, amount: Math.round((305000 + 0 + 465000) / 3) });
+  });
+
+  it("refunds, card bills, trashed and excluded rows count as on the bars", () => {
+    const db = ledger();
+    const { points, average } = periodTrendWithAverage(db, year, APRIL);
+    // March's 5,500 is 4,000 - 1,000 refund + 2,500; the card bill, clothes (trashed) and gift (excluded) are out.
+    expect(points.find((p) => p.month === "2026-03")?.spending).toBe(5500);
+    expect(average).toEqual({ from: "2025-12", to: "2026-03", count: 4, amount: (305000 + 0 + 465000 + 5500) / 4 });
+  });
+
+  it("follows the ticked categories", () => {
+    const db = ledger();
+    const groceries = categoryId(db, "Groceries");
+    const restaurants = categoryId(db, "Restaurants");
+    // Groceries: Feb 6,000, Mar 4,000 - 1,000. Restaurants: Feb 9,000, Mar 2,500.
+    expect(periodTrendWithAverage(db, { ...year, categoryIds: [groceries] }, APRIL).average?.amount).toBe(2250);
+    expect(periodTrendWithAverage(db, { ...year, categoryIds: [groceries, restaurants] }, APRIL).average?.amount).toBe(5125);
+  });
+
+  it("follows the filter: essentials, extras and neither add up to all", () => {
+    const db = taggedLedger();
+    const amount = (essential?: boolean | null) =>
+      periodTrendWithAverage(db, essential === undefined ? year : { ...year, essential }, APRIL).average?.amount;
+    expect(amount(true)).toBe((300000 + 0 + 456000 + 3000) / 4);
+    expect(amount(false)).toBe((5000 + 0 + 9000 + 2500) / 4);
+    expect(amount(null)).toBe(3500 / 4);
+    expect(amount()).toBe((305000 + 0 + 465000 + 9000) / 4);
+  });
+
+  /** One spending row on the 10th of each month in the list. */
+  function monthly(months: string[]): Db {
+    const db = newDb();
+    const rows = months.map((m) => txn({ date: `${m}-10`, amount: -1000 * Number(m.slice(5, 7)), description: `חנות ${m}` }));
+    ingest(db, [bank(rows)], { now: NOW });
+    return db;
+  }
+  const monthsFrom = (first: string, n: number) => Array.from({ length: n }, (_, i) => addMonths(first, i));
+
+  it("12, 5 and 1 full months; one month gives no average", () => {
+    // February's bars on March 20th: March 2025 to February 2026, every one full.
+    const feb = { from: "2025-03-01", to: "2026-02-28" };
+    const twelve = periodTrendWithAverage(monthly(monthsFrom("2024-01", 26)), feb, opts).average;
+    const sum12 = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2].reduce((a, m) => a + m * 1000, 0);
+    expect(twelve).toEqual({ from: "2025-03", to: "2026-02", count: 12, amount: Math.round(sum12 / 12) });
+
+    const yearToMarch = { from: "2025-04-01", to: "2026-03-31" };
+    const five = periodTrendWithAverage(monthly(monthsFrom("2025-10", 6)), yearToMarch, opts).average;
+    expect(five).toEqual({ from: "2025-10", to: "2026-02", count: 5, amount: ((10 + 11 + 12 + 1 + 2) * 1000) / 5 });
+
+    const one = periodTrendWithAverage(monthly(["2026-02", "2026-03"]), yearToMarch, opts);
+    expect(one.average).toBeNull();
+    expect(one.points).toHaveLength(12);
+  });
+
+  it("no transactions at all: no average", () => {
+    expect(periodTrendWithAverage(newDb(), year, APRIL).average).toBeNull();
+  });
+});
+
+describe("the average month's curve (spec 26)", () => {
+  // Early April: January, February (28 days) and March count for March's curve.
+  const APRIL = { now: new Date("2026-04-05T09:00:00Z") };
+  const march = monthRange("2026-03");
+
+  function threeMonths(): Db {
+    const db = newDb();
+    ingest(
+      db,
+      [
+        bank([
+          txn({ date: "2026-01-01", amount: -100, description: "ינואר א" }),
+          txn({ date: "2026-01-31", amount: -3100, description: "ינואר סוף" }),
+          txn({ date: "2026-02-28", amount: -2800, description: "פברואר סוף" }),
+          txn({ date: "2026-03-31", amount: -3100, description: "מרץ סוף" }),
+        ]),
+      ],
+      { now: NOW },
+    );
+    return db;
+  }
+
+  it("day 31 takes February's month-end total; cumulative, non-decreasing, ending on the bar average", () => {
+    const db = threeMonths();
+    const [curve] = periodCurves(db, { ...march, categoryIds: [null] }, APRIL);
+    const avg = curve?.average;
+    expect(avg).toMatchObject({ from: "2026-01", to: "2026-03", count: 3 });
+    const series = avg?.series ?? [];
+    expect(series).toHaveLength(31);
+    expect(series[0]).toEqual({ from: "2026-03-01", to: "2026-03-01", amount: Math.round(100 / 3) });
+    // Day 28: January's 100 and February's 2,800; day 30: the same (February has ended).
+    expect(series[27]?.amount).toBe(Math.round(2900 / 3));
+    expect(series[29]?.amount).toBe(Math.round(2900 / 3));
+    expect(series[30]?.amount).toBe(Math.round((3200 + 2800 + 3100) / 3));
+    for (let i = 1; i < series.length; i++) expect(series[i]?.amount).toBeGreaterThanOrEqual(series[i - 1]?.amount ?? 0);
+
+    const bars = periodTrendWithAverage(db, { from: "2025-04-01", to: "2026-03-31" }, APRIL).average;
+    expect(series.at(-1)?.amount).toBe(bars?.amount);
+    // The spending curve (all spending) carries the same average.
+    expect(periodSummary(db, march, APRIL).average?.series).toEqual(series);
+  });
+
+  it("a 30-day month's last day still takes whole months, so it ends on the bar average", () => {
+    const db = threeMonths();
+    // November 2026's window is December 2025 to November 2026: January to November count.
+    const later = { now: new Date("2026-12-05T09:00:00Z") };
+    const [curve] = periodCurves(db, { ...monthRange("2026-11"), categoryIds: [null] }, later);
+    const bars = periodTrendWithAverage(db, { from: "2025-12-01", to: "2026-11-30" }, later).average;
+    expect(curve?.average?.series).toHaveLength(30);
+    expect(curve?.average?.series.at(-1)?.amount).toBe(bars?.amount);
+    expect(bars).toMatchObject({ from: "2026-01", to: "2026-11", count: 11 });
+  });
+
+  it("each category its own average, as on the bars", () => {
+    const db = ledger();
+    const groceries = categoryId(db, "Groceries");
+    const later = { now: new Date("2026-04-20T09:00:00Z") };
+    const [curve] = periodCurves(db, { ...march, categoryIds: [groceries] }, later);
+    expect(curve?.average?.series.at(-1)?.amount).toBe(2250);
+    const bars = periodTrendWithAverage(db, { from: "2025-04-01", to: "2026-03-31", categoryIds: [groceries] }, later);
+    expect(bars.average?.amount).toBe(2250);
+  });
+
+  it("only for month periods, and only with 2 or more full months", () => {
+    const db = threeMonths();
+    expect(periodSummary(db, { from: "2026-03-01", to: "2026-03-07" }, APRIL).average).toBeNull();
+    expect(periodCurves(db, { from: "2026-01-01", to: "2026-03-31", categoryIds: [null] }, APRIL)[0]?.average).toBeNull();
+    // In February only January is full: no average.
+    expect(periodSummary(db, monthRange("2026-02"), { now: new Date("2026-02-10T09:00:00Z") }).average).toBeNull();
   });
 });
