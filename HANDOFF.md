@@ -1,72 +1,77 @@
 # Handoff: CoinLeak
-_Last session: 2026-11-10 · branch: main · last commit: ab7ba89 docs: F59 budgets planned, F63 yearly average line, F64 uncategorized filter_
+_Last session: 2026-11-14 · branch: dev · last commit: 6da9356 Merge wave 10: Windows installer (spec 29)_
 
 ## Today in one line
-The Uncategorized filter now shows the same rows as Needs review's uncategorized part. Three new owner requests are recorded: budget bars, a yearly average line, and chart contradictions (details still needed).
-I am making changes here.
+Wave 10 started with three agents: the Windows installer is built and merged; budgets and the categories/fixes work are committed on their own branches but not reviewed or merged yet.
 
 ## What we did
-- Fix `693fd9d` (lead, no agent), owner item 3:
-  - `listTransactions` in `src/core/ledger/queries.ts`: the `null` category filter now uses `ledger.flag_uncategorized` (spending or income with no category).
-  - The filter used to be `category_id IS NULL`, which also took in ignored rows and moves between own accounts.
-  - Tests updated in `queries.test.ts`, including one that checks the filter and Needs review return the same ids.
-- Owner chose to keep possible card bills and rows the bank stopped reporting in Needs review ("keep all three, match counts").
-- `docs/FEATURES.md`:
-  - **F59 budgets:** moved from "after v1" to planned (spec 27). The owner wants a monthly amount per category, set on the Categories page, and a Home card with one horizontal bar per budgeted category showing spent as a percent of its budget for the chosen month.
-  - **F63, new:** a horizontal line at the yearly average on the month-by-month bars (spec 26).
-  - **F64, new:** the filter fix, done.
-- Earlier today, before this session: waves 8 and 9 merged, and the month-by-month bar fixes (c05d830, c4ec573).
+- This computer: installed packages (`npm ci`, `npm run setup`), set the repo-local git name and email (copied from earlier commits), switched to `dev`.
+- Owner decisions today:
+  - Weekly budget = monthly budget / 4. Weeks run Sunday to Saturday.
+  - New default categories also apply to existing profiles, but only to categories that still look like the defaults.
+  - Clothes & Shoes is one category. A new Work group.
+  - "Essentials / Extras" becomes "Routine / Treats" in the app.
+  - The "Me" profile (any profile) can be deleted.
+  - No separate "hide" switch: fix the "Card bill?" flag instead.
+- Specs written and committed: `docs/specs/27-budgets.md`, `28-categories-and-fixes.md`, `29-windows-installer.md` (70aa9a8).
+- **Spec 29, Windows: merged into `dev`** (6da9356), `npm run check` green.
+  - `npm run dist:win` builds `release/CoinLeak-Setup-0.0.1.exe` (135 MB, unsigned, per user) from Linux, using electron-builder 26.18.0.
+  - Fuses are checked on the built exe.
+  - Production dependencies are unchanged.
+  - The built installer is at `release/` in the main checkout. It is git-ignored and does NOT include specs 27 and 28 yet.
+- **Spec 27, Budgets:** branch `wave10/budgets` (2 commits), worktree `.claude/worktrees/agent-ac6fa12a6e40d45e3`.
+  - Migration 0012 (`categories.monthly_budget`) and core `budgetStatus` / `setBudget` in `src/core/ledger/budgets.ts`.
+  - A Budget field on Categories, a Budgets card on Home with a month/week toggle, and Demo budgets.
+  - Full check was green before the last small Demo change; core tests and the build passed after it.
+- **Spec 28, Categories and fixes:** branch `wave10/categories` (4 commits), worktree `.claude/worktrees/agent-a2f7551039d924242`.
+  - Card-bill fix (8c94b9c): "Count again" after "This pays a card I track" plus Ignore now hands the line back to the matcher.
+  - Migration 0013: the new category layout, with tests.
+  - Starter lists and Demo moved to the new categories.
+  - Routine/Treats strings.
+  - 931 tests pass. Full `npm run check` not run.
 
 ## Where we stopped
-- `main` is clean and `npm run check` is green (921 tests). Nothing pushed. No agents running.
-- Specs 26 and 27 are not written yet.
-- The F59 row still sits in the ideas table near the bottom of FEATURES.md. Move it up when writing spec 27.
+- `dev` is clean apart from this file. It is 6 commits ahead of `origin/dev` (not pushed).
+- Both agent branches are local only, committed, and not reviewed or merged.
+- No agents or processes are running.
+- **Spec 28 part 3 (delete any profile, including the open one and the last real one) is NOT started.**
+- No screenshots were taken for spec 28. Spec 27 has 4 screenshots nobody has looked at, in its worktree's `.claude/shots/`. The Categories ones are the important ones.
 
 ## Dead ends / don't retry
-- A stale `npm run dev` causes "failed" errors after merges: the main process keeps old code. The owner must restart it.
-- Rule editor closing after typing a name: could not reproduce in Demo. Waiting on owner details.
-- `.claude/shots` is read-only in agent worktrees; agents save shots elsewhere, and the lead copies them.
-- "Device or resource busy" on worktree removal is the sandbox; the worktrees still leave the list.
-- `strings.ts` conflicts on every merge; keep both blocks and close the first with `},`.
-- An agent can stop on the usage limit. Resume it with SendMessage after the reset.
+- Do not run built `.exe` files under wine: it pops up Wine Mono on the owner's desktop. `scripts/dist-win.sh` uses its own wine folder (`~/.cache/coinleak-wine`) with Mono and Gecko turned off. That works silently.
+- electron-builder's NSIS step always runs wine once (to make the uninstaller). That is expected.
+- Agent worktrees started at ab7ba89 (old `main`), not `dev`. Both agents branched from `dev` themselves. When starting new agents, tell them to branch from `dev` explicitly.
+- A stale `npm run dev` keeps old main-process code after a merge. Restart it.
+- `strings.ts` conflicts on merges: keep both blocks.
 
 ## Open questions / decisions for the user
-- **Charts contradict each other (owner item 1):** waiting for an example or a screenshot:
-  - which two charts disagree
-  - which month or period
-  - whether All, Essentials or Extras was selected
-  - whether categories were ticked
-  - Alternative offered: the lead cross-checks every Home chart on Demo data.
-- Owner to test the filter fix: restart `npm run dev`, compare Needs review's uncategorized rows with All plus the Uncategorized filter.
-- Owner to test the bar fixes from earlier today:
-  - tick Food and check Restaurants and Cafes show
-  - hover and click Neither
-  - click "All spending" from each state
-- Rule editor bug details:
-  - what showed after it closed
-  - New rule or Make a rule
-  - last action
-  - was `npm run dev` restarted
-- Confirm: "Left" subtracts savings; ATM withdrawals move to the wallet only from the wallet's first month.
-- Owner test results: `docs/OWNER-TESTS.md` sections 3 to 6.
-- `git push` (owner only).
+- Send the brother the installer now (no budgets yet), or wait for the rebuild after 27 and 28 merge? Recommended: wait.
+- `~/.wine` was created by the first, failed build. It is not needed; the owner may delete it.
+- Push `dev` and the two `wave10/*` branches (owner only).
+- Still open from 2026-11-10:
+  - an example of the Home charts that contradict each other
+  - the owner tests from that day (Uncategorized filter, month-by-month bars, rule editor bug details)
 
 ## Next steps
-1. Get the chart-contradiction example from the owner, or cross-check the Home charts on Demo if they ask. Find the cause in core (`src/core/ledger/period.ts`).
-2. Write spec 26 (Home charts):
-   - the contradiction fix
-   - F62 monthly saved or overspent bars
-   - F63 yearly average line
-   - F61 All / Top 5 / Choose plus "Show all"
-3. Write spec 27 (budgets, F59):
-   - migration for a per-category monthly amount
-   - core budget-vs-spent query
-   - Categories page input
-   - Home card with horizontal percent bars
-4. Run specs 26 and 27 as one wave, two agents. Check file ownership overlap: both touch Home.
-5. Then plan wave 10 (first public version): F55, F27, F28, F56, F57, F1.
+1. Finish spec 28 part 3 (delete any profile) on `wave10/categories`:
+   - `src/main/profiles.ts` `deleteProfile`, the delete channel in `handlers.ts`, the Settings dialog wording, `profiles.test.ts`.
+   - Then `npm run check` and screenshots.
+   - Also fix the `newMetaIntro` hint, which still says "Food holds Groceries".
+2. Review spec 28 outside Owns: test fixture changes in `src/core/testing/` (`newDb()` now skips 0013). Also its note: `undoInternal` in `src/renderer/src/lib/review.ts` returns true for any internal row, so undo can leave an auto-matched line protected. Decide whether to fix it.
+3. On `wave10/budgets`: rerun `npm run check`, then look at all screenshots (Categories budget field in rows and group headers).
+4. Merge `wave10/budgets`, then `wave10/categories`, into `dev`. Expect `strings.ts` and Demo conflicts. Rerun `npm run check` after each merge.
+5. Rebuild the installer: `npm run dist:win`, output in `release/`.
+6. Tell the owner what to test:
+   - budgets month and week
+   - the new categories on a real profile
+   - Routine/Treats
+   - the card-bill undo
+   - deleting "Me"
+   - the brother installs the `.exe` on Windows (Edge sync)
+7. After testing: update `docs/FEATURES.md` (F59, F55) and `docs/STATUS.md`, merge `dev` into `main`.
 
 ## History
+- 2026-11-14: wave 10 started (specs 27 budgets, 28 categories/fixes, 29 Windows); Windows installer merged and built; 27 and 28 committed on branches, unmerged.
 - 2026-11-10 (later): Uncategorized filter matches Needs review (F64); budgets F59 planned; F63 yearly average line requested; chart contradictions reported.
 - 2026-11-10: spec 25 cleanup merged; wave 9 done; F62 savings chart requested; month-by-month bar fixes.
 - 2026-11-09 (evening): waves 8 and 9 (specs 20 to 24) merged; F61 chart controls requested.
