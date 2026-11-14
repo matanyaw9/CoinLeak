@@ -529,7 +529,7 @@ export const s = {
     move: (name: string) => `Move ${name}`,
     newTitle: "New category",
     newMetaTitle: "New group",
-    newMetaIntro: "A group sits at the top level and holds categories, like Food holds Groceries and Restaurants.",
+    newMetaIntro: "A group sits at the top level and holds categories, like Shopping holds Online shopping and Clothes & Shoes.",
     editTitle: "Edit category",
     editMetaTitle: "Edit group",
     name: "Name",
@@ -833,6 +833,9 @@ export const s = {
     deleteTitle: (name: string) => `Delete ${name}?`,
     deleteBody: "This deletes the profile and all its data from this computer. It cannot be undone.",
     deleteType: (name: string) => `Type ${name} to confirm`,
+    // spec 28: what happens after deleting the open or the last real profile
+    deleteSwitch: (name: string) => `It is open now, so CoinLeak switches to ${name} first.`,
+    deleteFresh: "It is your last profile, so CoinLeak starts a new, empty profile called Me.",
     demoName: "Demo: made-up numbers",
     demoHint: "Sync is off in this profile.",
     addDemo: "Add the Demo profile",
