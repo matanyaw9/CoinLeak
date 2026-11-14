@@ -1,13 +1,13 @@
 // Which categories the category curves draw (spec 26, F61): the top 5, or a
 // chosen set of any spending categories (null is uncategorized). An empty
-// set is the top 5. The limit is core's MAX_CURVES for one request.
+// set is the top 5. At most 5 chosen too: each one adds an average curve, and more is unreadable.
 
 import { s } from "@/strings";
 import { colorOf, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
 
 export type CurveChoice = (number | null)[];
 
-export const MAX_CHOSEN = 30;
+export const MAX_CHOSEN = 5;
 
 /** Adds or removes the id; adding past the limit changes nothing. */
 export function toggleChosen(chosen: CurveChoice, id: number | null): CurveChoice {
