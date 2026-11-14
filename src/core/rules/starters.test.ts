@@ -2,9 +2,9 @@
 // categories the user renamed or removed, and become ordinary list rules.
 
 import { describe, expect, it } from "vitest";
-import type { Db } from "../db";
+import { openDatabase, type Db } from "../db";
 import { ingest } from "../ledger/ingest";
-import { NOW, bank, card, categoryId, charge, idOf, newDb, snapshot, txn } from "../testing/ledger";
+import { NOW, bank, card, categoryId, charge, idOf, snapshot, txn } from "../testing/ledger";
 import { lastRunId, ruleFields, textValues } from "../testing/rules";
 import { applyRules } from "./engine";
 import { knownPlaces } from "./places";
@@ -13,7 +13,7 @@ import { STARTER_LISTS } from "./starter-places";
 import { addStarters, starterPreview } from "./starters";
 
 function ledger(): Db {
-  const db = newDb();
+  const db = openDatabase(":memory:");
   ingest(
     db,
     [
