@@ -529,7 +529,7 @@ export const s = {
     move: (name: string) => `Move ${name}`,
     newTitle: "New category",
     newMetaTitle: "New group",
-    newMetaIntro: "A group sits at the top level and holds categories, like Food holds Groceries and Restaurants.",
+    newMetaIntro: "A group sits at the top level and holds categories, like Shopping holds Online shopping and Clothes & Shoes.",
     editTitle: "Edit category",
     editMetaTitle: "Edit group",
     name: "Name",
@@ -800,12 +800,12 @@ export const s = {
 
   // spec 18
   essential: {
-    label: "Essential or extra",
-    hint: "Extras are where a month can be cut",
-    essential: "Essential",
-    extra: "Extra",
-    badge: "Extra",
-    badgeTitle: "Extra spending: where a month can be cut",
+    label: "Routine or treat",
+    hint: "Treats are where a month can be cut",
+    essential: "Routine",
+    extra: "Treat",
+    badge: "Treat",
+    badgeTitle: "A treat: where a month can be cut",
   },
   syncLive: {
     working: (provider: string) => `Syncing ${provider}`,
@@ -833,6 +833,9 @@ export const s = {
     deleteTitle: (name: string) => `Delete ${name}?`,
     deleteBody: "This deletes the profile and all its data from this computer. It cannot be undone.",
     deleteType: (name: string) => `Type ${name} to confirm`,
+    // spec 28: what happens after deleting the open or the last real profile
+    deleteSwitch: (name: string) => `It is open now, so CoinLeak switches to ${name} first.`,
+    deleteFresh: "It is your last profile, so CoinLeak starts a new, empty profile called Me.",
     demoName: "Demo: made-up numbers",
     demoHint: "Sync is off in this profile.",
     addDemo: "Add the Demo profile",
@@ -858,13 +861,13 @@ export const s = {
   essentials: {
     label: "Which spending",
     all: "All",
-    essential: "Essentials",
-    extra: "Extras",
-    /** After the amount in the hero: "You've spent ₪X on essentials so far this month." */
-    on: { essential: "on essentials", extra: "on extras" },
-    untagged: (amount: string) => `${amount} of spending is neither essential nor extra, so it shows only under All.`,
+    essential: "Routine",
+    extra: "Treats",
+    /** After the amount in the hero: "You've spent ₪X on routine spending so far this month." */
+    on: { essential: "on routine spending", extra: "on treats" },
+    untagged: (amount: string) => `${amount} of spending is neither routine nor a treat, so it shows only under All.`,
     untaggedLink: "See uncategorized rows",
-    splitView: "Essential or extra",
+    splitView: "Routine or treat",
     groupView: "By category",
     viewLabel: "Split the bars",
     untaggedName: "Neither",

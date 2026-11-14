@@ -4,6 +4,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { migrate, openDatabase } from "./index";
+import { dbWithFirstCategories, migrateKeepingFirstCategories } from "../testing/migrations";
 import { MIGRATIONS } from "./migrations";
 
 const ESSENTIAL = [
@@ -74,7 +75,7 @@ function userShaped(): DatabaseSync {
 
 describe("migration 0009 (essential categories)", () => {
   it("on a fresh database flags every seeded category as listed and adds the new ones in place", () => {
-    const db = openDatabase(":memory:");
+    const db = dbWithFirstCategories();
     for (const name of ESSENTIAL) expect(byName(db, name).map((r) => r.essential), name).toEqual([1]);
     for (const name of EXTRA) expect(byName(db, name).map((r) => r.essential), name).toEqual([0]);
     // Not in either list: a spending subcategory, so essential by default.
@@ -95,7 +96,7 @@ describe("migration 0009 (essential categories)", () => {
   });
 
   it("puts the new categories after the group's own, in the listed order", () => {
-    const db = openDatabase(":memory:");
+    const db = dbWithFirstCategories();
     const order = (parent: string) =>
       (all(db, `SELECT c.name FROM categories c JOIN categories p ON p.id = c.parent_id WHERE p.name = '${parent}' ORDER BY c.sort_order`) as { name: string }[]).map((r) => r.name);
     expect(order("Transportation")).toEqual(["Transport", "Travel", "Fuel", "Parking"]);
@@ -108,7 +109,7 @@ describe("migration 0009 (essential categories)", () => {
     const before = all(db, OLD_COLUMNS) as Row[];
     const transactions = all(db, "SELECT * FROM transactions ORDER BY id");
 
-    migrate(db);
+    migrateKeepingFirstCategories(db);
 
     // Every category the user had is exactly as it was.
     const after = all(db, OLD_COLUMNS) as Row[];

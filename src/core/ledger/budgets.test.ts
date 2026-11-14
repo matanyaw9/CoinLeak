@@ -2,7 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { MIGRATIONS } from "../db/migrations";
 import { seedDemo } from "../demo";
-import type { Db } from "../db";
+import { openDatabase, type Db } from "../db";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testing/ledger";
 import { budgetStatus, budgetWeek, setBudget, weekOf, weeklyBudget } from "./budgets";
 import { ingest } from "./ingest";
@@ -185,7 +185,8 @@ describe("on the Demo profile", () => {
   const TODAY = new Date("2026-11-14T10:00:00Z");
 
   it("spent matches Home's category totals for the same month", () => {
-    const db = newDb();
+    // The Demo uses the current default categories (spec 28), so every migration runs.
+    const db = openDatabase(":memory:");
     seedDemo(db, TODAY);
     const today = israelToday(TODAY);
     // Budget every spending category, groups too.

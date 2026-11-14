@@ -165,8 +165,21 @@ function profileHandlers(deps: HandlerDeps): Pick<Handlers, ProfileChannel> {
       renameProfile(dataDir, id, name);
       return null;
     },
+    // spec 28: any profile. The open one closes first and the new current one opens after.
     "profiles:delete": ({ id }) => {
-      deleteProfile(dataDir, id);
+      const wasOpen = readProfiles(dataDir).current === id;
+      if (!wasOpen) {
+        deleteProfile(dataDir, id);
+        return null;
+      }
+      if (sync.isRunning()) throw new CodedError("SYNC_IN_PROGRESS");
+      closeDb();
+      try {
+        deleteProfile(dataDir, id);
+      } finally {
+        openCurrentDb();
+      }
+      reloadWindow();
       return null;
     },
     "profiles:switch": ({ id }) => {

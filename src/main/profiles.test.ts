@@ -53,14 +53,45 @@ describe("profiles.json", () => {
     expect(readdirSync(dir).some((f) => f.endsWith(".tmp"))).toBe(false);
   });
 
-  it("refuses to delete the open profile and the last real profile", () => {
-    expect(code(() => deleteProfile(dir, "me"))).toBe("BAD_REQUEST");
+  // spec 28: any profile can be deleted, and a real one always remains.
+  it("deleting the open profile switches to the first real one left", () => {
+    const work = addProfile(dir, "Work");
+    writeFileSync(join(dir, "coinleak.db"), "x");
+    deleteProfile(dir, "me");
+    const list = readProfiles(dir);
+    expect(list.current).toBe(work.id);
+    expect(list.profiles.map((p) => p.id)).toEqual([work.id]);
+    expect(existsSync(join(dir, "coinleak.db"))).toBe(false);
+  });
+
+  it("deleting the last real profile makes a fresh, empty Me and opens it", () => {
+    writeFileSync(join(dir, "coinleak.db"), "x");
+    deleteProfile(dir, "me");
+    const list = readProfiles(dir);
+    expect(list.profiles).toEqual([{ id: "p2", name: "Me", file: "profile-p2.db", demo: false }]);
+    expect(list.current).toBe("p2");
+    expect(existsSync(join(dir, "coinleak.db"))).toBe(false);
+  });
+
+  it("deleting the last real profile while Demo is open keeps Demo open", () => {
     const demo = addDemoProfile(dir);
     setCurrentProfile(dir, demo.id);
-    expect(code(() => deleteProfile(dir, "me"))).toBe("BAD_REQUEST");
-    expect(code(() => deleteProfile(dir, demo.id))).toBe("BAD_REQUEST");
-    setCurrentProfile(dir, "me");
+    deleteProfile(dir, "me");
+    const list = readProfiles(dir);
+    expect(list.current).toBe(demo.id);
+    expect(list.profiles.map((p) => p.name)).toEqual(["Me", "Demo"]);
+    expect(list.profiles.find((p) => p.name === "Me")?.id).not.toBe("me");
+  });
+
+  it("deleting the open Demo profile switches to a real one", () => {
+    const demo = addDemoProfile(dir);
+    setCurrentProfile(dir, demo.id);
     deleteProfile(dir, demo.id);
+    expect(readProfiles(dir)).toMatchObject({ current: "me", profiles: [{ id: "me" }] });
+  });
+
+  it("refuses an unknown profile", () => {
+    expect(code(() => deleteProfile(dir, "nope"))).toBe("BAD_REQUEST");
     expect(readProfiles(dir).profiles).toHaveLength(1);
   });
 

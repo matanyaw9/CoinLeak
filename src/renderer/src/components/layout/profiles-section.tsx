@@ -31,7 +31,6 @@ export function ProfilesSection() {
   const [busy, setBusy] = useState(false);
   if (!list) return null;
 
-  const realCount = list.profiles.filter((x) => !x.demo).length;
   const hasDemo = list.profiles.some((x) => x.demo);
 
   /** Runs a change, refreshes the list, and closes the dialog. */
@@ -54,7 +53,6 @@ export function ProfilesSection() {
       <ul className="mt-5 divide-y divide-border rounded-2xl border border-border">
         {list.profiles.map((profile) => {
           const isCurrent = profile.id === list.current;
-          const canDelete = !isCurrent && (profile.demo || realCount > 1);
           return (
             <li key={profile.id} className="flex items-center gap-3 px-4 py-3">
               {profile.demo && <FlaskConical className="size-4 shrink-0 text-status-heads-up" strokeWidth={1.75} />}
@@ -69,11 +67,9 @@ export function ProfilesSection() {
                 <Button variant="ghost" size="sm" onClick={() => setOpen({ kind: "rename", profile })}>
                   {p.rename}
                 </Button>
-                {canDelete && (
-                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setOpen({ kind: "delete", profile })}>
-                    {p.delete}
-                  </Button>
-                )}
+                <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setOpen({ kind: "delete", profile })}>
+                  {p.delete}
+                </Button>
                 {!isCurrent && (
                   <Button variant="outline" size="sm" onClick={() => switchProfile(profile.id)}>
                     {p.open}
@@ -120,6 +116,7 @@ export function ProfilesSection() {
       {open?.kind === "delete" && (
         <DeleteDialog
           profile={open.profile}
+          after={afterDelete(list.profiles, list.current, open.profile)}
           busy={busy}
           onClose={() => setOpen(null)}
           onDelete={() => change(() => call("profiles:delete", { id: open.profile.id }))}
@@ -168,13 +165,29 @@ function NameDialog(props: {
   );
 }
 
-function DeleteDialog({ profile, busy, onClose, onDelete }: { profile: Profile; busy: boolean; onClose: () => void; onDelete: () => void }) {
+/**
+ * The extra sentence for the delete dialog, mirroring `deleteProfile` in main:
+ * the last real profile is replaced by a fresh "Me", and deleting the open
+ * one switches to the first real profile left.
+ */
+function afterDelete(profiles: Profile[], current: string, target: Profile): string | null {
+  const realLeft = profiles.filter((x) => !x.demo && x.id !== target.id);
+  if (realLeft.length === 0) return p.deleteFresh;
+  if (target.id === current) return p.deleteSwitch((realLeft[0] as Profile).name);
+  return null;
+}
+
+function DeleteDialog(props: { profile: Profile; after: string | null; busy: boolean; onClose: () => void; onDelete: () => void }) {
+  const { profile, after, busy, onClose, onDelete } = props;
   const [typed, setTyped] = useState("");
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md p-7">
         <DialogTitle>{p.deleteTitle(profile.name)}</DialogTitle>
-        <DialogDescription className="mt-2 leading-relaxed">{p.deleteBody}</DialogDescription>
+        <DialogDescription className="mt-2 leading-relaxed">
+          {p.deleteBody}
+          {after && ` ${after}`}
+        </DialogDescription>
         <label className="mt-5 block text-sm" htmlFor="profile-delete">
           {p.deleteType(profile.name)}
         </label>

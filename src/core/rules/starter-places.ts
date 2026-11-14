@@ -15,7 +15,7 @@ export interface StarterData {
 export const STARTER_LISTS: readonly StarterData[] = [
   {
     key: "supermarkets",
-    parent: "Food",
+    parent: "Groceries & Shop",
     category: "Groceries",
     names: [
       "שופרסל",
@@ -47,7 +47,7 @@ export const STARTER_LISTS: readonly StarterData[] = [
   },
   {
     key: "cafes",
-    parent: "Food",
+    parent: "Eating out & Treats",
     category: "Coffee & Cafes",
     names: [
       "ארומה",
@@ -70,7 +70,7 @@ export const STARTER_LISTS: readonly StarterData[] = [
   },
   {
     key: "restaurants",
-    parent: "Food",
+    parent: "Eating out & Treats",
     category: "Restaurants",
     names: [
       "מקדונלד",

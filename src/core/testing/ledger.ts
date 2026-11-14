@@ -2,13 +2,15 @@
 // card number and amount here is made up; no real data belongs in this folder.
 
 import type { ProviderId, ScrapedAccount, ScrapedTransaction } from "@shared/types";
-import { openDatabase, type Db } from "../db";
+import type { Db } from "../db";
+import { dbWithFirstCategories } from "./migrations";
 
 export const NOW = new Date("2026-03-31T09:00:00Z");
 export const BANK_NUMBER = "100-200300";
 
+/** Full schema, with the first default categories (Food holds Groceries); see ./migrations. */
 export function newDb(): Db {
-  return openDatabase(":memory:");
+  return dbWithFirstCategories();
 }
 
 type TxnInput = Pick<ScrapedTransaction, "date" | "amount" | "description"> & Partial<ScrapedTransaction>;

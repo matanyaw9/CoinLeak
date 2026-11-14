@@ -345,10 +345,24 @@ export function updateTransactions(
     const stmt = db.prepare(`UPDATE transactions SET ${sets.join(", ")}, updated_at = ? WHERE id = ?`);
     let updated = 0;
     for (const id of unique) updated += Number(stmt.run(...params, now.toISOString(), id).changes);
+    if (patch.excluded === false && source === "user") forgetPaysCard(db, unique);
     if (patch.excluded !== undefined && source !== "user") applyRulesInTransaction(db, { ids: unique }, now);
     if (patch.excluded !== undefined) applyCardBills(db);
     return before ? { updated, before } : { updated };
   });
+}
+
+/**
+ * Spec 28: "Count again" asks for the row to count. A line the user had
+ * marked "This pays a card I track" would still not count, so the mark is
+ * dropped and the matcher decides again (flagged if no tracked card fits).
+ * "Count it as spending" (internal 0 by the user) already counts and stays.
+ */
+function forgetPaysCard(db: Db, ids: number[]): void {
+  db.prepare(
+    `UPDATE transactions SET internal = 0, internal_by_user = 0
+     WHERE id IN (SELECT value FROM json_each(?)) AND internal_by_user = 1 AND internal = 1`,
+  ).run(JSON.stringify(ids));
 }
 
 function exclusionsOf(db: Db, ids: number[]): ExclusionState[] {

@@ -56,11 +56,16 @@ export function databasePath(dataDir: string, profile: Profile): string {
 
 export function addProfile(dataDir: string, name: string): Profile {
   const list = readProfiles(dataDir);
-  let n = list.profiles.length + 1;
-  while (list.profiles.some((p) => p.id === `p${n}`)) n++;
-  const profile: Profile = { id: `p${n}`, name: cleanName(name), file: `profile-p${n}.db`, demo: false };
+  const profile = newProfile(list, cleanName(name));
   writeProfiles(dataDir, { ...list, profiles: [...list.profiles, profile] });
   return profile;
+}
+
+/** A real profile with the next free `p<n>` id and its own database file. */
+function newProfile(list: ProfileList, name: string): Profile {
+  let n = list.profiles.length + 1;
+  while (list.profiles.some((p) => p.id === `p${n}` || p.file === `profile-p${n}.db`)) n++;
+  return { id: `p${n}`, name, file: `profile-p${n}.db`, demo: false };
 }
 
 /** Only one Demo profile at a time. */
@@ -78,15 +83,24 @@ export function renameProfile(dataDir: string, id: string, name: string): void {
   writeProfiles(dataDir, list);
 }
 
-/** Removes the profile and its database file. Never the open one, never the last real one. */
+/**
+ * Removes any profile and its database files (spec 28). There is always a
+ * real profile afterwards: deleting the last one adds a fresh, empty "Me".
+ * Deleting the open profile opens the first real one left. The caller
+ * closes the open database before and opens the new current one after.
+ */
 export function deleteProfile(dataDir: string, id: string): void {
   const list = readProfiles(dataDir);
   const profile = findProfile(list, id);
-  const realOnes = list.profiles.filter((p) => !p.demo);
-  if (id === list.current || (!profile.demo && realOnes.length === 1)) throw new CodedError("BAD_REQUEST");
-  writeProfiles(dataDir, { ...list, profiles: list.profiles.filter((p) => p.id !== id) });
+  const left = list.profiles.filter((p) => p.id !== id);
+  if (!left.some((p) => !p.demo)) left.unshift(newProfile(list, FRESH_NAME));
+  const current = id === list.current ? (left.find((p) => !p.demo) as Profile).id : list.current;
+  writeProfiles(dataDir, { current, profiles: left });
   removeDatabaseFiles(databasePath(dataDir, profile));
 }
+
+/** The name of the empty profile made when the last real one is deleted. */
+const FRESH_NAME = "Me";
 
 export function setCurrentProfile(dataDir: string, id: string): void {
   const list = readProfiles(dataDir);

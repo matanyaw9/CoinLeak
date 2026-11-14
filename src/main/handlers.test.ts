@@ -2,7 +2,7 @@
 // profile sees only its own rows, switching waits for a sync, and the Demo
 // profile never syncs.
 
-import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -123,6 +123,44 @@ describe("profile channels", () => {
     expect(await ask("rules:list", undefined)).toHaveLength(rules.length);
     expect((await ask("transactions:list", { flows: ["trashed"] })).rows.length).toBeGreaterThan(0);
     expect(reloadWindow).toHaveBeenCalledTimes(2);
+  });
+
+  // spec 28
+  it("deleting the open profile opens the next one and removes its file", async () => {
+    const ask = setup();
+    ingest(getDb(), [bank([txn({ date: "2026-03-02", amount: -5000, description: "חנות" })])], { now: NOW });
+    const work = await ask("profiles:add", { name: "Work" });
+
+    await ask("profiles:delete", { id: "me" });
+    expect((await ask("profiles:list", undefined)).current).toBe(work.id);
+    expect((await ask("transactions:list", {})).rows).toHaveLength(0);
+    expect(existsSync(join(dir, "coinleak.db"))).toBe(false);
+    expect(reloadWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleting the last real profile opens a fresh, empty Me", async () => {
+    const ask = setup();
+    ingest(getDb(), [bank([txn({ date: "2026-03-02", amount: -5000, description: "חנות" })])], { now: NOW });
+    await ask("profiles:delete", { id: "me" });
+    const list = await ask("profiles:list", undefined);
+    expect(list.profiles.map((p) => p.name)).toEqual(["Me"]);
+    expect(list.current).not.toBe("me");
+    expect((await ask("transactions:list", {})).rows).toHaveLength(0);
+  });
+
+  it("refuses to delete the open profile while a sync runs", async () => {
+    const ask = setup();
+    syncing = true;
+    expect(await code(ask("profiles:delete", { id: "me" }))).toBe("SYNC_IN_PROGRESS");
+    expect((await ask("profiles:list", undefined)).profiles).toHaveLength(1);
+  });
+
+  it("deleting another profile leaves the open one alone", async () => {
+    const ask = setup();
+    const work = await ask("profiles:add", { name: "Work" });
+    await ask("profiles:delete", { id: work.id });
+    expect((await ask("profiles:list", undefined)).current).toBe("me");
+    expect(reloadWindow).not.toHaveBeenCalled();
   });
 });
 
