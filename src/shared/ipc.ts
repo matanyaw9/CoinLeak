@@ -3,7 +3,10 @@
 
 import type {
   Account,
+  Agorot,
   AppInfo,
+  BudgetStatus,
+  IsoMonth,
   BalanceCheck,
   CardMode,
   CashWallet,
@@ -165,6 +168,11 @@ export interface IpcContract {
    * stored data, then starts like a fresh install. Refused while a sync runs.
    */
   "profiles:wipeAll": { args: undefined; result: null };
+  // ---- spec 27: budgets ----
+  /** Every budgeted category's month and week (Sunday to Saturday) spending. Today is Israel time. */
+  "budgets:status": { args: { month: IsoMonth }; result: BudgetStatus };
+  /** Sets a spending category's monthly budget in agorot, or clears it with null. */
+  "budgets:set": { args: { categoryId: number; monthlyBudget: Agorot | null }; result: null };
 }
 
 export interface IpcEvents {
@@ -231,6 +239,9 @@ export const CHANNELS = [
   "sync:ranges",
   "profiles:wipeCurrent",
   "profiles:wipeAll",
+  // spec 27
+  "budgets:status",
+  "budgets:set",
 ] as const satisfies readonly Channel[];
 
 // Main and preload register only CHANNELS, so a channel missing here would

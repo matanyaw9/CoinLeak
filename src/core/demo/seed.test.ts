@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRow } from "@shared/types";
 import { openDatabase, type Db } from "../db";
-import { balanceChecks, getCashWallet, listAccounts, listCategories, listTransactions, monthSummary } from "../ledger";
+import { balanceChecks, budgetStatus, getCashWallet, listAccounts, listCategories, listTransactions, monthSummary } from "../ledger";
 import { listRules } from "../rules";
 import { seedDemo } from "./seed";
 
@@ -92,5 +92,20 @@ describe("seedDemo", () => {
     expect(cash.some((r) => r.note !== null)).toBe(true);
     const atm = rows.find((r) => r.date === "2026-11-01" && r.description === "משיכת מזומן" && r.amount === -30000);
     expect(atm).toMatchObject({ flow: "internal", movedToCash: true });
+  });
+
+  it("has budgets this month: one over, one near, one well under (spec 27)", () => {
+    for (const today of [TODAY, new Date("2026-11-28T10:00:00Z"), new Date("2026-12-03T10:00:00Z")]) {
+      const db = openDatabase(":memory:");
+      seedDemo(db, today);
+      const day = today.toISOString().slice(0, 10);
+      const { lines } = budgetStatus(db, { month: day.slice(0, 7), today: day });
+      const shares = lines.map((l) => l.spentMonth / l.monthlyBudget).sort((a, b) => b - a);
+      expect(shares).toHaveLength(3);
+      expect(shares[0]).toBeGreaterThan(1);
+      expect(shares[1]).toBeGreaterThanOrEqual(0.8);
+      expect(shares[1]).toBeLessThanOrEqual(1);
+      expect(shares[2]).toBeLessThan(0.5);
+    }
   });
 });

@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { CHANNELS } from "@shared/ipc";
-import { ACCOUNT_VIEWS, CATEGORY_VIEWS, LEDGER_VIEWS, queryKey, refreshCategories, refreshLedger, refreshRules, RULE_VIEWS } from "./query-keys";
+import { ACCOUNT_VIEWS, BUDGET_VIEWS, CATEGORY_VIEWS, LEDGER_VIEWS, queryKey, refreshCategories, refreshLedger, refreshRules, RULE_VIEWS } from "./query-keys";
 
 /** A client holding one fresh query per key; returns which ones a refresh made stale. */
 async function staleAfter(refresh: (c: QueryClient) => Promise<void>, keys: unknown[][]): Promise<string[]> {
@@ -21,7 +21,7 @@ describe("query keys", () => {
   });
 
   it("every refresh list names real channels", () => {
-    for (const list of [LEDGER_VIEWS, RULE_VIEWS, CATEGORY_VIEWS, ACCOUNT_VIEWS]) {
+    for (const list of [LEDGER_VIEWS, RULE_VIEWS, CATEGORY_VIEWS, ACCOUNT_VIEWS, BUDGET_VIEWS]) {
       for (const channel of list) expect(CHANNELS).toContain(channel);
     }
   });

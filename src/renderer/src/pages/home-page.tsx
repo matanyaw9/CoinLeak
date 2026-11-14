@@ -25,6 +25,7 @@ import { CategoryDonutCard } from "@/components/home/category-donut-card";
 import { TrendCard } from "@/components/home/trend-card";
 import { CategoryCurvesCard } from "@/components/home/category-curves-card";
 import { MoneyFlowCard } from "@/components/home/money-flow-card";
+import { BudgetCard } from "@/components/home/budget-card";
 import { periodWords } from "@/components/home/period-words";
 import { usePeriodFlow, usePeriodSummary, useThisMonth } from "@/components/home/period-data";
 import { useSpendingFilter, type SpendingFilter } from "@/components/home/spending-filter";
@@ -34,6 +35,8 @@ export function sliceLink(slice: Slice): string {
   if (slice.categoryId === undefined) return "/transactions";
   return `/transactions?category=${slice.categoryId ?? "none"}`;
 }
+
+const minMonth = (a: IsoMonth, b: IsoMonth): IsoMonth => (a < b ? a : b);
 
 /** Demo screenshots: `?shot=home-essential` or `?shot=home-extra` start filtered. */
 function shotFilter(shot: string | null): SpendingFilter | undefined {
@@ -53,6 +56,8 @@ export function HomePage() {
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
   const firstRun = useFirstRun();
   const words = periodWords(choice, range, today);
+  // spec 27: budgets follow the chosen month; any other period shows the month it ends in.
+  const budgetMonth = choice.kind === "month" ? choice.month : minMonth(range.to.slice(0, 7), today.slice(0, 7));
   useOverspentShot(shot, left.data);
 
   const open = (slice: Slice, m?: IsoMonth) => {
@@ -81,6 +86,9 @@ export function HomePage() {
         <div className="grid grid-cols-12 gap-6">
           <div className="col-span-12">
             {left.data ? <LeftCard left={left.data} /> : <CardSkeleton label={s.left.title} height={70} />}
+          </div>
+          <div className="col-span-12">
+            <BudgetCard month={budgetMonth} index={index} />
           </div>
           <div className="col-span-12 -mb-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
             {untagged > 0 && (

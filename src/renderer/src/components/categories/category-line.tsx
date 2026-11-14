@@ -1,8 +1,8 @@
 // One category on the Categories page: drag handle, emoji bubble, name, this
-// month's amount, Move and Edit buttons, and its known places underneath.
+// month's amount, its budget (spec 27), Move and Edit buttons, and its known places underneath.
 // The name opens its transactions; a group header gets Edit and Add.
 
-import type { DragEvent } from "react";
+import type { DragEvent, ReactNode } from "react";
 import { Link } from "react-router";
 import { ChevronRight, FolderInput, GripVertical, Pencil, Plus } from "lucide-react";
 import type { Agorot, Category } from "@shared/types";
@@ -43,6 +43,7 @@ export function CategoryLine({
   onMove,
   dragProps,
   dropProps,
+  budget,
 }: {
   category: Category;
   stat: { amount: Agorot; count: number } | undefined;
@@ -57,6 +58,8 @@ export function CategoryLine({
   onMove: () => void;
   dragProps: DragProps;
   dropProps: DropProps | undefined;
+  /** spec 27: the budget field, on spending categories. */
+  budget?: ReactNode;
 }) {
   return (
     <div
@@ -90,6 +93,7 @@ export function CategoryLine({
           </div>
           {stat && stat.amount !== 0 && <Money amount={stat.amount} className="text-[17px]" />}
         </Link>
+        {budget}
         <Button variant="ghost" size="icon-xs" className={actionClass} aria-label={s.catEdit.move(category.name)} onClick={onMove}>
           <FolderInput />
         </Button>
