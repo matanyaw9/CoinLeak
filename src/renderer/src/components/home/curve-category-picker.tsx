@@ -1,5 +1,6 @@
-// Picks the one category the curves card draws: any spending category, top
-// level or sub, or uncategorized. Unlike the transaction picker, parents count.
+// Picks the categories the curves card draws (spec 26, F61): any spending
+// categories, groups or subcategories, or uncategorized, up to the limit.
+// Unlike the transaction picker, groups count; it stays open while ticking.
 
 import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, Tag } from "lucide-react";
@@ -8,38 +9,45 @@ import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import type { CategoryIndex } from "@/lib/categories";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { atLimit, MAX_CHOSEN, type CurveChoice } from "./curve-selection";
 
 export function CurveCategoryPicker({
   index,
-  value,
-  onSelect,
+  chosen,
+  onToggle,
+  defaultOpen = false,
 }: {
   index: CategoryIndex;
-  value: number | null;
-  onSelect: (id: number | null) => void;
+  chosen: CurveChoice;
+  onToggle: (id: number | null) => void;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const chosen = value === null ? null : index.byId.get(value);
-  const pick = (id: number | null) => {
-    setOpen(false);
-    onSelect(id);
-  };
+  const [open, setOpen] = useState(defaultOpen);
+  const full = atLimit(chosen);
 
-  const row = (key: string, id: number | null, label: string, emoji: ReactNode, indent: boolean) => (
-    <button
-      key={key}
-      type="button"
-      onClick={() => pick(id)}
-      className={cn(
-        "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm transition-colors hover:bg-accent",
-        indent && "ps-7",
-      )}
-    >
-      <span className="flex w-5 shrink-0 justify-center leading-none">{emoji}</span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      {value === id && <Check className="size-3.5 text-primary" />}
-    </button>
-  );
+  const row = (key: string, id: number | null, label: string, emoji: ReactNode, indent: boolean) => {
+    const on = chosen.includes(id);
+    const blocked = full && !on;
+    return (
+      <button
+        key={key}
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={on}
+        aria-disabled={blocked}
+        onClick={() => !blocked && onToggle(id)}
+        className={cn(
+          "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm transition-colors",
+          blocked ? "cursor-default opacity-45" : "hover:bg-accent",
+          indent && "ps-7",
+        )}
+      >
+        <span className="flex w-5 shrink-0 justify-center leading-none">{emoji}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {on && <Check className="size-3.5 text-primary" />}
+      </button>
+    );
+  };
 
   const roots = index.roots.filter((r) => r.kind === "expense");
   const rowsOf = (r: Category) => [
@@ -50,16 +58,15 @@ export function CurveCategoryPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        aria-label={s.curves.pick}
+        aria-label={s.curvePick.pick}
         className="inline-flex h-8 items-center gap-2 rounded-xl border border-input bg-card px-3 text-sm transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
       >
-        <span className="flex w-4 justify-center leading-none">
-          {chosen ? chosen.emoji : <Tag className="size-3.5 text-muted-foreground" />}
-        </span>
-        <span className="max-w-48 truncate">{chosen ? chosen.name : s.common.uncategorized}</span>
+        <Tag className="size-3.5 text-muted-foreground" />
+        <span className="max-w-48 truncate">{chosen.length > 0 ? s.curvePick.chosen(chosen.length) : s.curvePick.pick}</span>
         <ChevronDown className="size-3.5 text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-0">
+        {full && <div className="border-b border-border px-3.5 py-2 text-xs text-muted-foreground">{s.curvePick.limit(MAX_CHOSEN)}</div>}
         <div className="max-h-80 overflow-y-auto p-1.5">
           {roots.flatMap(rowsOf)}
           <div className="mt-1 border-t border-border pt-1">
