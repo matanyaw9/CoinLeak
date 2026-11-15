@@ -21,6 +21,49 @@ Status: early development. See `REQUIREMENTS.md` for the plan.
 Your data lives in `%APPDATA%\CoinLeak\data`. Uninstalling from Windows
 Settings keeps it.
 
+## Privacy
+
+- **CoinLeak never asks for your bank password and never stores it.** When
+  you press Sync, a browser window opens on your bank's own login page. You
+  type your password there, the same as on the bank's website. CoinLeak has
+  no password field anywhere. If something that looks like CoinLeak asks
+  for your bank password, it is not CoinLeak.
+- **Your data does not leave your computer.** The CoinLeak window itself is
+  blocked from the internet: no cloud, no AI, no tracking, no ads, no
+  update checks. The only thing that goes online is the sync browser, and
+  it may only reach your bank's or card company's own websites. Everything
+  else it tries to load is blocked. (One exception: the Isracard, American
+  Express and Behatsdaa login pages need Google's "I'm not a robot" check,
+  so for those the sync browser may also reach that one Google service.)
+- **The sync browser starts empty and is thrown away.** Each sync uses a
+  fresh browser profile that cannot see your normal browsing, and it is
+  deleted as soon as the download ends. It is set to never offer to save
+  your password.
+- **Where your data lives.** On Windows, in `%APPDATA%\CoinLeak\data`: one
+  database file per profile. Nobody else has a copy, including us.
+- **How to delete it.** In CoinLeak, open Settings, then "Danger zone", then
+  "Delete everything". That deletes every profile and all its data. To
+  remove every trace, also uninstall CoinLeak (Windows Settings, Apps) and
+  then delete the folder `%APPDATA%\CoinLeak`, which also holds small window
+  settings such as the theme. Uninstalling alone keeps your data.
+- On a laptop, turn on disk encryption (BitLocker on Windows). It protects
+  your data if the computer is lost or stolen, which CoinLeak cannot do by
+  itself.
+
+## Disclaimer
+
+CoinLeak is an unofficial, free, open source project. It is not made by,
+for, or with any bank or card company, and none of them support it.
+CoinLeak is not financial advice: it only shows what your bank sends.
+Numbers can be wrong or missing, so check anything important with your bank.
+Use it at your own risk; the software comes with no warranty (see
+`LICENSE`).
+
+Only **Discount Bank** and **Cal** have been tested with real accounts. All
+other banks and card companies are **experimental**: built from the same
+code and tested against fake pages, but not yet confirmed with a real
+account. They may fail to sync or miss transactions.
+
 ## Run it (developers)
 
 You need Node 22.13 or newer (the database uses `node:sqlite`) and, for
@@ -73,9 +116,13 @@ Run it again if you move the checkout. The icon files live in `build/`
 ## Credits
 
 Design and ideas from [Spent](https://github.com/Shaya16/Spent) by Shaya16
-and its fork by matanyaw9. Bank downloads by
-[israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers).
-Files that carry copied code say so in their header.
+and its fork by matanyaw9 (MIT License). Bank downloads by
+[israeli-bank-scrapers](https://github.com/eshaham/israeli-bank-scrapers)
+(MIT License, Copyright (c) 2017 Elad Shaham). Files that carry copied or
+adapted code say so in their header. The license notices are in
+`THIRD-PARTY-NOTICES.md`.
+
+CoinLeak is not connected to these projects, and they do not support it.
 
 ## License
 
