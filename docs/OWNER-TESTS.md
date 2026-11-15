@@ -138,3 +138,41 @@ Restart `npm run dev` first.
    data": type DELETE. The row is gone, the profile stays. Do not try
    "Delete everything" on real data unless you mean it; try it in a
    throwaway data folder: `COINLEAK_DATA_DIR=$HOME/coinleak-test npm run dev`.
+
+## 7. Windows 11 VM test (PUBLISH-CHECKLIST section 3)
+
+Run on 2026-11-16 by the owner in a clean Windows 11 VM (quickemu, user-mode
+network, no Chrome installed). Installer built on Linux from `dev` at
+6d09775 with `npm run dist:win`, version 0.0.1 (SHA-256 `e480a2a7...6d47`),
+plus a 0.0.2 build of the same code for the upgrade test (version bump not
+committed). Downloaded in Edge from a local web server at
+`http://10.0.2.2:8765/`. Fuses and `app.asar` contents checked as in
+`docs/RELEASE.md` before the run: all as required.
+
+| Test | Result |
+| --- | --- |
+| SmartScreen "Windows protected your PC" | **Not shown, inconclusive.** Edge warned on the download (Keep worked), but Windows did not show its blue box. Most likely because `10.0.2.2` is a private address, so Windows treats the file as local network, not internet. Retest from a draft GitHub Release. |
+| Installs with no admin prompt; shortcuts with icon | Pass. Desktop and Start menu shortcuts, CoinLeak icon. |
+| App opens; window and taskbar icon | Pass. |
+| Hebrew text and right-to-left, local fonts | Pass (Demo profile: Hebrew shop names, amounts left to right, app fonts, charts). |
+| Data folder at `%APPDATA%\CoinLeak\data` | Pass. The folder is named `coinleak` in lowercase (Electron takes it from `name` in `package.json`); Windows ignores case, so the documented path works. |
+| Sync finds Edge on its own, bank login opens | Pass. Discount login page opened in Edge; closing it showed "cancelled". No real login. |
+| Close and reopen: data kept | Pass (a new category survived; reopened on the same profile). |
+| Install 0.0.2 over 0.0.1: data kept | Pass. No admin prompt, data and Demo profile kept, Installed apps shows one CoinLeak at 0.0.2. |
+| Uninstall from Settings, Apps: app gone, data stays | Pass. Reinstalling brought the data back. |
+| Delete everything (F52) empties the folder | Pass. Demo file and the test category gone; only a fresh empty `coinleak.db` and `profiles.json` remain. |
+| Second Windows user sees no data | Skipped by the owner (optional). |
+
+Found along the way:
+
+- **Cannot add cash on a fresh profile.** With no transactions yet,
+  Transactions shows "Nothing here yet" in place of the list, so the
+  "Add cash" button is hidden. Not Windows-specific. Needs a fix.
+- `npm run dist:win` failed once with "wine process failed" and passed
+  when run again.
+- Building in a worktree whose `node_modules` is a symlink (as AGENTS.md
+  suggests for workers) gives an `app.asar` missing about 5,000 files of
+  nested dependencies. Build releases from the main checkout, or from a
+  worktree with a real copy of `node_modules`.
+- The VM keyboard stopped reaching Windows once (VM window issue, not
+  CoinLeak).
