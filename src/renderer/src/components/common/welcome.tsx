@@ -2,7 +2,7 @@
 // synced. Says what CoinLeak does, the self-login promise, and opens the
 // Sync panel, or the Add picker when no bank or card has been added yet.
 
-import { ChartPie, Coins, LoaderCircle, Lock, RefreshCw, ShieldCheck, type LucideIcon } from "lucide-react";
+import { ChartPie, Coins, LoaderCircle, Lock, Plus, RefreshCw, ShieldCheck, type LucideIcon } from "lucide-react";
 import { s } from "@/strings";
 import { useSync } from "@/lib/sync";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,8 @@ import { Card } from "./card";
 
 const ICONS: LucideIcon[] = [RefreshCw, Coins, ChartPie];
 
-export function Welcome() {
+/** `onAddCash`: on Transactions, cash can be added before any bank is synced. */
+export function Welcome({ onAddCash }: { onAddCash?: () => void }) {
   const sync = useSync();
   const busy = sync.provider != null && sync.stage != null;
 
@@ -36,6 +37,12 @@ export function Welcome() {
           {busy ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
           {busy && sync.stage ? s.sync.stageShort[sync.stage] : s.welcome.start}
         </Button>
+        {onAddCash && (
+          <Button variant="outline" size="lg" className="h-11 rounded-xl px-5 text-[15px]" onClick={onAddCash}>
+            <Plus />
+            {s.cash.add}
+          </Button>
+        )}
         <span className="flex items-center gap-2 text-sm text-muted-foreground">
           <Lock className="size-3.5" strokeWidth={2} />
           {s.welcome.local}

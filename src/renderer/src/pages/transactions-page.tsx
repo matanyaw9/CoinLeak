@@ -257,7 +257,13 @@ export function TransactionsPage() {
   if (firstRun) {
     return (
       <Page title={s.transactions.title}>
-        <Welcome />
+        <Welcome onAddCash={() => setCashForm({ open: true, row: null })} />
+        <ManualDialog
+          open={cashForm.open}
+          onOpenChange={(open) => setCashForm((f) => ({ ...f, open }))}
+          row={null}
+          index={index}
+        />
       </Page>
     );
   }
