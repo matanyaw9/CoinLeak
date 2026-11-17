@@ -1,0 +1,36 @@
+name: Feature request
+description: An idea that would make CoinLeak better.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea.
+
+        **This page is public. Do not paste real financial data.** No real
+        transactions, amounts, balances, account or card numbers, and no
+        screenshots that show them. If an example helps, make one up.
+  - type: checkboxes
+    id: no-real-data
+    attributes:
+      label: Before you send
+      options:
+        - label: This request has no real transactions, amounts, account numbers, passwords, or screenshots of real data.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: What are you trying to do or see, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How you picture it working. Made-up examples are welcome.
+  - type: input
+    id: bank
+    attributes:
+      label: Bank or card company
+      description: Only if the idea is about one bank, for example a bank CoinLeak does not support yet.

@@ -1,0 +1,60 @@
+name: Bug report
+description: Something in CoinLeak does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this.
+
+        **This page is public. Do not paste real financial data.** No real
+        transactions, amounts, balances, account or card numbers, and no
+        screenshots that show them. Never share a password or a one-time
+        code. Use the Demo profile (made-up data) for screenshots, or
+        describe what you see in words.
+
+        Found a security problem? Do not open an issue. Follow `SECURITY.md`
+        to report it privately.
+  - type: checkboxes
+    id: no-real-data
+    attributes:
+      label: Before you send
+      options:
+        - label: This report has no real transactions, amounts, account numbers, passwords, or screenshots of real data.
+          required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What went wrong, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      description: The steps, one per line. Which screen, which button.
+      placeholder: |
+        1. Open Transactions
+        2. Click ...
+        3. See ...
+  - type: input
+    id: bank
+    attributes:
+      label: Bank or card company
+      description: Only if the problem is with syncing. The name only, for example "Cal".
+  - type: input
+    id: error-code
+    attributes:
+      label: Error message
+      description: The message CoinLeak showed, if any. Check it has no personal details first.
+  - type: input
+    id: version
+    attributes:
+      label: CoinLeak version
+      description: From the installer file name, for example CoinLeak-Setup-0.1.0.exe.
+  - type: input
+    id: system
+    attributes:
+      label: Computer
+      description: For example "Windows 11, Edge" or "Fedora 43, Chromium".

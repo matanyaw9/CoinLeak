@@ -117,14 +117,14 @@ Decisions for the owner, with a recommendation each:
 - [ ] README for users first: what CoinLeak is, a screenshot (demo data
       only), "Install on Windows", supported banks and which are
       experimental. Developer notes lower down.
-- [ ] Privacy in plain words: no bank passwords stored, nothing leaves the
+- [x] Privacy in plain words: no bank passwords stored, nothing leaves the
       computer except the browser talking to the bank, where the data
       lives, how to delete it.
-- [ ] "Not financial advice; not made by or for any bank" disclaimer.
-- [ ] LICENSE: MIT, already there. Check the credits to Spent and
+- [x] "Not financial advice; not made by or for any bank" disclaimer.
+- [x] LICENSE: MIT, already there. Check the credits to Spent and
       israeli-bank-scrapers match their licenses.
-- [ ] `SECURITY.md`: how to report a security problem privately.
-- [ ] Issue templates (bug report, feature request) that remind people
+- [x] `SECURITY.md`: how to report a security problem privately.
+- [x] Issue templates (bug report, feature request) that remind people
       not to paste real transactions.
 - [ ] GitHub settings: protect `main`, turn on Dependabot alerts and
       secret scanning, decide whether Discussions is on.
