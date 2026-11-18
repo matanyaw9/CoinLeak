@@ -1,13 +1,13 @@
 // App entry: hardening, data folder, database, IPC, and the one window.
 
-import { app, BrowserWindow, nativeTheme, session } from "electron";
+import { app, BrowserWindow, dialog, nativeTheme, session } from "electron";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDatabase, type Db } from "@core/db";
 import { createDemoDatabase } from "@core/demo";
 import { ingest } from "@core/ledger";
-import { CodedError } from "@shared/errors";
+import { CodedError, ERROR_MESSAGES, toAppError } from "@shared/errors";
 import { createHandlers } from "./handlers";
 import { currentProfile, databasePath, DEMO_PROFILE, readProfiles, writeProfiles } from "./profiles";
 import { emit, registerIpc } from "./ipc";
@@ -16,6 +16,7 @@ import { createSyncService } from "./sync-service";
 import { isAppUrl, APP_ORIGIN } from "./policy";
 import { registerAppScheme, serveAppFiles } from "./protocol";
 import { hardenAllWebContents, hardenSession } from "./security";
+import { openAtStartup } from "./startup";
 
 const dev = !app.isPackaged;
 const devServerUrl = dev ? process.env["ELECTRON_RENDERER_URL"] : undefined;
@@ -49,7 +50,14 @@ if (!screenshotRun && !app.requestSingleInstanceLock()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
   });
-  app.whenReady().then(start);
+  app.whenReady().then(start).catch(failedToStart);
+}
+
+/** Never a hidden app with no window: say so and quit. The code only, never the error's text. */
+function failedToStart(e: unknown): void {
+  console.error(`[app] start failed: ${toAppError(e).code}`);
+  dialog.showErrorBox("CoinLeak could not start", ERROR_MESSAGES.UNKNOWN);
+  app.quit();
 }
 
 // One database is open at a time: the current profile's (spec 19).
@@ -76,7 +84,7 @@ function start(): void {
     createDemoDatabase(databasePath(dataDir, DEMO_PROFILE), new Date());
     writeProfiles(dataDir, { current: DEMO_PROFILE.id, profiles: [DEMO_PROFILE] });
   }
-  openCurrentDb();
+  openAtStartup(openCurrentDb);
   const sync = createSyncService({
     getDb,
     runSync,
