@@ -44,6 +44,10 @@ export const usePeriodCurves = (range: DateRange, categoryIds: (number | null)[]
   });
 };
 
+/** spec 30: income minus spending per month, for the months the month-by-month bars show. */
+export const useMonthlyNet = (range: DateRange) =>
+  useQuery({ queryKey: queryKey("summary:monthlyNet", range), queryFn: () => call("summary:monthlyNet", range), placeholderData: (p) => p });
+
 /** Money left this calendar month, whatever period Home shows. */
 export const useThisMonth = () =>
   useQuery({ queryKey: queryKey("summary:thisMonth"), queryFn: () => call("summary:thisMonth", undefined) });

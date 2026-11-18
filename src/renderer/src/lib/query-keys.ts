@@ -22,6 +22,7 @@ export const LEDGER_VIEWS: Channel[] = [
   "summary:periodTrend",
   "summary:periodCurves",
   "summary:thisMonth",
+  "summary:monthlyNet",
   "categories:list",
   "rules:list",
   "rules:preview",
