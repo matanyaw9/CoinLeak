@@ -1059,6 +1059,22 @@ export const s = {
     limit: (max: number) => `Up to ${max} categories at once`,
     empty: "Choose categories to draw their curves.",
   },
+
+  // spec 30
+  net: {
+    title: "Saved or overspent",
+    empty: "No months with money in or out yet.",
+    income: "Income",
+    spending: "Spending",
+    saved: "Saved",
+    overspent: "Overspent",
+    even: "Even",
+    soFar: (month: string) => `${month}, so far`,
+    toSavings: (amount: string) => `${amount} moved to savings (not counted)`,
+    fromSavings: (amount: string) => `${amount} taken from savings`,
+    hint: "Income minus spending each calendar month. Card bills count once; money moved to savings is not counted.",
+    clickHint: "Click to show this month.",
+  },
 };
 
 export type Strings = typeof s;

@@ -1,6 +1,6 @@
 // Home: money left this month, then the chosen period at a glance (specs 16
 // and 22). Hero, spending curve, categories, money flow, category curves,
-// month by month. One control shows all spending, essentials or extras on
+// month by month, saved or overspent. One control shows all spending, essentials or extras on
 // the spending charts. Before the first sync it greets instead.
 
 import { useMemo } from "react";
@@ -23,6 +23,7 @@ import { LeftCard, useOverspentShot } from "@/components/home/left-card";
 import { SpendingCurveCard } from "@/components/home/spending-curve-card";
 import { CategoryDonutCard } from "@/components/home/category-donut-card";
 import { TrendCard } from "@/components/home/trend-card";
+import { NetCard } from "@/components/home/net-card";
 import { CategoryCurvesCard } from "@/components/home/category-curves-card";
 import { MoneyFlowCard } from "@/components/home/money-flow-card";
 import { BudgetCard } from "@/components/home/budget-card";
@@ -173,6 +174,9 @@ export function HomePage() {
             ) : (
               <CardSkeleton label={s.periodHome.trendTitle} height={280} />
             )}
+          </div>
+          <div className="col-span-12">
+            <NetCard range={range} onMonth={showMonth} />
           </div>
         </div>
       )}
