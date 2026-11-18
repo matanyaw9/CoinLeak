@@ -1073,7 +1073,7 @@ export const s = {
     toSavings: (amount: string) => `${amount} moved to savings (not counted)`,
     fromSavings: (amount: string) => `${amount} taken from savings`,
     hint: "Income minus spending each calendar month. Card bills count once; money moved to savings is not counted.",
-    clickHint: "Click to show this month.",
+    clickHint: "Click to see this month's transactions.",
   },
 };
 

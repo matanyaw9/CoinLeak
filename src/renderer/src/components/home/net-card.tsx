@@ -1,7 +1,7 @@
 // Saved or overspent (spec 30, F62): one bar per month from a zero line, up
 // and green when income beat spending, down and red when it did not. Core
 // works out every number (summary:monthlyNet); this card only draws them.
-// Clicking a month shows it on Home, like the month-by-month bars.
+// Clicking a month opens that month's transactions.
 
 import { useEffect, useRef, useState } from "react";
 import {

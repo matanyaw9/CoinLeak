@@ -65,6 +65,11 @@ export function HomePage() {
     if (m) showMonth(m);
     void navigate(sliceLink(slice));
   };
+  /** One month's transactions, all of them (the Saved or overspent bars). */
+  const openMonth = (m: IsoMonth) => {
+    showMonth(m);
+    void navigate("/transactions");
+  };
 
   if (firstRun) {
     return (
@@ -176,7 +181,7 @@ export function HomePage() {
             )}
           </div>
           <div className="col-span-12">
-            <NetCard range={range} onMonth={showMonth} />
+            <NetCard range={range} onMonth={openMonth} />
           </div>
         </div>
       )}

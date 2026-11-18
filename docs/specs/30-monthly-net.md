@@ -70,8 +70,8 @@ and `thisMonth` in `src/core/ledger/period.ts`, `average.ts`,
 4. **Tooltip** (the shared `ChartTooltip`): the month, Income, Spending,
    the net in its color, and, only when not zero, "₪X moved to savings
    (not counted)" (negative: "₪X taken from savings").
-5. **Click** a bar or month label: switch Home to that month, the way
-   the month-by-month card does (`showMonth`).
+5. **Click** a bar or month label: open that month's Transactions (all rows),
+   setting the month like the month-by-month card does (owner, 2026-11-18).
 6. **Empty and short history.** No months with data: a quiet one-line
    empty state, no chart. Pending rows count as everywhere else.
 
