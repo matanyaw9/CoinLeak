@@ -5,11 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Rule, RuleInput } from "@shared/types";
 import {
   addValues,
+  amountText,
   blankCondition,
   checkForm,
   formFrom,
-  parseShekels,
-  shekelText,
+  readAmount,
   splitValues,
   type FormCondition,
   type RuleForm,
@@ -30,10 +30,10 @@ const draft: RuleInput = {
 };
 
 describe("rule form", () => {
-  it("reads and writes shekels as agorot", () => {
-    expect([shekelText(5800), shekelText(64050), shekelText(5), shekelText(null)]).toEqual(["58", "640.50", "0.05", ""]);
-    expect([parseShekels("58"), parseShekels("₪1,200.5"), parseShekels(" "), parseShekels("12.345"), parseShekels("-3")]).toEqual([
-      5800, 120050, null, undefined, undefined,
+  it("reads and writes amount limits in shekels as agorot, empty meaning no limit", () => {
+    expect([amountText(5800), amountText(64050), amountText(5), amountText(0), amountText(null)]).toEqual(["58", "640.50", "0.05", "0", ""]);
+    expect([readAmount("58"), readAmount("₪1,200.5"), readAmount("0"), readAmount(" "), readAmount("12.345"), readAmount("-3")]).toEqual([
+      5800, 120050, 0, null, undefined, undefined,
     ]);
   });
 
