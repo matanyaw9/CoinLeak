@@ -72,20 +72,24 @@ export function parentSlices(index: CategoryIndex, byParent: { categoryId: numbe
     .sort((a, b) => b.amount - a.amount);
 }
 
-/** Keeps the biggest `max - 1` slices and folds the rest into "Other". */
-export function topSlices(slices: Slice[], max: number): Slice[] {
-  if (slices.length <= max) return slices;
-  const keep = slices.slice(0, max - 1);
-  const rest = slices.slice(max - 1);
-  return [
-    ...keep,
-    {
-      key: "other",
-      categoryId: undefined,
-      name: s.common.other,
-      emoji: null,
-      color: OTHER_COLOR,
-      amount: rest.reduce((a, x) => a + x.amount, 0),
-    },
-  ];
+/**
+ * Any category (or uncategorized, null) as a chart series. A subcategory
+ * without its own color takes its group's.
+ */
+export function categorySlice(index: CategoryIndex, id: number | null): Slice {
+  const c = id === null ? undefined : index.byId.get(id);
+  const parent = c?.parentId != null ? index.byId.get(c.parentId) : undefined;
+  return {
+    key: id === null ? "none" : String(id),
+    categoryId: id,
+    name: c?.name ?? s.common.uncategorized,
+    emoji: c?.emoji ?? null,
+    color: c ? (c.color ?? colorOf(parent ?? c)) : UNCATEGORIZED_COLOR,
+    amount: 0,
+  };
+}
+
+/** The "Other" bucket a chart folds its small slices into. */
+export function otherSlice(amount: Agorot): Slice {
+  return { key: "other", categoryId: undefined, name: s.common.other, emoji: null, color: OTHER_COLOR, amount };
 }

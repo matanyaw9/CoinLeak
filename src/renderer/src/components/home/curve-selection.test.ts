@@ -2,8 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 import type { Category } from "@shared/types";
-import { indexCategories } from "@/lib/categories";
-import { atLimit, choiceSlice, liveChoice, MAX_CHOSEN, toggleChosen } from "./curve-selection";
+import { categorySlice, indexCategories } from "@/lib/categories";
+import { atLimit, liveChoice, MAX_CHOSEN, toggleChosen } from "./curve-selection";
 
 const cat = (id: number, name: string, parentId: number | null, color: string | null = null): Category =>
   ({ id, name, parentId, kind: "expense", emoji: null, color, archived: false }) as Category;
@@ -36,8 +36,8 @@ describe("curve choice", () => {
   });
 
   it("a subcategory takes its own color, else its group's", () => {
-    expect(choiceSlice(index, 3).color).toBe("#333333");
-    expect(choiceSlice(index, 2).color).toBe(choiceSlice(index, 1).color);
-    expect(choiceSlice(index, null)).toMatchObject({ key: "none", categoryId: null });
+    expect(categorySlice(index, 3).color).toBe("#333333");
+    expect(categorySlice(index, 2).color).toBe(categorySlice(index, 1).color);
+    expect(categorySlice(index, null)).toMatchObject({ key: "none", categoryId: null });
   });
 });
