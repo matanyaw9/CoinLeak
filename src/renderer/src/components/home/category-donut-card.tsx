@@ -9,7 +9,7 @@ import { Ellipsis, Tag } from "lucide-react";
 import type { PeriodSummary } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { OTHER_COLOR, parentSlices, type CategoryIndex, type Slice } from "@/lib/categories";
+import { otherSlice, parentSlices, type CategoryIndex, type Slice } from "@/lib/categories";
 import { percent } from "@/lib/format";
 import { useShot } from "@/lib/shot";
 import { Card, CardHeader } from "@/components/common/card";
@@ -28,16 +28,8 @@ function chartSlices(all: Slice[], total: number): { slices: Slice[]; members: M
   const rest = all.slice(big.length);
   const members = new Map(all.map((x) => [x.key, [x.key]]));
   if (rest.length <= 1) return { slices: all, members };
-  const other: Slice = {
-    key: "other",
-    categoryId: undefined,
-    name: s.common.other,
-    emoji: null,
-    color: OTHER_COLOR,
-    amount: rest.reduce((a, x) => a + x.amount, 0),
-  };
   members.set("other", rest.map((x) => x.key));
-  return { slices: [...big, other], members };
+  return { slices: [...big, otherSlice(rest.reduce((a, x) => a + x.amount, 0))], members };
 }
 
 export function CategoryDonutCard({

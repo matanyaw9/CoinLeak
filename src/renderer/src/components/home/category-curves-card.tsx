@@ -10,7 +10,7 @@ import type { HomeCurveCompare, PeriodCurve, PeriodSummary } from "@shared/types
 import { s } from "@/strings";
 import { useShot } from "@/lib/shot";
 import { cn } from "@/lib/utils";
-import { parentSlices, type CategoryIndex, type Slice } from "@/lib/categories";
+import { categorySlice, parentSlices, type CategoryIndex, type Slice } from "@/lib/categories";
 import type { PeriodChoice } from "@/lib/month";
 import { usePeriod } from "@/lib/month-context";
 import { Card, CardHeader } from "@/components/common/card";
@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { Segmented } from "@/components/common/segmented";
 import { chartAnimation, ChartTooltip, type TooltipRow } from "@/components/charts/chart-tooltip";
 import { CurveCategoryPicker } from "./curve-category-picker";
-import { choiceSlice, liveChoice, toggleChosen, type CurveChoice } from "./curve-selection";
+import { liveChoice, toggleChosen, type CurveChoice } from "./curve-selection";
 import { shotCompare, useCurveCategories, useCurveCompare, usePeriodCurves } from "./period-data";
 import { axisOf } from "./period-axis";
 import { CompareSwitch } from "./spending-curve-card";
@@ -77,7 +77,7 @@ export function CategoryCurvesCard({
   const isMonth = choice.kind === "month";
   const compare: HomeCurveCompare = isMonth ? savedCompare : "previous";
 
-  const series = view === "top" ? top : chosen.map((id) => choiceSlice(index, id));
+  const series = view === "top" ? top : chosen.map((id) => categorySlice(index, id));
   const curves = usePeriodCurves(range, series.map((x) => x.categoryId ?? null), filter);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   // F60: the category under the pointer (a line or a legend name) stands out.

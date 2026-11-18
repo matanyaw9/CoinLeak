@@ -23,7 +23,7 @@ import { ArrowLeft } from "lucide-react";
 import type { DateRange, IsoMonth, TrendPoint } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { colorOf, OTHER_COLOR, parentSlices, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
+import { categorySlice, otherSlice, parentSlices, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
 import { monthOf, shiftMonth, toIsoMonth } from "@/lib/month";
 import { formatMonth, formatMonthShort, ils, percent } from "@/lib/format";
 import { useShot } from "@/lib/shot";
@@ -354,20 +354,6 @@ function trendRange(range: DateRange): DateRange {
   return { from: from < range.from ? from : range.from, to: range.to };
 }
 
-/** A ticked category (or uncategorized) as a chart series, keyed like core's `byParent`. */
-function sliceOf(index: CategoryIndex, id: number | null): Slice {
-  const c = id === null ? undefined : index.byId.get(id);
-  const parent = c?.parentId != null ? index.byId.get(c.parentId) : undefined;
-  return {
-    key: id === null ? "none" : String(id),
-    categoryId: id,
-    name: c?.name ?? s.common.uncategorized,
-    emoji: c?.emoji ?? null,
-    color: c ? (c.color ?? colorOf(parent ?? c)) : UNCATEGORIZED_COLOR,
-    amount: 0,
-  };
-}
-
 /**
  * The ticked categories as series. A ticked group shows its subcategories
  * (and itself, for rows set on the group), keeping only those with spending
@@ -377,9 +363,9 @@ function tickedSeries(index: CategoryIndex, ticks: TrendTicks, points: TrendPoin
   const spent = new Set(points.flatMap((t) => t.parts ?? []).filter((p) => p.amount > 0).map((p) => p.categoryId));
   return ticks.flatMap((id) => {
     const children = id === null ? [] : (index.children.get(id) ?? []);
-    if (children.length === 0) return [sliceOf(index, id)];
+    if (children.length === 0) return [categorySlice(index, id)];
     const parts = [...children.map((c) => c.id), id].filter((x) => spent.has(x));
-    return parts.length > 0 ? parts.map((x) => sliceOf(index, x)) : [sliceOf(index, id)];
+    return parts.length > 0 ? parts.map((x) => categorySlice(index, x)) : [categorySlice(index, id)];
   });
 }
 
@@ -389,8 +375,7 @@ function topGroups(index: CategoryIndex, points: TrendPoint[]): Slice[] {
   for (const g of points.flatMap((t) => t.byParent)) size.set(g.categoryId, (size.get(g.categoryId) ?? 0) + g.amount);
   const groups = parentSlices(index, [...size].map(([categoryId, amount]) => ({ categoryId, amount })));
   if (groups.length <= MAX_SERIES) return groups;
-  const other: Slice = { key: "other", categoryId: undefined, name: s.common.other, emoji: null, color: OTHER_COLOR, amount: 0 };
-  return [...groups.slice(0, MAX_SERIES), other];
+  return [...groups.slice(0, MAX_SERIES), otherSlice(0)];
 }
 
 /** One bar: each series' amount under its key. Core already split the month by tag, or by series when filtered. */

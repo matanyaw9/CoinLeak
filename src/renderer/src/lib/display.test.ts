@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Category, TransactionRow } from "@shared/types";
-import { indexCategories, parentSlices, topSlices } from "./categories";
+import { indexCategories, OTHER_COLOR, otherSlice, parentSlices } from "./categories";
 import { groupByDay } from "./day-groups";
 import { awaitingShekels, formatForeign, ils } from "./format";
 
@@ -12,14 +12,8 @@ const cat = (id: number, parentId: number | null): Category => ({
 });
 
 describe("display helpers", () => {
-  it("keeps the biggest slices and folds the rest into Other", () => {
-    const index = indexCategories([cat(1, null), cat(2, null)]);
-    const slices = parentSlices(index, [
-      { categoryId: 1, amount: 500 },
-      { categoryId: 2, amount: 100 },
-      { categoryId: null, amount: 50 },
-    ]);
-    expect(topSlices(slices, 2).map((x) => [x.key, x.amount])).toEqual([["1", 500], ["other", 150]]);
+  it("the Other bucket is keyed apart from every category and uncategorized", () => {
+    expect(otherSlice(150)).toMatchObject({ key: "other", categoryId: undefined, color: OTHER_COLOR, amount: 150 });
   });
 
   it("draws core's per-parent totals as they are, largest first", () => {
