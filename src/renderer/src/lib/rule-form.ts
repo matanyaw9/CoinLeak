@@ -4,7 +4,7 @@
 // agorot. A suggestion's account and amount wait aside until the user adds them.
 
 import type { Agorot, RuleCondition, RuleDirection, RuleInput, RuleJoin, RuleMatchField, RuleMatchMode } from "@shared/types";
-import { toAgorot } from "@shared/money";
+import { parseShekels, shekelText } from "@shared/money";
 import { s } from "@/strings";
 
 export type Exclusion = "none" | "exclude" | "count";
@@ -48,7 +48,7 @@ function toForm(c: RuleCondition): FormCondition {
   const key = nextKey();
   if (c.kind === "text") return { key, kind: "text", field: c.field, mode: c.mode, values: [...c.values], draft: "" };
   if (c.kind === "account") return { key, kind: "account", accountId: c.accountId };
-  if (c.kind === "amount") return { key, kind: "amount", min: shekelText(c.min), max: shekelText(c.max) };
+  if (c.kind === "amount") return { key, kind: "amount", min: amountText(c.min), max: amountText(c.max) };
   return { key, kind: "direction", direction: c.direction };
 }
 
@@ -71,20 +71,15 @@ export function formFrom(rule: RuleInput | null, opts: { optIn?: boolean } = {})
   };
 }
 
-/** Agorot as an amount to edit: "58", "59.90", or empty. */
-export function shekelText(amount: Agorot | null): string {
-  if (amount === null) return "";
-  const whole = Math.trunc(amount / 100);
-  const rest = amount % 100;
-  return rest === 0 ? String(whole) : `${whole}.${String(rest).padStart(2, "0")}`;
+/** A condition's amount to edit: "58", "59.90", or empty for no limit. */
+export function amountText(amount: Agorot | null): string {
+  return amount === null ? "" : shekelText(amount);
 }
 
-/** Typed shekels as agorot. `null` when empty, `undefined` when not a number. */
-export function parseShekels(text: string): Agorot | null | undefined {
-  const clean = text.replace(/[₪,\s]/g, "");
-  if (clean === "") return null;
-  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return undefined;
-  return toAgorot(Number(clean));
+/** A typed amount limit in agorot: `null` when empty (no limit), `undefined` when not an amount. */
+export function readAmount(text: string): Agorot | null | undefined {
+  if (text.trim() === "") return null;
+  return parseShekels(text) ?? undefined;
 }
 
 /** Names typed or pasted into the chips field: split on commas and new lines. */
@@ -140,8 +135,8 @@ function checkCondition(c: FormCondition): { condition: RuleCondition; problem?:
     return c.accountId === null ? { condition, problem: e.needsAccount } : { condition };
   }
   if (c.kind === "direction") return { condition: { kind: "direction", direction: c.direction } };
-  const lo = parseShekels(c.min);
-  const hi = parseShekels(c.max);
+  const lo = readAmount(c.min);
+  const hi = readAmount(c.max);
   const condition: RuleCondition = { kind: "amount", min: lo ?? null, max: hi ?? null };
   if (lo === undefined || hi === undefined) return { condition, problem: s.rules.editor.badAmount };
   if (lo === null && hi === null) return { condition, problem: e.needsAmount };

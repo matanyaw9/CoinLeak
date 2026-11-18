@@ -10,17 +10,17 @@ import { showFailure } from "@/lib/failure";
 import { useSetBudget } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/misc";
-import { parseShekels, shekelsText } from "@/components/transactions/manual-form";
+import { parseShekels, shekelText } from "@shared/money";
 
-/** What a typed budget means: clear it, an amount in agorot, or not a valid amount. */
+/** What a typed budget means: clear it, an amount in agorot, or not a valid amount (zero included). */
 export function readBudget(text: string): { kind: "clear" } | { kind: "set"; agorot: number } | { kind: "invalid" } {
   if (text.trim() === "") return { kind: "clear" };
   const agorot = parseShekels(text);
-  return agorot === null ? { kind: "invalid" } : { kind: "set", agorot };
+  return agorot === null || agorot === 0 ? { kind: "invalid" } : { kind: "set", agorot };
 }
 
 export function BudgetField({ category, budget }: { category: Category; budget: BudgetLine | undefined }) {
-  const saved = budget ? shekelsText(budget.monthlyBudget) : "";
+  const saved = budget ? shekelText(budget.monthlyBudget) : "";
   const [text, setText] = useState(saved);
   const [invalid, setInvalid] = useState(false);
   const setBudget = useSetBudget();

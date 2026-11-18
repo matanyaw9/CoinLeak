@@ -7,7 +7,7 @@ import { ArrowDownUp, Coins, CreditCard, Plus, TextSearch, X, type LucideIcon } 
 import type { Account, RuleCondition, RuleJoin } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { blankCondition, MAX_CONDITIONS, parseShekels, type ConditionKind, type FormCondition } from "@/lib/rule-form";
+import { blankCondition, MAX_CONDITIONS, readAmount, type ConditionKind, type FormCondition } from "@/lib/rule-form";
 import { conditionPhrase, sentenceText, type SentenceContext } from "@/lib/rule-sentence";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Segmented } from "@/components/common/segmented";
@@ -122,7 +122,7 @@ function suggestionLabel(c: FormCondition, context: SentenceContext): string {
     c.kind === "account"
       ? { kind: "account", accountId: c.accountId ?? 0 }
       : c.kind === "amount"
-        ? { kind: "amount", min: parseShekels(c.min) ?? null, max: parseShekels(c.max) ?? null }
+        ? { kind: "amount", min: readAmount(c.min) ?? null, max: readAmount(c.max) ?? null }
         : c.kind === "direction"
           ? { kind: "direction", direction: c.direction }
           : { kind: "text", field: c.field, mode: c.mode, values: c.values };

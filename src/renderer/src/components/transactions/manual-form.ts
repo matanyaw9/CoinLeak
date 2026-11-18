@@ -2,6 +2,7 @@
 // fields hold, how a typed amount becomes agorot, and what is missing.
 // Core checks everything again; this only keeps Save honest.
 
+import { parseShekels, shekelText } from "@shared/money";
 import type { IsoDate, ManualTransactionInput, TransactionRow } from "@shared/types";
 
 export type Direction = "out" | "in";
@@ -19,24 +20,6 @@ export interface ManualForm {
 export const DESCRIPTION_MAX = 200;
 export const NOTE_MAX = 500;
 
-/** Shekels as typed to agorot, without floats. Null unless above zero with at most two decimals. */
-export function parseShekels(text: string): number | null {
-  const clean = text.replace(/[,\s₪]/g, "");
-  const match = /^(\d+)(?:\.(\d{0,2}))?$/.exec(clean);
-  if (!match) return null;
-  const whole = Number(match[1]);
-  const cents = Number((match[2] ?? "").padEnd(2, "0"));
-  const agorot = whole * 100 + cents;
-  return Number.isSafeInteger(agorot) && agorot > 0 ? agorot : null;
-}
-
-/** Agorot back to what the amount field shows: "45", "12.50". */
-export function shekelsText(agorot: number): string {
-  const abs = Math.abs(agorot);
-  const whole = Math.floor(abs / 100);
-  const cents = abs % 100;
-  return cents === 0 ? String(whole) : `${whole}.${String(cents).padStart(2, "0")}`;
-}
 
 export function emptyForm(today: IsoDate): ManualForm {
   return { date: today, amount: "", direction: "out", description: "", categoryId: null, note: "" };
@@ -45,7 +28,7 @@ export function emptyForm(today: IsoDate): ManualForm {
 export function formOf(row: TransactionRow): ManualForm {
   return {
     date: row.date,
-    amount: shekelsText(row.amount),
+    amount: shekelText(row.amount),
     direction: row.amount > 0 ? "in" : "out",
     description: row.description,
     categoryId: row.categoryId,
@@ -57,7 +40,8 @@ export function formOf(row: TransactionRow): ManualForm {
 export function inputOf(form: ManualForm): ManualTransactionInput | null {
   const amount = parseShekels(form.amount);
   const description = form.description.trim();
-  if (amount === null || !/^\d{4}-\d{2}-\d{2}$/.test(form.date)) return null;
+  // A cash row moves some money: zero is not an amount here.
+  if (amount === null || amount === 0 || !/^\d{4}-\d{2}-\d{2}$/.test(form.date)) return null;
   if (description.length === 0 || description.length > DESCRIPTION_MAX || form.note.trim().length > NOTE_MAX) return null;
   return {
     date: form.date,
