@@ -774,3 +774,19 @@ export interface BudgetStatus {
   /** Every category with a budget, in category list order. */
   lines: BudgetLine[];
 }
+
+/**
+ * One month of "Saved or overspent" (spec 30): income minus spending over
+ * the whole calendar month. Money moved to savings is not in `net`; it is
+ * reported in `transfers` (positive: moved out to savings).
+ */
+export interface MonthNet {
+  month: IsoMonth;
+  income: Agorot;
+  spending: Agorot;
+  transfers: Agorot;
+  /** `income - spending`; negative when the month was overspent. */
+  net: Agorot;
+  /** True for the current month, which is not over yet. */
+  partial: boolean;
+}

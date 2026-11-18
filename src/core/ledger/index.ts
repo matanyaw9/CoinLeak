@@ -5,6 +5,7 @@ export { recomputeCardBills, setCardMode, setInternalByUser, type CardBillStats 
 export { flowOf, flagsOf, type FlowFacts, type FlagFacts } from "./flow";
 export { groupFlow, periodFlow } from "./money-flow";
 export { israelToday, periodCurves, periodSummary, periodTrend, periodTrendWithAverage, thisMonth } from "./period";
+export { monthlyNet } from "./net";
 export { deleteGoneRows } from "./pending";
 export { emptyTrash, restoreTransactions, trashTransactions } from "./queries";
 export {

@@ -20,7 +20,7 @@ import {
   updateCategory,
   updateTransactions,
 } from "@core/ledger";
-import { groupFlow, periodCurves, periodFlow, periodSummary, periodTrendWithAverage, thisMonth } from "@core/ledger";
+import { groupFlow, monthlyNet, periodCurves, periodFlow, periodSummary, periodTrendWithAverage, thisMonth } from "@core/ledger";
 import { addManualTransaction, editManualTransaction, getCashWallet } from "@core/ledger";
 import { balanceChecks } from "@core/ledger";
 import { budgetStatus, israelToday, setBudget } from "@core/ledger";
@@ -102,6 +102,7 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "summary:periodTrend": (args) => periodTrendWithAverage(getDb(), args),
     "summary:periodCurves": (args) => periodCurves(getDb(), args),
     "summary:thisMonth": () => thisMonth(getDb()),
+    "summary:monthlyNet": (range) => monthlyNet(getDb(), range, { now: now() }),
     "sync:start": ({ provider }) => {
       // The Demo profile holds made-up data and never talks to a bank.
       if (currentProfile(readProfiles(dataDir)).demo) throw new CodedError("BAD_REQUEST");

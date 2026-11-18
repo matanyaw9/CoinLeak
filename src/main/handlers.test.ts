@@ -258,3 +258,22 @@ describe("sync range (spec 23)", () => {
     expect(await code(ask("settings:set", { key: "syncFrom", value: "1999-01-01" }))).toBe("BAD_REQUEST");
   });
 });
+
+describe("saved or overspent (spec 30)", () => {
+  it("answers per month and rejects bad ranges like the other summary channels", async () => {
+    const ask = setup();
+    ingest(getDb(), [bank([txn({ date: "2026-03-02", amount: -5000, description: "חנות" })])], { now: NOW });
+    expect(await ask("summary:monthlyNet", { from: "2026-03-01", to: "2026-03-31" })).toEqual([
+      { month: "2026-03", income: 0, spending: 5000, transfers: 0, net: -5000, partial: true },
+    ]);
+    const bad = [
+      { from: "2026-03-31", to: "2026-03-01" },
+      { from: "2026-03", to: "2026-03-31" },
+      { from: "1900-01-01", to: "2026-03-31" },
+    ];
+    for (const range of bad) {
+      expect(await code(ask("summary:monthlyNet", range))).toBe("BAD_REQUEST");
+      expect(await code(ask("summary:periodTrend", range))).toBe("BAD_REQUEST");
+    }
+  });
+});

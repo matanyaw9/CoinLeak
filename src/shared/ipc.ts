@@ -47,6 +47,7 @@ import type {
   TransactionList,
   ThisMonth,
   PeriodTrend,
+  MonthNet,
 } from "./types";
 import type { Result } from "./errors";
 
@@ -94,6 +95,11 @@ export interface IpcContract {
   "summary:periodCurves": { args: DateRange & EssentialFilter & { categoryIds: (number | null)[] }; result: PeriodCurve[] };
   /** Money left this calendar month (Israel time) and per day until its end (spec 22). */
   "summary:thisMonth": { args: undefined; result: ThisMonth };
+  /**
+   * Saved or overspent (spec 30): income minus spending per calendar month, the
+   * same months as the month-by-month bars, from the first transaction's month on.
+   */
+  "summary:monthlyNet": { args: DateRange; result: MonthNet[] };
   "sync:start": { args: { provider: ProviderId }; result: SyncResult };
   "sync:cancel": { args: undefined; result: null };
   /** Rules in evaluation order. Every change below reapplies all rules to all rows. */
@@ -204,6 +210,7 @@ export const CHANNELS = [
   "summary:periodTrend",
   "summary:periodCurves",
   "summary:thisMonth",
+  "summary:monthlyNet",
   "sync:start",
   "sync:cancel",
   "rules:list",
