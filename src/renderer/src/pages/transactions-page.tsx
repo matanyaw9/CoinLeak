@@ -6,11 +6,12 @@
 // Spec 17: the period's Income, Spent and Left on top, sort and filters kept
 // in the URL, a click on a row's category filters to it, and Ctrl+F.
 // Spec 20: select all (top and per day), notes, and cash rows typed by hand.
+// The pieces live in components/transactions; this page wires them together.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { ArrowLeftRight, CircleCheck, Eye, EyeOff, ListPlus, Pencil, Plus, Search, SearchX, StickyNote, Trash2, WandSparkles } from "lucide-react";
+import { ArrowLeftRight, CircleCheck, Plus, Search, SearchX } from "lucide-react";
 import type { Category, TransactionFilter, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
 import { showFailure } from "@/lib/failure";
@@ -31,32 +32,30 @@ import { usePeriod } from "@/lib/month-context";
 import { usePeriodSummary } from "@/components/home/period-data";
 import { rangeLabel } from "@/components/home/period-words";
 import { shiftMonth } from "@/lib/month";
-import { formatDayLong } from "@/lib/format";
-import { indexCategories, type CategoryIndex } from "@/lib/categories";
+import { indexCategories } from "@/lib/categories";
 import { groupByDay } from "@/lib/day-groups";
 import { Page } from "@/components/layout/page";
-import { Checkbox, Input, Skeleton } from "@/components/ui/misc";
+import { Input, Skeleton } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/common/segmented";
 import { EmptyState, QueryError } from "@/components/common/empty-state";
-import { Money } from "@/components/common/money";
 import { Welcome } from "@/components/common/welcome";
 import { TransactionRow } from "@/components/transactions/transaction-row";
 import { BulkBar } from "@/components/transactions/bulk-bar";
-import type { RowMenuModel } from "@/components/transactions/row-menu";
 import { SummaryBar } from "@/components/transactions/summary-bar";
 import { FilterChips, FilterMenu, SortMenu } from "@/components/transactions/list-tools";
 import { chipsFor, clearFilters, onlyCategory, readView, toFilter, writeView, type ListView } from "@/components/transactions/list-view";
 import { onFind, takeFindRequest } from "@/components/transactions/find";
 import { Hint } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
-import { checkState, checkedProp, toggleAll, type CheckState } from "@/components/transactions/selection";
+import { checkState } from "@/components/transactions/selection";
+import { useSelection } from "@/components/transactions/use-selection";
+import { DayHeader, SelectBox } from "@/components/transactions/day-header";
+import { rowMenu, type RowMenuActions } from "@/components/transactions/row-menu-entries";
+import { offerRule } from "@/components/transactions/rule-offer";
+import { useDemoShot } from "@/components/transactions/demo-shot";
 import { ManualDialog } from "@/components/transactions/manual-dialog";
 
-const NONE = new Set<number>();
-// The offer's X sits inside the top right corner, not on sonner's outer edge.
-const OFFER_CLOSE =
-  "!left-auto !right-2 !top-2 !size-6 !transform-none !border-0 !bg-transparent !text-muted-foreground hover:!bg-accent hover:!text-foreground [&>svg]:!size-3.5";
 const failed = (e: unknown) => showFailure(e, s.errors.failed.update);
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -120,27 +119,10 @@ export function TransactionsPage() {
   const addKnownPlace = useAddKnownPlace();
 
   // Selection belongs to one filter; changing month or filters starts fresh.
-  const scope = JSON.stringify(filter);
-  const [selection, setSelection] = useState<{ scope: string; ids: Set<number> }>({ scope, ids: NONE });
-  const selected = selection.scope === scope ? selection.ids : NONE;
-  const anchor = useRef<number | null>(null);
-
-  const toggle = (id: number, range: boolean) => {
-    const ids = new Set(selected);
-    const on = !ids.has(id);
-    const order = rows.map((r) => r.id);
-    const from = anchor.current != null ? order.indexOf(anchor.current) : -1;
-    const to = order.indexOf(id);
-    const span = range && from >= 0 ? order.slice(Math.min(from, to), Math.max(from, to) + 1) : [id];
-    span.forEach((x) => (on ? ids.add(x) : ids.delete(x)));
-    setSelection({ scope, ids });
-    anchor.current = id;
-  };
-
-  const clearSelection = () => setSelection({ scope, ids: NONE });
+  const selection = useSelection(rows, JSON.stringify(filter));
+  const selected = selection.selected;
   const selectedRows = rows.filter((r) => selected.has(r.id));
-  // spec 20: the box above the list and each day's box (hidden card bills are not in `rows`).
-  const toggleMany = (ids: number[]) => setSelection({ scope, ids: toggleAll(ids, selected) });
+  // spec 20: the box above the list (hidden card bills are not in `rows`).
   const allIds = useMemo(() => rows.map((r) => r.id), [rows]);
 
   // spec 20: the note box of one row, and the cash form (a row to edit, or null to add).
@@ -150,30 +132,23 @@ export function TransactionsPage() {
   const makeRule = (targets: Row[], category?: Category) =>
     suggestFor(targets.map((r) => r.id), category).then((draft) => openEditor({ draft, optIn: true }), failed);
 
-  /** A gentle offer to let a rule do this next time (spec 09, item 4). */
-  const offerRule = (row: Row, category: Category, still?: boolean) =>
-    toast(`${s.rules.offerLead}${row.description.trim()}${s.rules.offerInto}${category.name}${s.rules.offerEnd}`, {
-      description: s.rules.offerBody,
-      duration: still ? Infinity : 8000,
-      // spec 17: an X to close it; it still goes away by itself.
-      closeButton: true,
-      classNames: { closeButton: OFFER_CLOSE },
-      // Hidden screenshot runs never advance transitions; demo shots skip them.
-      className: still ? "!transition-none" : undefined,
-      // spec 13: yes adds the shop to the category's known places.
-      action: { label: s.rulesV2.knownPlaces.offerYes, onClick: () => addKnownPlace(row.description, category) },
-      cancel: { label: s.rulesV2.knownPlaces.offerRule, onClick: () => void makeRule([row], category) },
-    });
+  const offer = (row: Row, category: Category, still = false) =>
+    offerRule(
+      row,
+      category,
+      { addKnownPlace: () => addKnownPlace(row.description, category), makeRule: () => void makeRule([row], category) },
+      still,
+    );
 
   const categorize = (ids: number[], category: Category | null, one?: Row) => {
-    const offer = one !== undefined && shouldOfferRule(one, category);
+    const offered = one !== undefined && shouldOfferRule(one, category);
     update.mutate(
       { ids, patch: { categoryId: category?.id ?? null } },
       {
         onSuccess: ({ updated }) => {
-          if (offer && one && category) offerRule(one, category);
+          if (offered && one && category) offer(one, category);
           else toast.success(category ? s.transactions.categorized(category.name, updated) : s.transactions.uncategorizedDone(updated));
-          clearSelection();
+          selection.clear();
         },
         onError: failed,
       },
@@ -181,69 +156,22 @@ export function TransactionsPage() {
   };
   const onRowCategory = (row: Row, c: Category | null) => categorize([row.id], c, row);
 
-  const menuFor = (row: Row): RowMenuModel => {
-    const targets = menuTargets(row, selected, rows);
-    const many = targets.length > 1;
-    const ignoredAll = allIgnored(targets);
-    const after = many ? clearSelection : undefined;
-    const category = !many && row.categoryId != null ? index.byId.get(row.categoryId) : undefined;
-    return {
-      heading: many ? s.rowMenu.forSelection(targets.length) : undefined,
-      entries: [
-        {
-          key: "rule",
-          label: many ? s.rowMenu.makeRuleMany(targets.length) : s.rowMenu.makeRule(row.description.trim()),
-          icon: WandSparkles,
-          onSelect: () => void makeRule(targets),
-        },
-        ...(category
-          ? [
-              {
-                key: "known",
-                label: s.rulesV2.knownPlaces.add(row.description.trim(), category.name),
-                hint: s.rulesV2.knownPlaces.addHint,
-                icon: ListPlus,
-                onSelect: () => addKnownPlace(row.description, category),
-              },
-            ]
-          : []),
-        ...(many
-          ? []
-          : [
-              {
-                key: "note",
-                label: row.note ? s.note.edit : s.note.add,
-                icon: StickyNote,
-                onSelect: () => setNoteRow(row.id),
-              },
-              ...(row.source === "manual"
-                ? [{ key: "edit", label: s.cash.edit, icon: Pencil, onSelect: () => setCashForm({ open: true, row }) }]
-                : []),
-            ]),
-        {
-          key: "ignore",
-          label: ignoredAll ? s.rowMenu.countAgain : s.rowMenu.ignore,
-          hint: ignoredAll ? undefined : s.rowMenu.ignoreHint,
-          icon: ignoredAll ? Eye : EyeOff,
-          onSelect: () => rowActions.setIgnored(targets, !ignoredAll, after),
-        },
-        {
-          key: "trash",
-          label: s.rowMenu.trash,
-          hint: s.rowMenu.trashHint,
-          icon: Trash2,
-          danger: true,
-          onSelect: () => rowActions.trash(targets, clearSelection),
-        },
-      ],
-    };
+  const menuActions: RowMenuActions = {
+    makeRule: (targets) => void makeRule(targets),
+    addKnownPlace,
+    openNote: setNoteRow,
+    editCash: (row) => setCashForm({ open: true, row }),
+    setIgnored: rowActions.setIgnored,
+    trash: rowActions.trash,
+    clearSelection: selection.clear,
   };
+  const menuFor = (row: Row) => rowMenu(row, menuTargets(row, selected, rows), index, menuActions);
 
   const shot = useDemoShot(rows, {
-    select: (ids) => setSelection({ scope, ids }),
+    select: selection.set,
     setShowBills,
     lastMonth: () => showMonth(shiftMonth(choice.month, -1)),
-    offerRule,
+    offerRule: offer,
     index,
     openNote: setNoteRow,
     openCash: () => setCashForm({ open: true, row: null }),
@@ -332,7 +260,7 @@ export function TransactionsPage() {
                 <SelectBox
                   state={checkState(allIds, selected)}
                   label={checkState(allIds, selected) === "all" ? s.selectAll.clear : s.selectAll.allShown(allIds.length)}
-                  onToggle={() => toggleMany(allIds)}
+                  onToggle={() => selection.toggleMany(allIds)}
                 />
                 <span className="text-[13px] text-muted-foreground">
                   {selected.size > 0 ? s.transactions.selected(selected.size) : s.selectAll.all}
@@ -386,33 +314,7 @@ export function TransactionsPage() {
           <div className={cn("pb-2 transition-opacity", tx.isPlaceholderData && "opacity-60")}>
             {groups.map((g) => (
               <Fragment key={g.date}>
-                {byDay && <div className="group/day flex items-center justify-between border-t border-border bg-secondary/45 pe-6">
-                  <span className="flex items-center gap-1">
-                    <SelectBox
-                      state={checkState(g.rows.map((r) => r.id), selected)}
-                      label={s.selectAll.day(formatDayLong(g.date))}
-                      onToggle={() => toggleMany(g.rows.map((r) => r.id))}
-                      className="h-10"
-                      quiet={selected.size === 0}
-                    />
-                    <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                      {formatDayLong(g.date)}
-                    </span>
-                  </span>
-                  <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                    {g.income > 0 && <Money amount={g.income} sign className="text-[13px] text-status-on-track" />}
-                    {g.spent > 0 && (
-                      <span>
-                        <Money amount={g.spent} className="text-[13px] text-foreground/80" /> {s.transactions.daySpent}
-                      </span>
-                    )}
-                    {g.spent < 0 && (
-                      <span>
-                        <Money amount={-g.spent} sign className="text-[13px] text-status-on-track" /> {s.transactions.dayBack}
-                      </span>
-                    )}
-                  </span>
-                </div>}
+                {byDay && <DayHeader group={g} selected={selected} onToggle={selection.toggleMany} />}
                 {g.rows.map((row) => (
                   <TransactionRow
                     key={row.id}
@@ -421,7 +323,7 @@ export function TransactionsPage() {
                     index={index}
                     selected={selected.has(row.id)}
                     selecting={selected.size > 0}
-                    onToggle={toggle}
+                    onToggle={selection.toggle}
                     onCategory={onRowCategory}
                     menu={() => menuFor(row)}
                     menuOpen={shot.menuRow === row.id}
@@ -457,9 +359,9 @@ export function TransactionsPage() {
           ignored={allIgnored(selectedRows)}
           onCategory={(c) => categorize([...selected], c)}
           onMakeRule={() => void makeRule(selectedRows)}
-          onIgnore={() => rowActions.setIgnored(selectedRows, !allIgnored(selectedRows), clearSelection)}
-          onTrash={() => rowActions.trash(selectedRows, clearSelection)}
-          onClear={clearSelection}
+          onIgnore={() => rowActions.setIgnored(selectedRows, !allIgnored(selectedRows), selection.clear)}
+          onTrash={() => rowActions.trash(selectedRows, selection.clear)}
+          onClear={selection.clear}
         />
       )}
       <ManualDialog
@@ -470,93 +372,4 @@ export function TransactionsPage() {
       />
     </Page>
   );
-}
-
-/**
- * spec 20: the select-all box, above the list and on each day. It sits in
- * the rows' gutter so it lines up with their checkboxes. `quiet` hides it
- * until the day is hovered, like the rows' boxes before anything is selected.
- */
-function SelectBox({
-  state,
-  label,
-  onToggle,
-  className,
-  quiet,
-}: {
-  state: CheckState;
-  label: string;
-  onToggle: () => void;
-  className?: string;
-  quiet?: boolean;
-}) {
-  return (
-    <span className={cn("flex w-[62px] shrink-0 items-center justify-center ps-6", className)}>
-      <Checkbox
-        checked={checkedProp(state)}
-        aria-label={label}
-        onClick={onToggle}
-        className={cn(
-          "size-5 rounded-[6px] border-[1.5px] [&_svg]:size-3.5",
-          quiet && state === "none" && "opacity-0 group-hover/day:opacity-100 focus-visible:opacity-100",
-        )}
-      />
-    </span>
-  );
-}
-
-/**
- * Demo screenshot aid: `?shot=menu` opens the "..." menu on a row,
- * `?shot=select` selects three rows, `?shot=offer` shows the "Always put X
- * in Y?" toast, and `?shot=bills` or `?shot=bills-on` go to last month
- * (which has card bills) with them hidden or shown. Spec 17:
- * `?shot=hover` shows who set the category on a row a rule sorted, and
- * `?shot=hover-user` on a row sorted by hand. Spec 20: `?shot=select-day`,
- * `?shot=note` and `?shot=add-cash`.
- */
-function useDemoShot(
-  rows: Row[],
-  aids: {
-    select: (ids: Set<number>) => void;
-    setShowBills: (show: boolean) => void;
-    lastMonth: () => void;
-    offerRule: (row: Row, category: Category, still: boolean) => void;
-    index: CategoryIndex;
-    openNote: (id: number) => void;
-    openCash: () => void;
-  },
-): { menuRow: number | null; hintRow: number | null } {
-  const shot = useShot();
-  const ready = rows.length > 0;
-  const [menuRow, setMenuRow] = useState<number | null>(null);
-  const [hintRow, setHintRow] = useState<number | null>(null);
-  useEffect(() => {
-    if (!shot || !ready) return;
-    const id = setTimeout(() => {
-      const spending = rows.filter((r) => r.flow === "spending" && r.categorySource !== "rule" && r.amount < 0);
-      if (shot === "menu") setMenuRow(spending[0]?.id ?? null);
-      // spec 13: a row sorted by hand, so the menu offers its known places.
-      if (shot === "menu-known") setMenuRow(spending.find((r) => r.categorySource === "user" && r.categoryId != null)?.id ?? null);
-      if (shot === "select") aids.select(new Set(spending.slice(0, 3).map((r) => r.id)));
-      if (shot === "bills" || shot === "bills-on") aids.lastMonth();
-      if (shot === "bills-on") aids.setShowBills(true);
-      const groceries = [...aids.index.byId.values()].find((c) => c.name === "Groceries");
-      if (shot === "offer" && spending[0] && groceries) aids.offerRule(spending[0], groceries, true);
-      const source = shot === "hover" ? "rule" : shot === "hover-user" ? "user" : null;
-      if (source) setHintRow(rows.find((r) => r.categorySource === source && r.categoryId != null)?.id ?? null);
-      // spec 20: two rows of a busy day (that day's box and the top box mixed),
-      // the note box on a row with a note, and the cash form.
-      if (shot === "select-day") {
-        const day = groupByDay(rows).find((g) => g.rows.length >= 3);
-        if (day) aids.select(new Set(day.rows.slice(0, 2).map((r) => r.id)));
-      }
-      const noted = rows.find((r) => r.note);
-      if (shot === "note" && noted) aids.openNote(noted.id);
-      if (shot === "add-cash") aids.openCash();
-    }, 400);
-    return () => clearTimeout(id);
-    // Once per load: refreshed rows must not repeat it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shot, ready]);
-  return { menuRow, hintRow };
 }
