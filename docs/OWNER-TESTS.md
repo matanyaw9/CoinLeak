@@ -176,3 +176,38 @@ Found along the way:
   worktree with a real copy of `node_modules`.
 - The VM keyboard stopped reaching Windows once (VM window issue, not
   CoinLeak).
+
+## 8. Before 0.1.0: waves 10 to 12 and the code review fixes
+
+Restart `npm run dev` first. Do each item on the Demo profile first (it
+has budgets already), then on your own profile.
+
+1. **Saved or overspent (F62).** Home has a card "Saved or overspent":
+   one bar per month, green above zero, red below. Hover a bar: income,
+   spending, and any money "moved to savings (not counted)". The current
+   month says "so far". Click a bar: Transactions opens on that month.
+   On your own profile, pick a month you remember: is the number about
+   right?
+2. **Average month (F63).** On the month-by-month bars, a line marked
+   "Avg ₪X"; hover it for "Average of N full months". On the line charts,
+   "Compare with" switches between "Last month" and "Average month".
+   Switch to Routine, or untick a category: the average changes too.
+3. **Budgets (F59).** Categories page: give a spending category a
+   monthly budget of "1500". It shows "≈ ₪375 a week". Home's Budgets
+   card shows a bar for it; switch "This month" and "This week". A
+   category over budget says "₪X over". Click a bar: its transactions
+   open.
+4. **Amounts with agorot.** Add cash of "12.5": it shows ₪12.50. Set a
+   budget of "99.9". Make a rule with amount "58.90", save it, reopen it:
+   still 58.90.
+5. **Transactions page.** Click a row, then shift-click another: every
+   row between is selected. Open a row's "…" menu and try each entry.
+   Change a row's category by hand: "Always put X in Y?" appears with
+   "Yes, always" and "Make a rule".
+6. **New day, optional.** Leave the app open overnight. Next morning,
+   without restarting, Home is on the new day and "Last 7 days" on
+   Transactions includes today.
+
+Nothing to test for the other two fixes. The startup fix (a broken data
+file shows an error, not an invisible app) was tested by the lead; the
+chart helper change was checked with screenshots and looks identical.
