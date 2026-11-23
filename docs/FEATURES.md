@@ -66,6 +66,7 @@ version. F8 (manual transactions) is in wave 8.
 | F55 | Installer: install and open like any desktop app | Windows built (wave 10, spec 29), not yet tried on Windows; Linux later | Linux (AppImage or rpm, with the dock icon from F26) and Windows. One new build tool. Windows shows "unknown publisher" without a paid signing certificate; owner decides later. Includes the fuses in `REQUIREMENTS.md` section 3. |
 | F56 | Export a copy of my data (backup) | planned (wave 10) | Promised in `REQUIREMENTS.md` section 6, never built. |
 | F57 | Banks not tested live are labeled "experimental" in the app | planned (wave 10) | Only Discount and Cal are verified. |
+| F66 | Keyboard friendly: shortcuts for the common moves, shown as hints | next (owner, 2026-11-23) | Owner asked: Ctrl+A on Transactions selects all rows; H goes to Home, T to Transactions; in a confirm dialog Enter (or Ctrl+Enter) means OK and Esc means Cancel; Shift+click selects the range from the last click; Ctrl+click adds or removes one row. Shortcuts must be visible (for example the key letter underlined, or a key hint on hover). Also add to `AGENTS.md`: every new feature or way of interacting must work from the keyboard too. Shift-click ranges (F2) and select all (F46) exist already; check what is missing. |
 
 ## Later
 
