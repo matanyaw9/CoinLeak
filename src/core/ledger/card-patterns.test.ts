@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { PROVIDERS } from "@shared/providers";
-import { companyOf, last4, readCardLine } from "./card-patterns";
+import { companyOf, last4, readCardLine, standaloneNumbers } from "./card-patterns";
 
 describe("readCardLine", () => {
   it("reads the card number from a bank charge line", () => {
@@ -90,6 +90,32 @@ describe("last4 and companyOf", () => {
       ["אמריקן אקספרס", "amex"],
     ] as const) {
       expect(readCardLine(line)?.companies, line).toEqual([companyOf(provider)]);
+    }
+  });
+});
+
+describe("standaloneNumbers (spec 32)", () => {
+  it("finds a run of exactly 4 digits on its own", () => {
+    expect(standaloneNumbers("הוראת קבע 1234")).toEqual(["1234"]);
+    expect(standaloneNumbers("חיוב לכרטיס ויזה 4321")).toEqual(["4321"]);
+    expect(standaloneNumbers("כרטיס XXXX1234")).toEqual(["1234"]);
+    expect(standaloneNumbers("כרטיס ****1234 ו 5678")).toEqual(["1234", "5678"]);
+  });
+
+  it("never reads digits inside a longer number, a date, an amount or a time", () => {
+    for (const text of [
+      "אסמכתא 98761234",
+      "12345",
+      "תשלום 12/2025",
+      "תשלום 2025/12",
+      "חיוב 2025-12-01",
+      "חיוב 01.12.2025",
+      "סכום 1234.50",
+      "סכום 1,234",
+      "סכום 4,1234",
+      "שעה 12:1234",
+    ]) {
+      expect(standaloneNumbers(text), text).toEqual([]);
     }
   });
 });

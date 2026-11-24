@@ -434,8 +434,8 @@ describe("gone rows", () => {
     ingest(db, [card("8765", [])], { now: NOW });
     setCardMode(db, accountId(db, "visaCal", "8765"), "debit");
     ingest(db, [card("8765", [pending("2026-03-20", -3000, "מכולת")])], { now: NOW });
-    ingest(db, [bank([completed("2026-03-21", -3000, "חיוב לכרטיס ויזה 8765")])], { now: NOW });
-    const line = idOf(db, "חיוב לכרטיס ויזה 8765");
+    ingest(db, [bank([completed("2026-03-21", -3000, "חיוב לכרטיס ויזה")])], { now: NOW });
+    const line = idOf(db, "חיוב לכרטיס ויזה");
     expect(row(db, line).flow).toBe("internal");
 
     ingest(db, [card("8765", [])], { now: LATER, since: "2026-03-01" });
@@ -543,9 +543,9 @@ describe("deleteGoneRows", () => {
     ingest(db, [card("8765", [])], { now: NOW });
     setCardMode(db, accountId(db, "visaCal", "8765"), "debit");
     ingest(db, [card("8765", [pending("2026-03-20", -3000, "מכולת")])], { now: NOW });
-    ingest(db, [bank([completed("2026-03-21", -3000, "חיוב לכרטיס ויזה 8765")])], { now: NOW });
+    ingest(db, [bank([completed("2026-03-21", -3000, "חיוב לכרטיס ויזה")])], { now: NOW });
     const purchase = idOf(db, "מכולת");
-    const line = idOf(db, "חיוב לכרטיס ויזה 8765");
+    const line = idOf(db, "חיוב לכרטיס ויזה");
     setInternalByUser(db, [line], true);
     expect(stored(db, line).card_bill_txn_id).toBe(purchase);
 

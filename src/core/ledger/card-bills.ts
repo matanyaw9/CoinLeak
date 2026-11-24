@@ -4,10 +4,11 @@
 // Pocket's REQUIREMENTS section 6 (debit 1:1, credit cycle sum). Gone rows
 // take no part: the bank no longer reports them, so they paid nothing.
 // Trashed rows take no part either, and their own state is left as it is.
+// A line naming one synced card's last 4 digits pays it even when sums differ (spec 32).
 
 import type { CardMode, IsoDate, ProviderId } from "@shared/types";
 import { transaction, type Db } from "../db";
-import { companyOf, last4, readCardLine, type CardLine } from "./card-patterns";
+import { companyOf, last4, readCardLine, standaloneNumbers, type CardLine } from "./card-patterns";
 import { isCashWithdrawal } from "./cash-patterns";
 import { daysApart, israelMonth } from "./dates";
 import { assertIds, check, isId } from "./validate";
@@ -173,10 +174,53 @@ function planCardBills(
   const toWallet = (line: BankLine): boolean =>
     wallet !== null && line.date >= wallet.since && isCashWithdrawal(line.description, line.amount);
   for (const { line, info } of open) {
-    const auto = wallet && toWallet(line) ? { ...PLAIN, internal: 1 as Bit, card_bill_account_id: wallet.id } : info ? FLAGGED : PLAIN;
+    const named = namedCard(line, cards);
+    const auto =
+      wallet && toWallet(line)
+        ? { ...PLAIN, internal: 1 as Bit, card_bill_account_id: wallet.id }
+        : named
+          ? billByNumber(line, named, rowsByCard.get(named.id) ?? [])
+          : info
+            ? FLAGGED
+            : PLAIN;
     plan.set(line.id, decided.get(line.id) ?? auto);
   }
   return plan;
+}
+
+/** How far a numbered bill may be from the card's billing day to point at it. */
+const BILL_DAY_WINDOW_DAYS = 10;
+
+/**
+ * Spec 32 (F75): money out naming exactly one synced card's last 4 digits
+ * pays that card, sums or not. Two cards with those digits decide nothing,
+ * and a cash withdrawal is never a card bill (its digits are often an ATM's).
+ */
+function namedCard(line: BankLine, cards: CardAccount[]): CardAccount | null {
+  if (line.amount >= 0 || isCashWithdrawal(line.description, line.amount)) return null;
+  const numbers = standaloneNumbers(line.description);
+  if (numbers.length === 0) return null;
+  const named = cards.filter((c) => c.last4 !== null && numbers.includes(c.last4));
+  return named.length === 1 ? (named[0] ?? null) : null;
+}
+
+/** The line pays the card in its own style. Credit: the nearest billing day within 10 days. Consumes no rows. */
+function billByNumber(line: BankLine, card: CardAccount, rows: CardRow[]): MatchState {
+  let billDate: IsoDate | null = null;
+  if (card.mode === "credit") {
+    const days = [...new Set(rows.map((r) => r.billDate))]
+      .filter((d) => daysApart(d, line.date) <= BILL_DAY_WINDOW_DAYS)
+      .sort((a, b) => daysApart(a, line.date) - daysApart(b, line.date) || a.localeCompare(b));
+    billDate = days[0] ?? null;
+  }
+  return {
+    internal: 1,
+    possible_card_bill: 0,
+    card_bill_account_id: card.id,
+    card_bill_style: card.mode,
+    card_bill_txn_id: null,
+    card_bill_date: billDate,
+  };
 }
 
 interface Wallet {
