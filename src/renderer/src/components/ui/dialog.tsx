@@ -32,7 +32,7 @@ function focusKind(el: Element): DialogFocus {
  */
 function okButton(popup: HTMLElement): HTMLButtonElement | null {
   const submit = popup.querySelector<HTMLButtonElement>('button[type="submit"]:not([hidden])');
-  const solid = [...popup.querySelectorAll<HTMLButtonElement>("button.bg-primary, button.bg-destructive")].at(-1);
+  const solid = [...popup.querySelectorAll<HTMLButtonElement>('button[data-variant="default"], button[data-variant="destructive"]')].at(-1);
   const ok = submit ?? solid ?? null;
   return ok && !ok.disabled ? ok : null;
 }
