@@ -11,6 +11,9 @@ import { knownPlaces } from "./places";
 import { createRule, deleteRule, listRules, updateRule } from "./queries";
 import { STARTER_LISTS } from "./starter-places";
 import { addStarters, starterPreview } from "./starters";
+import { listTransactions } from "../ledger/queries";
+import { CARD_SPENDS } from "../demo/shops";
+import { normalizeText } from "./match";
 
 function ledger(): Db {
   const db = openDatabase(":memory:");
@@ -44,6 +47,8 @@ describe("starter lists", () => {
       "pharmacies",
       "telecom",
       "streaming",
+      "investments",
+      "savings",
     ]);
     for (const l of STARTER_LISTS)
       expect(new Set(l.names.map((n) => n.toLowerCase())).size, l.key).toBe(l.names.length);
@@ -72,7 +77,16 @@ describe("starter lists", () => {
     db.prepare("UPDATE categories SET name = 'Cafes' WHERE name = 'Coffee & Cafes'").run();
     db.prepare("UPDATE categories SET archived = 1 WHERE name = 'Subscriptions'").run();
     db.prepare("DELETE FROM categories WHERE name = 'Health'").run();
-    expect(keys(db)).toEqual(["supermarkets", "restaurants", "fuel", "parking", "publicTransport", "telecom"]);
+    expect(keys(db)).toEqual([
+      "supermarkets",
+      "restaurants",
+      "fuel",
+      "parking",
+      "publicTransport",
+      "telecom",
+      "investments",
+      "savings",
+    ]);
     addStarters(db, { keys: ["cafes", "streaming", "pharmacies"] });
     expect(listRules(db)).toEqual([]);
   });
@@ -149,5 +163,53 @@ describe("starter lists", () => {
     expect(() => addStarters(db, { keys: "cafes" })).toThrow("BAD_REQUEST");
     expect(() => addStarters(db, { keys: [1] })).toThrow("BAD_REQUEST");
     expect(listRules(db)).toEqual([]);
+  });
+});
+
+// Spec 33 (F76): money to or from investments and savings counts as neither.
+describe("investment and savings starter lists", () => {
+  const listOf = (key: string) => STARTER_LISTS.find((l) => l.key === key);
+
+  it("point at the seeded Investments and Savings, and are offered on a fresh profile", () => {
+    const db = openDatabase(":memory:");
+    const offered = starterPreview(db).lists;
+    expect(offered.find((l) => l.key === "investments")?.categoryId).toBe(categoryId(db, "Investments"));
+    expect(offered.find((l) => l.key === "savings")?.categoryId).toBe(categoryId(db, "Savings"));
+    expect(listOf("investments")?.parent).toBe("Savings & Investments");
+    expect(listOf("savings")?.parent).toBe("Savings & Investments");
+  });
+
+  it("make a buy and a sale at a listed broker, and a deposit both ways, count as neither", () => {
+    const db = openDatabase(":memory:");
+    ingest(
+      db,
+      [
+        bank([
+          txn({ date: "2026-03-01", amount: -100_000, description: "מיטב טרייד בע\"מ" }),
+          txn({ date: "2026-03-02", amount: 40_000, description: "מיטב טרייד בע\"מ" }),
+          txn({ date: "2026-03-03", amount: 25_000, description: "מכירת ני\"ע 123" }),
+          txn({ date: "2026-03-04", amount: -50_000, description: "INTERACTIVE BROKERS LLC" }),
+          txn({ date: "2026-03-05", amount: -150_000, description: "הפקדה לפיקדון" }),
+          txn({ date: "2026-03-06", amount: 150_000, description: "פירעון פק\"מ" }),
+          txn({ date: "2026-03-07", amount: -30_000, description: "הפקדה לקרן השתלמות" }),
+        ]),
+      ],
+      { now: NOW },
+    );
+    addStarters(db, { keys: ["investments", "savings"] });
+    const rows = listTransactions(db);
+    expect(rows.map((r) => r.flow)).toEqual(Array(7).fill("transfer"));
+    expect(new Set(rows.map((r) => r.categoryId))).toEqual(new Set([categoryId(db, "Investments"), categoryId(db, "Savings")]));
+  });
+
+  it("match no demo shop and no other starter list's names", () => {
+    const fresh = [listOf("investments"), listOf("savings")].flatMap((l) => l?.names ?? []).map(normalizeText);
+    const shops = [
+      ...CARD_SPENDS.flatMap((s) => s.shops),
+      ...STARTER_LISTS.filter((l) => l.key !== "investments" && l.key !== "savings").flatMap((l) => l.names),
+    ].map(normalizeText);
+    for (const name of fresh) {
+      expect(shops.filter((shop) => shop.includes(name) || name.includes(shop)), name).toEqual([]);
+    }
   });
 });

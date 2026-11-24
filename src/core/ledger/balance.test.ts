@@ -158,7 +158,9 @@ describe("migration 0011 (balance snapshots)", () => {
 
     migrate(db);
 
-    expect(["accounts", "transactions", "sync_runs"].map((t) => all(`SELECT * FROM ${t} ORDER BY id`))).toEqual(tables);
+    // 0014 (spec 33) adds `transactions.paid_back_for` later, null on every row.
+    const rows = all("SELECT * FROM transactions ORDER BY id").map(({ paid_back_for, ...rest }) => (expect(paid_back_for).toBeNull(), rest));
+    expect([all("SELECT * FROM accounts ORDER BY id"), rows, all("SELECT * FROM sync_runs ORDER BY id")]).toEqual(tables);
     expect(all("SELECT * FROM balance_snapshots")).toEqual([]);
     expect(all("PRAGMA foreign_key_check")).toEqual([]);
     expect(() => db.exec("INSERT INTO balance_snapshots (account_id, balance, taken_at, sync_run_id) VALUES (3, 1.5, 't', 1)")).toThrow();

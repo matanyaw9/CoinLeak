@@ -126,30 +126,29 @@ export function CategoryEditor({
           </Field>
 
           <Field label={s.catEdit.emoji} hint={s.catEdit.emojiHint}>
-            <div className="flex items-start gap-3">
-              <Input
-                value={emoji}
-                maxLength={16}
-                onChange={(e) => setEmoji(e.target.value)}
-                aria-label={s.catEdit.emoji}
-                className="w-16 text-center text-lg"
-              />
-              <div className="flex flex-wrap gap-1">
-                {EMOJIS.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    onClick={() => setEmoji(e)}
-                    aria-pressed={emoji === e}
-                    className={cn(
-                      "flex size-8 items-center justify-center rounded-lg text-base outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
-                      emoji === e && "bg-accent ring-1 ring-primary/40",
-                    )}
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
+            <Input
+              value={emoji}
+              maxLength={16}
+              onChange={(e) => setEmoji(e.target.value)}
+              aria-label={s.catEdit.emoji}
+              className="w-16 text-center text-lg"
+            />
+            {/* F74: big enough to tell apart and to hit, eight to a row. */}
+            <div className="mt-3 grid grid-cols-8 gap-1.5">
+              {EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => setEmoji(e)}
+                  aria-pressed={emoji === e}
+                  className={cn(
+                    "flex aspect-square min-h-11 items-center justify-center rounded-xl text-[2rem] leading-none outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover",
+                    emoji === e && "bg-accent ring-2 ring-primary/50",
+                  )}
+                >
+                  {e}
+                </button>
+              ))}
             </div>
           </Field>
 

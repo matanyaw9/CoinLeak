@@ -149,9 +149,11 @@ describe("migration 0009 (essential categories)", () => {
   });
 });
 
-// 0010 (spec 20) adds `transactions.source` later; every column before it must hold.
+// 0010 (spec 20) adds `transactions.source` and 0014 (spec 33) `paid_back_for`
+// later; every column before them must hold.
 function withoutSource(row: unknown): unknown {
   const rest = { ...(row as Record<string, unknown>) };
   delete rest.source;
+  delete rest.paid_back_for;
   return rest;
 }

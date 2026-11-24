@@ -14,6 +14,7 @@ import m0010 from "./migrations/0010_cash_wallet.sql?raw";
 import m0011 from "./migrations/0011_balance_snapshots.sql?raw";
 import m0012 from "./migrations/0012_budgets.sql?raw";
 import m0013 from "./migrations/0013_routine_treat_categories.sql?raw";
+import m0014 from "./migrations/0014_paid_back.sql?raw";
 
 export interface Migration {
   version: number;
@@ -34,4 +35,5 @@ export const MIGRATIONS: Migration[] = [
   { version: 11, sql: m0011 },
   { version: 12, sql: m0012 },
   { version: 13, sql: m0013 },
+  { version: 14, sql: m0014 },
 ];

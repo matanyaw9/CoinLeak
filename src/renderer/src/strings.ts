@@ -17,7 +17,7 @@ export const s = {
     home: "Home",
     transactions: "Transactions",
     categories: "Categories",
-    accounts: "Money accounts",
+    accounts: "Finance accounts",
     settings: "Settings",
   },
 
@@ -37,7 +37,7 @@ export const s = {
 
   sync: {
     button: "Sync",
-    title: "Sync your money accounts",
+    title: "Sync your finance accounts",
     intro: "A private browser opens on your bank's own website. You log in there, and CoinLeak downloads your transactions.",
     syncOne: "Sync",
     cancel: "Cancel",
@@ -80,8 +80,8 @@ export const s = {
 
   empty: {
     noDataTitle: "Nothing here yet",
-    noDataBody: "Add your bank and cards on the Money accounts page, sync them, and your money will show up here.",
-    goToAccounts: "Go to Money accounts",
+    noDataBody: "Add your bank and cards on the Finance accounts page, sync them, and your money will show up here.",
+    goToAccounts: "Go to Finance accounts",
     errorTitle: "That did not load",
   },
 
@@ -230,7 +230,7 @@ export const s = {
   },
 
   accounts: {
-    title: "Money accounts",
+    title: "Finance accounts",
     intro: "Each sync opens your bank's own login page. You type your password there, never in CoinLeak, and the app never sees or stores it.",
     bankAccount: "Bank account",
     card: "Card",
@@ -242,7 +242,7 @@ export const s = {
     },
     cardModeSaved: (card: string, mode: string) => `${card} is now ${mode.toLowerCase()}`,
     cardModeSavedBody: "Card bills were matched again.",
-    noAccounts: "No money accounts yet. Sync once and they will appear here.",
+    noAccounts: "No finance accounts yet. Sync once and they will appear here.",
     safeTitle: "Safe by design",
     safe: [
       "Your password goes only to the bank's own website.",
@@ -439,7 +439,7 @@ export const s = {
     whyMissing: "Why isn't my bank here?",
     whyMissingIntro: "CoinLeak syncs only where you can log in on the bank's own website, so your password never passes through the app. These can't be synced right now.",
     addedTitle: (name: string) => `${name} is ready to sync`,
-    addedBody: "Sync now to log in on its own website and bring in your money accounts. You can also do it later from the Sync button.",
+    addedBody: "Sync now to log in on its own website and bring in your finance accounts. You can also do it later from the Sync button.",
     syncNow: "Sync now",
     later: "Later",
     close: "Close",
@@ -587,7 +587,7 @@ export const s = {
     titleProvider: (name: string) => `Remove ${name} from syncing?`,
     body: "CoinLeak stops downloading it. Every transaction you already have stays and keeps counting in your totals, with your categories and notes. You can add it back any time.",
     bodyProvider: (n: number) =>
-      `CoinLeak stops downloading its ${plural(n, "money account", "money accounts")}. Every transaction you already have stays and keeps counting in your totals, with your categories and notes. You can add them back any time.`,
+      `CoinLeak stops downloading its ${plural(n, "finance account", "finance accounts")}. Every transaction you already have stays and keeps counting in your totals, with your categories and notes. You can add them back any time.`,
     confirm: "Remove from syncing",
     cancel: "Keep syncing",
     done: (label: string) => `${label} no longer syncs`,
@@ -664,6 +664,8 @@ export const s = {
         publicTransport: "Public transport",
         telecom: "Phone and internet",
         streaming: "Streaming",
+        investments: "Investments and brokers",
+        savings: "Savings, deposits and funds",
       } as Record<string, string>,
       fallbackName: "Starter list",
       into: (category: string) => `into ${category}`,
@@ -694,7 +696,7 @@ export const s = {
     filter: {
       button: "Filter",
       categories: "Category",
-      accounts: "Money account",
+      accounts: "Finance account",
       flow: "Kind",
       other: "Status",
       pending: "Pending",
@@ -999,8 +1001,8 @@ export const s = {
     allButton: "Delete everything",
     confirmProfileTitle: (name: string) => `Delete all data in ${name}?`,
     confirmAllTitle: "Delete everything?",
-    goesProfile: "All transactions, categories, rules, notes and money accounts in this profile.",
-    goesAll: "Every profile, with all its transactions, categories, rules, notes and money accounts, and the list of profiles.",
+    goesProfile: "All transactions, categories, rules, notes and finance accounts in this profile.",
+    goesAll: "Every profile, with all its transactions, categories, rules, notes and finance accounts, and the list of profiles.",
     noUndo:
       "This cannot be undone. There is no copy anywhere else: CoinLeak never sent your data off this computer.",
     disk:
@@ -1114,6 +1116,37 @@ export const s = {
       name: "A to Z",
       name_desc: "Z to A",
     } as Record<string, string>,
+  },
+
+  // spec 33
+  paidBack: {
+    menu: "Paid back for a purchase…",
+    menuHint: "A friend paid you back? It counts as less spending",
+    clear: "Not paid back",
+    clearHint: "Removes the link and its category",
+    title: "Paid back for a purchase",
+    body: "Pick the purchase it paid back. It takes that purchase's category, so the purchase counts as that much less spending.",
+    search: "Search purchases",
+    window: "Purchases from 60 days before to a week after",
+    empty: "No purchases from 60 days before to a week after.",
+    noMatch: "No purchase matches your search.",
+    keys: "↑ ↓ to move · Enter to pick · Esc to close",
+    uncategorized: "No category yet",
+    close: "Close",
+    linked: (business: string) => `Paid back for ${business}`,
+    linkedBody: (category: string) => `It now counts as less spending in ${category}.`,
+    clearTitle: "Not paid back?",
+    clearBody: (business: string) =>
+      `It will no longer be linked to ${business} and loses that category, so it goes back to Needs review. ${business} itself does not change.`,
+    cancel: "Cancel",
+    cleared: "No longer paid back",
+    clearedBody: "It's back in Needs review.",
+    tooltip: (business: string, date: string, amount: string) => `Paid back for ${business}, ${date} (${amount})`,
+    problems: {
+      not_money_in: "Only money that came in can pay back a purchase.",
+      not_a_purchase: "That row no longer counts as spending. Pick another purchase.",
+      purchase_uncategorized: "That purchase has no category yet. Categorize it first, then pick it here.",
+    },
   },
 };
 

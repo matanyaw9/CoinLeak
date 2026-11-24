@@ -1,14 +1,16 @@
 // What the row menu (spec 11) offers for a row: make a rule, add the shop to
 // its category's known places (spec 13), a note and editing a cash row (spec
-// 20), ignore or count again, and trash. On a row that is part of the
-// selection, the menu acts on the whole selection.
+// 20), paid back for a purchase (spec 33), ignore or count again, and
+// trash. On a row that is part of the selection, the menu acts on the whole
+// selection.
 
-import { Eye, EyeOff, ListPlus, Pencil, StickyNote, Trash2, WandSparkles } from "lucide-react";
+import { Eye, EyeOff, HandCoins, ListPlus, Pencil, StickyNote, Trash2, Unlink, WandSparkles } from "lucide-react";
 import type { Category, TransactionRow } from "@shared/types";
 import { s } from "@/strings";
 import type { CategoryIndex } from "@/lib/categories";
 import { allIgnored } from "@/lib/review-rows";
 import type { MenuEntry, RowMenuModel } from "./row-menu";
+import { notPaidBackDialog, paidBackDialog } from "./paid-back-dialog";
 
 /** What the entries do; the page wires them to its dialogs and calls. */
 export interface RowMenuActions {
@@ -46,6 +48,8 @@ export function rowMenu(row: TransactionRow, targets: TransactionRow[], index: C
   if (!many) {
     entries.push({ key: "note", label: row.note ? s.note.edit : s.note.add, icon: StickyNote, onSelect: () => act.openNote(row.id) });
     if (row.source === "manual") entries.push({ key: "edit", label: s.cash.edit, icon: Pencil, onSelect: () => act.editCash(row) });
+    const paidBack = paidBackEntry(row);
+    if (paidBack) entries.push(paidBack);
   }
   entries.push(
     {
@@ -66,4 +70,16 @@ export function rowMenu(row: TransactionRow, targets: TransactionRow[], index: C
     },
   );
   return { heading: many ? s.rowMenu.forSelection(targets.length) : undefined, entries };
+}
+
+/**
+ * Spec 33: money in can pay back a purchase; once linked, the menu offers to
+ * undo it instead. Not for card bills, gone rows or trashed rows.
+ */
+export function paidBackEntry(row: TransactionRow): MenuEntry | null {
+  if (row.paidBackFor) {
+    return { key: "notPaidBack", label: s.paidBack.clear, hint: s.paidBack.clearHint, icon: Unlink, dialog: notPaidBackDialog(row) };
+  }
+  if (row.amount <= 0 || row.flow === "internal" || row.flow === "trashed" || row.status === "gone") return null;
+  return { key: "paidBack", label: s.paidBack.menu, hint: s.paidBack.menuHint, icon: HandCoins, dialog: paidBackDialog(row) };
 }

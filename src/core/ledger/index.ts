@@ -24,3 +24,4 @@ export { balanceChecks } from "./balance";
 export { budgetStatus, setBudget } from "./budgets";
 export { restoreExclusions } from "./exclusions";
 export { QUICK_SYNC_DAYS, quickSyncStart } from "./sync-window";
+export { clearPaidBack, markPaidBack, paidBackCandidates } from "./paid-back";
