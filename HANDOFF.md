@@ -1,45 +1,40 @@
 # Handoff: CoinLeak
-_Last session: 2026-11-25 · branch: dev · last commit: c4f5750 docs: owner feedback F67 to F82 and wave 13 specs 31 to 33_
+_Last session: 2026-11-25 · branch: dev · last commit: see `git log -1` (wave 13 merged, owner tests written)_
 
 ## Today in one line
-Wave 13 is running: three builder agents in herdr tab 2 build specs 31, 32 and 33. Saved mid-session in case usage runs out.
+Wave 13 (specs 31, 32, 33) built by three herdr agents, reviewed and merged into `dev`; `npm run check` green (1093 tests). Waiting on the owner's tests.
 
 ## What we did
-- Compared CoinLeak with Sure (`we-promise/sure`, AGPL fork of Maybe Finance). Verdict: it does not fit (no Israeli banks, Rails server plus Docker, saved bank passwords via moneyman), but its budgets UI and the net worth, investments and loans features are what the owner wants next. Ideas only, never code (AGPL vs our MIT).
-- Logged the owner's feedback as F67 to F82 in `docs/FEATURES.md` (F56 and F65 got notes). Decisions: categories up to 3 levels, every level real (F69); remove Routine / Treats (F72); a bank line naming a synced card's last 4 digits is that card's bill (F75, D14 updated); no history older than a year for Discount, site and Excel included (F81 closed); Cal sync too slow (new F82).
-- `REQUIREMENTS.md`: D13, D14, "Finance accounts", waves 13 to 15 and "later" (F67 net worth) in section 8. `AGENTS.md`: new "Keyboard too" rule.
-- Wrote specs `docs/specs/31-keyboard-and-sort-headers.md`, `32-card-bills-and-quick-sync.md`, `33-paid-back-and-small-fixes.md`, committed on `dev` (c4f5750, not pushed).
-- Cal slowness cause: the library asks Cal month by month, 18 months back plus one ahead, about 20 calls per card, every sync (`visa-cal.js` L336-363). Spec 32 makes a normal sync start at last sync minus 60 days, with "Download everything again" for a full one.
+- Compared CoinLeak with Sure (`we-promise/sure`, AGPL fork of Maybe Finance). It does not fit (no Israeli banks, Rails server plus Docker, saved bank passwords via moneyman), but its budgets UI and net worth, investments and loans are what the owner wants next. Ideas only, never code (AGPL vs our MIT).
+- Logged the owner's feedback as F67 to F82 in `docs/FEATURES.md`, with decisions: 3 category levels (F69), remove Routine / Treats (F72), card bills by last 4 digits (F75, D14), no history older than a year for Discount (F81 closed), Cal sync too slow (F82).
+- Wave 13, three agents in herdr tab 2 (all Opus 5.5; Fable needs paid credits on the owner's Pro plan), each in its own worktree, reviewed and sent back once with fixes, then merged:
+  - Spec 31 `wave13/keyboard`: page keys H T C R B X S, `?` list, key badges, Ctrl+A, Esc, Shift and Ctrl click, Enter and Esc in dialogs (destructive dialogs need Ctrl+Enter: lead's safety call, owner to confirm), sticky sort headers with date_asc and name_desc in core.
+  - Spec 32 `wave13/cardbills`: a money-out bank line naming exactly one synced card's last 4 digits (standalone, not a year on a non-card line, not an ATM line) is that card's bill; quick sync from last sync minus 60 days, "Download everything again", Settings hint, `[sync]` timing log line.
+  - Spec 33 `wave13/paidback`: migration 0014 `paid_back_for`, "Paid back for a purchase..." in the row menu, Investments and Savings starter lists, "Finance accounts" rename, bigger emojis, a Demo pizza paid back by a friend.
+- Merge conflicts were only side-by-side additive blocks (`strings.ts`, `types.ts`, `core/ledger/index.ts`).
+- `docs/OWNER-TESTS.md` section 9 lists what to test; FEATURES and REQUIREMENTS wave 13 marked built.
+- Answered "how far from a Windows installer with remote updates" (see open questions).
 
 ## Where we stopped
-- Three worktrees from `dev` at c4f5750, each with a `claude` session in herdr tab "2" (workspace w1), all on Opus 5.5, permission mode auto:
-
-  | Agent | Pane | Worktree / branch | Spec |
-  |-------|------|-------------------|------|
-  | keyboard | w1:pJ (left) | `.claude/worktrees/wave13-keyboard`, `wave13/keyboard` | 31: shortcuts, key hints, `?` list, sort headers (F66, F80) |
-  | cardbills | w1:pM (right top) | `.claude/worktrees/wave13-cardbills`, `wave13/cardbills` | 32: card bills by last 4, quick sync, timing log (F75, F82) |
-  | paidback | w1:pN (right bottom) | `.claude/worktrees/wave13-paidback`, `wave13/paidback` | 33: paid back (migration 0014), investment and savings starter lists, Finance accounts, bigger emojis (F65, F76, F77, F74) |
-
-- All three were working at the time of writing (cardbills had 1 commit, the others 0). Nothing reviewed or merged yet.
-- Old merged worktrees from waves 10 to 12 still exist under `.claude/worktrees/`; not cleaned (ask the owner first).
-- `npm run dev` runs in tab 1 (pane w1:pK) from the main checkout.
-
-## Dead ends / don't retry
-- Fable for agents: the owner is on Claude Pro without usage credits; Fable needs paid credits since 2026-11-16. Use `--model opus`.
+- `dev` has all of wave 13, checks green, not yet pushed after the merges (push when the owner says).
+- herdr tab 2 still has the three idle agent sessions (keyboard, cardbills, paidback). They can be closed; their branches are merged.
+- The `wave13-keyboard` worktree is detached at the merged `dev` commit (used for the combined screenshot). All `wave13-*` worktrees and the old wave 10 to 12 ones can be removed once the owner agrees.
 
 ## Open questions / decisions for the user
-- Owner test: time a real Cal sync before merging spec 32, to compare with the quick sync after.
-- Push `dev`? (c4f5750 and this handoff are local only.)
-- Still open from earlier: test the 11-19 fixes and F62 (`docs/OWNER-TESTS.md`), GitHub settings by hand, ship 0.1.0 to the brother as a pre-release.
+- Run the tests in `docs/OWNER-TESTS.md` section 9; tell the lead the `[sync] visaCal mode=quick` timing numbers.
+- Destructive dialogs: keep Ctrl+Enter, or plain Enter as first asked?
+- Friend's Windows trial: option 1 (version in Settings plus "Check for updates" opening GitHub Releases, small, no new risk) now, option 2 (real auto-updates via electron-updater: new dependency, app contacts GitHub, unsigned so trust rests on the GitHub account) later? Lead recommends 1 now, 2 later.
+- Which bank and card does the friend use? Only Discount and Cal are verified live.
+- Still open: test the 11-19 fixes and F62 (section 8), GitHub settings by hand, ship 0.1.0.
 
 ## Next steps
-1. `git pull`, then check the agents: `herdr agent list`, and `herdr agent read <name> --source recent-unwrapped --lines 120` for each. If a session died (usage limit), resume it in its pane: `herdr pane run <pane> "claude --continue --model opus --permission-mode auto"`, or in a terminal `cd .claude/worktrees/wave13-<name> && claude --continue`. Their commits are safe on their branches.
-2. When each finishes: review its branch against its spec and `AGENTS.md` (`git diff dev...wave13/<name>`), run `npm run check` in its worktree, look at its screenshots in `.claude/worktrees/wave13-<name>/.claude/shots/`, send fixes back with `herdr agent prompt`.
-3. Merge into `dev` one at a time, rerun `npm run check` after each (expect small conflicts at the end of `strings.ts`, and in `types.ts`, `ipc.ts`, `handlers.ts`, `queries.ts`). Update FEATURES statuses and `docs/OWNER-TESTS.md` with what the owner should test.
-4. Then wave 14 specs: nested categories to 3 levels, new defaults (F70 names still to agree: Weekly shop, Top-up, Specialty food; Transport: Bus, Train, Fuel, Repairs, Car insurance, Parking, Taxi & rides, Tolls, Car license & test), remove Routine / Treats, rule editor tick boxes (F69, F70, F72, F71). Meanwhile write the F67 design note (net worth, investments, loans) for the owner to read before any code.
+1. After the owner's tests: fix what they find, then merge `dev` into `main`.
+2. Release prep spec (34): version 0.1.0, F28 step 1, F57 experimental labels, secrets re-scan, GitHub pre-release with the `.exe` and SHA-256 (`docs/PUBLISH-CHECKLIST.md`, `docs/RELEASE.md`). Build the release from the main checkout, not a symlinked worktree.
+3. Wave 14 specs: nested categories to 3 levels, new defaults (F70 names still to agree), remove Routine / Treats, rule editor tick boxes (F69, F70, F72, F71). Small follow-up: add the Paid back dialog keys to the `?` list.
+4. Write the F67 design note (net worth, investments, loans) for the owner.
 
 ## History
-- 2026-11-25: Sure comparison; feedback F67 to F82 logged and decided; wave 13 specs 31 to 33 started in herdr tab 2 on Opus 5.5.
+- 2026-11-25: Sure comparison; feedback F67 to F82; wave 13 (specs 31 to 33) built by herdr agents on Opus 5.5, reviewed, merged, owner tests written.
 - 2026-11-23: short session; F66 keyboard shortcuts requested and logged, next feature.
 - 2026-11-19: whole-code review; 5 fixes merged (startup without window, today rollover, one shekel parser, Transactions page split, chart helpers); dev pushed; F65 refund idea logged.
 - 2026-11-18: wave 12, Saved or overspent bars per month (spec 30, F62), merged; clicking a bar opens that month.

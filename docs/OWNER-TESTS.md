@@ -211,3 +211,42 @@ has budgets already), then on your own profile.
 Nothing to test for the other two fixes. The startup fix (a broken data
 file shows an error, not an invisible app) was tested by the lead; the
 chart helper change was checked with screenshots and looks identical.
+
+## 9. Wave 13 (specs 31, 32, 33)
+
+Restart `npm run dev` first (migration 0014 runs on start). Do the
+keyboard and paid back items on the Demo profile first, then on your own.
+
+1. **Keys (F66).** Press H, T, C, R, B, X, S: each opens its page, and the
+   sidebar shows the key next to each name. Press `?`: the shortcuts list.
+   Type "h" in the search box: nothing jumps.
+2. **Selecting (F66).** On Transactions: Ctrl+A selects every row shown,
+   Esc clears. Click a row's text, Shift+click another: the range is
+   selected. Ctrl+click one row: only that one toggles.
+3. **Dialogs (F66).** In an ordinary confirm, Enter means OK and Esc
+   means Cancel. In a delete dialog (Empty trash, delete a category),
+   plain Enter does nothing; Ctrl+Enter confirms. Lead's call for safety:
+   say if you want plain Enter there too.
+4. **Sort headers (F80).** Click Amount above the list: largest first;
+   click again: smallest first. Same for Date (newest, oldest) and
+   Description (A to Z, Z to A). The header stays visible while you
+   scroll.
+5. **Card bills by card number (F75).** On your own profile, after the
+   next sync: bank lines that name your Cal
+   card's last 4 digits no longer ask "Card bill?". Turn on "Show card
+   bills": they are there. Is any line taken that is not a card bill?
+6. **Quick sync (F82).** Sync Cal twice. The first is full (it starts
+   keeping track now); time the second one. The terminal running
+   `npm run dev` prints a `[sync] visaCal mode=quick loginMs=...
+   downloadMs=...` line: tell the lead those numbers. On Finance
+   accounts, each bank has "Download everything again".
+7. **Paid back (F65).** Demo: on Transactions, find the Bit payment from
+   a friend: its category tooltip says "Paid back for פיצה שמש". Your own:
+   right-click a money-in row, "Paid back for a purchase...", pick the
+   purchase. Its category's spending on Home drops by that amount.
+   Right-click again: "Not paid back" undoes it.
+8. **Investment and savings lists (F76).** Categories or Rules: the
+   starter lists offer "Investments" and "Savings". Add them on your own
+   profile. Do any of your rows move there that should not?
+9. **Small ones.** "Finance accounts" everywhere (F77). New category:
+   the emoji suggestions are big (F74).
