@@ -49,7 +49,9 @@ describe("migration 0010 (cash wallet)", () => {
 
     expect(all(db, "SELECT * FROM accounts ORDER BY id")).toEqual(accounts);
     const after = all(db, "SELECT * FROM transactions ORDER BY id") as Record<string, unknown>[];
-    expect(after.map(({ source, ...rest }) => (expect(source).toBe("sync"), rest))).toEqual(rows);
+    // 0014 (spec 33) adds `paid_back_for` later, null on every row.
+    const before0014 = after.map(({ paid_back_for, ...rest }) => (expect(paid_back_for).toBeNull(), rest));
+    expect(before0014.map(({ source, ...rest }) => (expect(source).toBe("sync"), rest))).toEqual(rows);
     expect(all(db, "SELECT * FROM rule_conditions ORDER BY id")).toEqual(conditions);
     expect(all(db, "SELECT * FROM trash_tombstones")).toEqual(tombstones);
     expect(all(db, "PRAGMA foreign_key_check")).toEqual([]);
