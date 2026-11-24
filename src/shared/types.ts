@@ -161,8 +161,9 @@ export interface TransactionFilter {
  * spec 17. `date`: newest first. `amount_*`: by size (money in or out),
  * then newest. `name`: A to Z, Hebrew then English, numbers in natural
  * order. Ties always fall back to the newest id first.
+ * spec 31: `date_asc` oldest first, `name_desc` Z to A.
  */
-export type TransactionSort = "date" | "amount_desc" | "amount_asc" | "name";
+export type TransactionSort = "date" | "date_asc" | "amount_desc" | "amount_asc" | "name" | "name_desc";
 
 export interface TransactionPatch {
   categoryId?: number | null;

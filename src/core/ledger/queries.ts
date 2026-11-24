@@ -222,7 +222,9 @@ export function listTransactions(db: Db, filter: TransactionFilter = {}): Transa
   const wallet = getCashWallet(db)?.id ?? null;
   const rows = (db.prepare(sql).all(...params) as unknown as LedgerRow[]).map((r) => toTransactionRow(r, wallet));
   // SQLite has no Hebrew-aware natural order, so names sort here.
-  return sort === "name" ? rows.sort(byName) : rows;
+  if (sort === "name") return rows.sort(byName);
+  if (sort === "name_desc") return rows.sort(byNameDesc);
+  return rows;
 }
 
 /** The listed rows plus each day's spending and income over those same rows (spec 25). */
@@ -243,17 +245,25 @@ export function dayTotals(rows: TransactionRow[]): DayTotal[] {
   return [...byDate.values()].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
-const SORTS: readonly TransactionSort[] = ["date", "amount_desc", "amount_asc", "name"];
+const SORTS: readonly TransactionSort[] = ["date", "date_asc", "amount_desc", "amount_asc", "name", "name_desc"];
+// Ties fall back to the newest id first in every order, so a day's rows keep
+// the same order whichever way the days go.
 const ORDER_SQL: Record<TransactionSort, string> = {
   date: "ledger.date DESC, ledger.id DESC",
+  date_asc: "ledger.date ASC, ledger.id DESC",
   amount_desc: "ABS(ledger.amount) DESC, ledger.id DESC",
   amount_asc: "ABS(ledger.amount) ASC, ledger.id DESC",
   name: "ledger.id DESC",
+  name_desc: "ledger.id DESC",
 };
 const NAMES = new Intl.Collator(["he", "en"], { numeric: true, sensitivity: "base" });
 
 function byName(a: TransactionRow, b: TransactionRow): number {
   return NAMES.compare(a.description.trim(), b.description.trim()) || b.id - a.id;
+}
+
+function byNameDesc(a: TransactionRow, b: TransactionRow): number {
+  return NAMES.compare(b.description.trim(), a.description.trim()) || b.id - a.id;
 }
 
 /**
