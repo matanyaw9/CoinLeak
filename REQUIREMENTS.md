@@ -51,8 +51,8 @@ Change a decision only by editing this table and the affected specs together.
 | D10 | Money is integer agorot everywhere. Floats exist only at the scraper edge and are converted immediately. |
 | D11 | Errors crossing to the window are fixed codes with our own text (`src/shared/errors.ts`). Library and bank error text is never shown, logged, or stored. |
 | D12 | Look: Spent's warm buttercream and sage theme, warm dark variant, serif numbers, generous whitespace. React, Tailwind v4, shadcn/ui on base-ui, Recharts. |
-| D13 | Categories are a two-level tree (category, subcategory). Rules are visible and ordered. Rows the user categorized by hand are never changed by sync; saving a rule also changes the matching hand-set rows, listed in the editor first (F45). |
-| D14 | Untracked card bills stay counted. A bank line that looks like a card bill but matches no tracked card counts as spending and is flagged for review. |
+| D13 | Categories are a two-level tree (category, subcategory); owner, 2026-11-25: up to three levels where every level is a real category (wave 14, F69). Rules are visible and ordered. Rows the user categorized by hand are never changed by sync; saving a rule also changes the matching hand-set rows, listed in the editor first (F45). |
+| D14 | Untracked card bills stay counted. A bank line that looks like a card bill but matches no tracked card counts as spending and is flagged for review. A line naming the last 4 digits of a synced card is that card's bill even when the amounts differ (owner, 2026-11-25, F75). |
 | D15 | Supply chain: exact versions, install scripts off by default, new versions only after a two-week cooldown (Electron security patches excepted), scraper diffs reviewed before upgrade. |
 | D16 | Built by AI agents, one spec per agent, each in its own git worktree. The lead (Claude in the main session) writes specs, reviews and merges. |
 | D17 | English UI first with all strings in one place, so Hebrew can be added. Transaction text is shown as the bank sends it, with `dir="auto"`. |
@@ -178,7 +178,7 @@ overwritten by a sync.
 - **Transactions**: dense list grouped by day, search and filters, quick
   category picker, bulk select and categorize, needs-review view.
 - **Categories**: manage the tree, emoji, colors; rules list and editor.
-- **Money accounts and sync** (named so to tell them apart from the
+- **Finance accounts and sync** (was "Money accounts", F77) (named so to tell them apart from the
   computer login): providers, accounts and card mode, last sync,
   Sync buttons with progress.
 - **Settings**: theme (system, light, dark), data folder location, backup.
@@ -214,7 +214,10 @@ migrations are never edited.
 | 8 | `20-transactions-hand`, `21-find-and-order`, `22-home-left-essentials` | Done. Daily use: select all, notes, manual transactions with a Cash wallet (F46, F48, F8); search and rule order on Categories and Rules (F47, F50); essentials vs extras on charts and money left per day on Home (F49, F51) |
 | 9 | `23-delete-and-sync-range`, `24-balance-check`, `25-cleanup` | Done. Trust and safety: delete data and sync range (F52, F53); balance check (F54); code-health cleanup |
 | 10 | to write | First public version: installer, bug report and feedback, version and update link, backup export, experimental labels, scraper update routine (F55, F27, F28, F56, F57, F1) |
-| later | | Debt tracking (F58), budgets (F59), Hebrew UI, pockets, AI helper (opt-in) |
+| 13 | `31-keyboard-and-sort-headers`, `32-card-bills-and-quick-sync`, `33-paid-back-and-small-fixes` | Keyboard shortcuts and sort headers (F66, F80); card bills by card number and a quick sync (F75, F82); paid back for a purchase, investment starter lists, Finance accounts, bigger emojis (F65, F76, F77, F74) |
+| 14 | to write | Nested categories to 3 levels, better defaults, Routine / Treats removed, rule editor tick boxes (F69, F70, F72, F71) |
+| 15 | to write | Budgets page (F73); charts: click-through and the category chooser (F78, F79); backup and restore (F56) |
+| later | | Net worth, investments and loans (F67, absorbs F58; a design note first), Hebrew UI, pockets, AI helper (opt-in) |
 
 ## 9. Open questions
 

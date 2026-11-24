@@ -89,6 +89,9 @@ prompt:
   and fix on the first pass: plain functions, clear names, no clever
   abstractions, no generic frameworks for one use. When two designs work,
   pick the one with fewer moving parts.
+- **Keyboard too.** Every feature and every way of interacting also works
+  from the keyboard (Tab, Enter, Esc, arrow keys in lists), and a shortcut
+  is listed in the Keyboard shortcuts list (`?`, spec 31). Owner, 2026-11-23.
 - Short, readable modules. Each file starts with a 1 to 3 line comment on
   what it owns. No doc comments unless the logic is surprising.
 - TypeScript strict. No `any` without a comment saying why.
