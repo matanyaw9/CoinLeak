@@ -174,7 +174,7 @@ function planCardBills(
   const toWallet = (line: BankLine): boolean =>
     wallet !== null && line.date >= wallet.since && isCashWithdrawal(line.description, line.amount);
   for (const { line, info } of open) {
-    const named = namedCard(line, cards);
+    const named = namedCard(line, info !== null, cards);
     const auto =
       wallet && toWallet(line)
         ? { ...PLAIN, internal: 1 as Bit, card_bill_account_id: wallet.id }
@@ -196,12 +196,18 @@ const BILL_DAY_WINDOW_DAYS = 10;
  * pays that card, sums or not. Two cards with those digits decide nothing,
  * and a cash withdrawal is never a card bill (its digits are often an ATM's).
  */
-function namedCard(line: BankLine, cards: CardAccount[]): CardAccount | null {
+function namedCard(line: BankLine, cardLike: boolean, cards: CardAccount[]): CardAccount | null {
   if (line.amount >= 0 || isCashWithdrawal(line.description, line.amount)) return null;
-  const numbers = standaloneNumbers(line.description);
+  // On a line with no card wording, 1990 to 2099 is most likely a year ("ארנונה 2025").
+  const numbers = standaloneNumbers(line.description).filter((n) => cardLike || !isLikelyYear(n));
   if (numbers.length === 0) return null;
   const named = cards.filter((c) => c.last4 !== null && numbers.includes(c.last4));
   return named.length === 1 ? (named[0] ?? null) : null;
+}
+
+function isLikelyYear(digits: string): boolean {
+  const n = Number(digits);
+  return n >= 1990 && n <= 2099;
 }
 
 /** The line pays the card in its own style. Credit: the nearest billing day within 10 days. Consumes no rows. */

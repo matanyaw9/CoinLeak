@@ -541,6 +541,34 @@ describe("bills naming a synced card (spec 32)", () => {
     });
   });
 
+  it("a year-like number on a line with no card wording names no card", () => {
+    const db = newDb();
+    ingest(db, [card("2025", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-09", -18000, "ארנונה 2025"), line("2026-03-09", -5000, "ביטוח 1990")])], {
+      now: NOW,
+    });
+    expect(stored(db, idOf(db, "ארנונה 2025"))).toMatchObject({ internal: 0, possible_card_bill: 0 });
+    ingest(db, [card("1990", [])], { now: NOW });
+    expect(stored(db, idOf(db, "ביטוח 1990"))).toMatchObject({ internal: 0, possible_card_bill: 0 });
+  });
+
+  it("a line with card wording keeps a year-like card number", () => {
+    const db = newDb();
+    ingest(db, [card("2025", cycle())], { now: NOW });
+    ingest(db, [bank([line("2026-03-12", -21500, "חיוב לכרטיס ויזה 2025"), line("2026-03-12", -900, "כאל 2099")])], {
+      now: NOW,
+    });
+    expect(stored(db, idOf(db, "חיוב לכרטיס ויזה 2025"))).toMatchObject({
+      internal: 1,
+      card_bill_account_id: accountId(db, "visaCal", "2025"),
+    });
+    ingest(db, [card("2099", [])], { now: NOW });
+    expect(stored(db, idOf(db, "כאל 2099"))).toMatchObject({
+      internal: 1,
+      card_bill_account_id: accountId(db, "visaCal", "2099"),
+    });
+  });
+
   it("money in and cash withdrawals are never taken", () => {
     const db = newDb();
     ingest(db, [card("1234", cycle())], { now: NOW });
