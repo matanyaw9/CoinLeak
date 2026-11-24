@@ -691,13 +691,6 @@ export const s = {
 
   // spec 17
   txTools: {
-    sort: {
-      label: "Sort",
-      date: "Newest first",
-      amount_desc: "Largest amount",
-      amount_asc: "Smallest amount",
-      name: "Name, A to Z",
-    } as Record<string, string>,
     filter: {
       button: "Filter",
       categories: "Category",
