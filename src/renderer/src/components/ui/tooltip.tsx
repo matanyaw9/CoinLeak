@@ -3,6 +3,7 @@
 
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 import { cn } from "@/lib/utils";
+import { KeyHint } from "@/components/common/key-hint";
 
 function TooltipProvider({ delay = 200, ...props }: TooltipPrimitive.Provider.Props) {
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
@@ -42,12 +43,25 @@ function TooltipContent({
   );
 }
 
-/** Shorthand: wrap any element and give it a hint. */
-function Hint({ label, children, side }: { label: React.ReactNode; children: React.ReactElement; side?: "top" | "bottom" | "left" | "right" }) {
+/** Shorthand: wrap any element and give it a hint. `keys` shows its shortcut (spec 31). */
+function Hint({
+  label,
+  children,
+  side,
+  keys,
+}: {
+  label: React.ReactNode;
+  children: React.ReactElement;
+  side?: "top" | "bottom" | "left" | "right";
+  keys?: string;
+}) {
   return (
     <Tooltip>
       <TooltipTrigger render={children} />
-      <TooltipContent side={side}>{label}</TooltipContent>
+      <TooltipContent side={side}>
+        {label}
+        {keys && <KeyHint keys={keys} className="ms-2 border-background/30 text-background/75" />}
+      </TooltipContent>
     </Tooltip>
   );
 }

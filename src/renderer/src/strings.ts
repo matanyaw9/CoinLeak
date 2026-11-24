@@ -1075,6 +1075,27 @@ export const s = {
     hint: "Income minus spending each calendar month. Card bills count once; money moved to savings is not counted.",
     clickHint: "Click to see this month's transactions.",
   },
+
+  // spec 31
+  keys: {
+    title: "Keyboard shortcuts",
+    intro: "Letters work when you are not typing in a box and no window is open.",
+    link: "Keyboard shortcuts",
+    close: "Close",
+    groups: { anywhere: "Anywhere", transactions: "Transactions", dialogs: "In a dialog" } as Record<string, string>,
+    goTo: (page: string) => `Go to ${page}`,
+    does: {
+      help: "Show this list",
+      find: "Search",
+      selectAll: "Select every transaction shown",
+      clearSelection: "Clear the selection",
+      rangeClick: "Select every row from the last one clicked",
+      toggleClick: "Add or remove one row",
+      dialogOk: "OK, when it is not greyed out",
+      dialogSubmit: "OK, also from a text box",
+      dialogCancel: "Cancel",
+    } as Record<string, string>,
+  },
 };
 
 export type Strings = typeof s;
