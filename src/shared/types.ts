@@ -233,6 +233,8 @@ export type SyncStage =
 export interface SyncProgress {
   provider: ProviderId;
   stage: SyncStage;
+  /** What this sync downloads (spec 32). */
+  scope?: SyncScope;
 }
 
 export interface AppInfo {
@@ -749,6 +751,8 @@ export interface SyncRange {
   limitMonths: number;
   /** The first day the next sync asks for: the later of `syncFrom` and the bank's limit. */
   from: IsoDate;
+  /** The first day the next quick sync asks for (spec 32), or null when it would be a full one. */
+  quickFrom?: IsoDate | null;
 }
 
 // ---- spec 27: budgets ----
@@ -789,4 +793,18 @@ export interface MonthNet {
   net: Agorot;
   /** True for the current month, which is not over yet. */
   partial: boolean;
+}
+
+// ---- spec 32: quick sync ----
+
+/** quick: from the last sync minus 60 days. full: as far back as `syncFrom` and the bank allow. */
+export type SyncMode = "quick" | "full";
+
+/** What one sync downloads, for the progress text. */
+export interface SyncScope {
+  mode: SyncMode;
+  /** Quick: about how many months back. Null for a full sync. */
+  months: number | null;
+  /** The first day asked for. Null when a full sync takes all the bank allows. */
+  from: IsoDate | null;
 }

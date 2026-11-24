@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CodedError } from "@shared/errors";
 import { ENABLED_PROVIDERS } from "@shared/providers";
 import type { ProviderId, ScrapedAccount, ScrapedTransaction, SyncProgress } from "@shared/types";
@@ -9,6 +9,7 @@ import type { SyncDownload, SyncOptions } from "./sync";
 import { createSyncService } from "./sync-service";
 
 const SINCE = "2025-05-09";
+const TIMINGS = { loginMs: 4200, downloadMs: 31000 };
 
 function row(description: string, status: ScrapedTransaction["status"] = "completed"): ScrapedTransaction {
   return {
@@ -34,7 +35,7 @@ function accounts(provider: ProviderId, ...rows: ScrapedTransaction[][]): Scrape
   }));
 }
 
-const download: SyncDownload = { accounts: accounts("visaCal", [row("קפה")]), since: SINCE };
+const download: SyncDownload = { accounts: accounts("visaCal", [row("קפה")]), since: SINCE, timings: TIMINGS };
 
 function setup(run: (provider: ProviderId, options: SyncOptions) => Promise<SyncDownload>) {
   const db = openDatabase(":memory:");
@@ -133,21 +134,21 @@ describe("sync service", () => {
     ["discount", "no pending row", [[row("קפה")]], true],
     ["discount", "no rows at all", [[]], true],
   ])("judgePending for %s with %s is %s", async (provider, _label, rows, judged) => {
-    const { saved, service } = setup(async () => ({ accounts: accounts(provider, ...rows), since: SINCE }));
+    const { saved, service } = setup(async () => ({ accounts: accounts(provider, ...rows), since: SINCE, timings: TIMINGS }));
     await service.start(provider);
     expect(saved[0]?.judgePending).toBe(judged);
   });
 
   it("a Cal download whose pending rows are missing turns no stored pending row gone", async () => {
-    let next: SyncDownload = { accounts: accounts("visaCal", [row("מסעדה", "pending")]), since: SINCE };
+    let next: SyncDownload = { accounts: accounts("visaCal", [row("מסעדה", "pending")]), since: SINCE, timings: TIMINGS };
     const { db, service } = setup(async () => next);
     await service.start("visaCal");
 
-    next = { accounts: accounts("visaCal", [row("קפה")]), since: SINCE };
+    next = { accounts: accounts("visaCal", [row("קפה")]), since: SINCE, timings: TIMINGS };
     await service.start("visaCal");
     expect(listTransactions(db).find((t) => t.description === "מסעדה")?.status).toBe("pending");
 
-    next = { accounts: accounts("visaCal", [row("קפה"), row("חניה", "pending")]), since: SINCE };
+    next = { accounts: accounts("visaCal", [row("קפה"), row("חניה", "pending")]), since: SINCE, timings: TIMINGS };
     await service.start("visaCal");
     expect(listTransactions(db).find((t) => t.description === "מסעדה")?.status).toBe("gone");
   });
@@ -166,9 +167,59 @@ describe("sync service", () => {
   );
 
   it("accepts every enabled provider from the registry", async () => {
-    const { service } = setup(async () => ({ accounts: [], since: SINCE }));
+    const { service } = setup(async () => ({ accounts: [], since: SINCE, timings: TIMINGS }));
     for (const provider of ENABLED_PROVIDERS) {
       await expect(service.start(provider)).resolves.toMatchObject({ provider, accounts: 0 });
+    }
+  });
+
+  // ---- spec 32: quick sync ----
+
+  it("the first sync is full, the next ones quick, and full asks again for everything", async () => {
+    const asked: SyncOptions[] = [];
+    const { events, service } = setup(async (_p, o) => {
+      asked.push(o);
+      return download;
+    });
+    await service.start("visaCal");
+    expect(asked[0]?.startDate).toBeUndefined();
+    expect(events[0]?.scope).toEqual({ mode: "full", months: null, from: null });
+
+    await service.start("visaCal");
+    expect(asked[1]?.startDate).toBeInstanceOf(Date);
+    expect(events.at(-1)?.scope).toMatchObject({ mode: "quick", months: 2 });
+
+    await service.start("visaCal", "full");
+    expect(asked[2]?.startDate).toBeUndefined();
+    expect(events.at(-1)?.scope?.mode).toBe("full");
+  });
+
+  it("refuses an unknown mode before opening anything", async () => {
+    let ran = false;
+    const { events, service } = setup(async () => {
+      ran = true;
+      return download;
+    });
+    await expect(service.start("visaCal", "fast" as never)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(ran).toBe(false);
+    expect(events).toEqual([]);
+    expect(service.isRunning()).toBe(false);
+  });
+
+  it("logs one timing line per sync, with fixed words and numbers only", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const { service } = setup(async () => download);
+      await service.start("visaCal");
+      expect(log).toHaveBeenCalledTimes(1);
+      const line = String(log.mock.calls[0]?.[0]);
+      expect(line).toMatch(
+        /^\[sync\] visaCal mode=full loginMs=4200 downloadMs=31000 saveMs=\d+ accounts=1 rows=1$/,
+      );
+      expect(line).not.toContain("קפה");
+      expect(line).not.toContain("4320");
+    } finally {
+      log.mockRestore();
     }
   });
 });

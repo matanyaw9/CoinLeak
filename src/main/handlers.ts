@@ -103,10 +103,10 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "summary:periodCurves": (args) => periodCurves(getDb(), args),
     "summary:thisMonth": () => thisMonth(getDb()),
     "summary:monthlyNet": (range) => monthlyNet(getDb(), range, { now: now() }),
-    "sync:start": ({ provider }) => {
+    "sync:start": ({ provider, mode }) => {
       // The Demo profile holds made-up data and never talks to a bank.
       if (currentProfile(readProfiles(dataDir)).demo) throw new CodedError("BAD_REQUEST");
-      return sync.start(provider);
+      return sync.start(provider, mode);
     },
     "sync:cancel": () => {
       sync.cancel();
@@ -149,7 +149,7 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     // spec 24
     "accounts:balanceChecks": () => balanceChecks(getDb()),
     // spec 23
-    "sync:ranges": () => syncRanges(getSetting(getDb(), "syncFrom"), now()),
+    "sync:ranges": () => syncRanges(getDb(), now()),
   };
 }
 
