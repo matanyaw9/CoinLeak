@@ -691,13 +691,6 @@ export const s = {
 
   // spec 17
   txTools: {
-    sort: {
-      label: "Sort",
-      date: "Newest first",
-      amount_desc: "Largest amount",
-      amount_asc: "Smallest amount",
-      name: "Name, A to Z",
-    } as Record<string, string>,
     filter: {
       button: "Filter",
       categories: "Category",
@@ -1084,7 +1077,43 @@ export const s = {
     allowed: "Getting everything the bank allows (slower)",
     fromDay: (day: string) => `Getting everything from ${day} (slower)`,
     earlierHint:
-      "A normal sync gets only recent months. To bring in an earlier start, use Download everything again on the Money accounts page.",
+      "A normal sync gets only recent months. To bring in an earlier start, use Download everything again on the Finance accounts page.",
+  },
+
+  // spec 31
+  keys: {
+    title: "Keyboard shortcuts",
+    intro: "Letters work when you are not typing in a box and no window is open.",
+    link: "Keyboard shortcuts",
+    close: "Close",
+    groups: { anywhere: "Anywhere", transactions: "Transactions", dialogs: "In a dialog" } as Record<string, string>,
+    goTo: (page: string) => `Go to ${page}`,
+    okLine: (key: string) => `OK, when it is not greyed out; ${key} for delete`,
+    does: {
+      help: "Show this list",
+      find: "Search",
+      selectAll: "Select every transaction shown",
+      clearSelection: "Clear the selection",
+      rangeClick: "Select every row from the last one clicked",
+      toggleClick: "Add or remove one row",
+      dialogSubmit: "OK, also from a text box or to delete",
+      dialogCancel: "Cancel",
+    } as Record<string, string>,
+  },
+  listHeader: {
+    date: "Date",
+    description: "Description",
+    category: "Category",
+    amount: "Amount",
+    sortBy: (order: string) => `Sort: ${order}`,
+    order: {
+      date: "Newest first",
+      date_asc: "Oldest first",
+      amount_desc: "Largest amount first",
+      amount_asc: "Smallest amount first",
+      name: "A to Z",
+      name_desc: "Z to A",
+    } as Record<string, string>,
   },
 };
 

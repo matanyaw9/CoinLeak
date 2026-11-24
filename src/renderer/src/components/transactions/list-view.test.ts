@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Account, Category } from "@shared/types";
 import { indexCategories } from "@/lib/categories";
-import { chipsFor, clearFilters, hasFilters, onlyCategory, readView, toFilter, writeView } from "./list-view";
+import { chipsFor, clearFilters, clickColumn, columnOf, groupsByDay, hasFilters, onlyCategory, readView, sortArrow, toFilter, writeView } from "./list-view";
 
 const cat = (id: number, name: string, parentId: number | null = null): Category => ({
   id,
@@ -107,5 +107,47 @@ describe("list view", () => {
     const v = view("account=7,9");
     expect(chipsFor(v, index, new Map([[7, account]]), 9).map((c) => c.text)).toEqual(["My card", "Cash"]);
     expect(toFilter(v, index, { ...month, showBills: false }).accountIds).toEqual([7, 9]);
+  });
+});
+
+describe("sorting from the column headers (spec 31)", () => {
+  it("a click on another column sorts by it; on the active one it flips", () => {
+    expect(clickColumn("date", "date")).toBe("date_asc");
+    expect(clickColumn("date_asc", "date")).toBe("date");
+    expect(clickColumn("date", "amount")).toBe("amount_desc");
+    expect(clickColumn("amount_desc", "amount")).toBe("amount_asc");
+    expect(clickColumn("amount_asc", "amount")).toBe("amount_desc");
+    expect(clickColumn("amount_asc", "name")).toBe("name");
+    expect(clickColumn("name", "name")).toBe("name_desc");
+    expect(clickColumn("name_desc", "name")).toBe("name");
+    expect(clickColumn("name_desc", "date")).toBe("date");
+  });
+
+  it("marks the active column and its direction, and groups by day for either date order", () => {
+    expect((["date", "date_asc", "name", "name_desc", "amount_desc", "amount_asc"] as const).map((s) => columnOf(s))).toEqual([
+      "date",
+      "date",
+      "name",
+      "name",
+      "amount",
+      "amount",
+    ]);
+    expect(sortArrow("date")).toBe("down");
+    expect(sortArrow("date_asc")).toBe("up");
+    expect(sortArrow("amount_desc")).toBe("down");
+    expect(sortArrow("name")).toBe("up");
+    expect(groupsByDay("date")).toBe(true);
+    expect(groupsByDay("date_asc")).toBe(true);
+    expect(groupsByDay("amount_desc")).toBe(false);
+    expect(groupsByDay("name")).toBe(false);
+  });
+
+  it("every header order survives the URL round trip and reaches core", () => {
+    for (const sort of ["date", "date_asc", "name", "name_desc", "amount_desc", "amount_asc"] as const) {
+      const out = writeView(new URLSearchParams("category=4"), { ...view("category=4"), sort });
+      expect(readView(out).sort).toBe(sort);
+      expect(out.get("sort")).toBe(sort === "date" ? null : sort);
+      expect(toFilter(readView(out), index, { ...month, showBills: false }).sort).toBe(sort === "date" ? undefined : sort);
+    }
   });
 });

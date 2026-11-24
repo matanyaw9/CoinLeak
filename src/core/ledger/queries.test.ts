@@ -311,6 +311,32 @@ describe("listTransactions", () => {
       "zeta",
     ]);
     expect(rows[3]?.id ?? 0).toBeGreaterThan(rows[4]?.id ?? 0);
+
+    // spec 31: Z to A is the same order turned around, except that ties stay newest id first.
+    const desc = listTransactions(db2, { sort: "name_desc" });
+    expect(desc.map((t) => t.description.trim())).toEqual([
+      "zeta",
+      "Shop 10",
+      "Shop 9",
+      "apple",
+      "Apple",
+      "שופרסל",
+      "בית",
+      "אלון",
+    ]);
+    expect(desc[3]?.id).toBe(rows[3]?.id);
+  });
+
+  it("sorts oldest first, each day's rows in the same order as newest first (spec 31)", () => {
+    const asc = listTransactions(db, { sort: "date_asc" });
+    const dates = asc.map((t) => t.date);
+    expect(dates).toEqual([...dates].sort());
+    expect(asc.map((t) => t.id).sort()).toEqual(listTransactions(db).map((t) => t.id).sort());
+    // Two rows on 03-01: the salary (bank, added after the card) comes first both ways.
+    const march1 = (rows: { date: string; description: string }[]) =>
+      rows.filter((t) => t.date === "2026-03-01").map((t) => t.description);
+    expect(march1(asc)).toEqual(["משכורת מרץ", "חנות בגדים"]);
+    expect(march1(listTransactions(db))).toEqual(march1(asc));
   });
 
   it("filters pending rows or settled rows", () => {

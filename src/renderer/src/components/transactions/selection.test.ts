@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkState, checkedProp, toggleAll, toggleRow } from "./selection";
+import { checkState, checkedProp, pickRow, rowClickKind, selectAll, toggleAll, toggleRow } from "./selection";
 
 describe("one row's box", () => {
   const order = [10, 20, 30, 40, 50];
@@ -64,5 +64,53 @@ describe("select all", () => {
     expect(checkedProp("all")).toBe(true);
     expect(checkedProp("none")).toBe(false);
     expect(checkedProp("some")).toBe("indeterminate");
+  });
+});
+
+describe("clicks with Ctrl and Shift, and Ctrl+A (spec 31)", () => {
+  const order = [10, 20, 30, 40, 50];
+  const ids = (s: ReadonlySet<number>) => [...s].sort((a, b) => a - b);
+  const mods = (m: Partial<Record<"shiftKey" | "ctrlKey" | "metaKey" | "altKey", boolean>>) => ({
+    shiftKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    ...m,
+  });
+
+  it("Ctrl+click adds one row, or removes it when selected, and moves the anchor to it", () => {
+    const added = pickRow(order, { selected: new Set([10]), anchor: 10 }, 40, false);
+    expect(ids(added.selected)).toEqual([10, 40]);
+    expect(added.anchor).toBe(40);
+    const removed = pickRow(order, added, 10, false);
+    expect(ids(removed.selected)).toEqual([40]);
+    expect(removed.anchor).toBe(10);
+  });
+
+  it("a shift range after a Ctrl+click starts from the row Ctrl+clicked", () => {
+    let pick = pickRow(order, { selected: new Set(), anchor: null }, 10, false);
+    pick = pickRow(order, pick, 40, false);
+    pick = pickRow(order, pick, 50, true);
+    expect(ids(pick.selected)).toEqual([10, 40, 50]);
+    expect(pick.anchor).toBe(50);
+  });
+
+  it("reads Shift as a range and Ctrl (Cmd on a Mac) as one row", () => {
+    expect(rowClickKind(mods({ shiftKey: true }), false)).toBe("range");
+    expect(rowClickKind(mods({ ctrlKey: true }), false)).toBe("toggle");
+    expect(rowClickKind(mods({ metaKey: true }), true)).toBe("toggle");
+    expect(rowClickKind(mods({ metaKey: true }), false)).toBeNull();
+    expect(rowClickKind(mods({ ctrlKey: true }), true)).toBeNull();
+    expect(rowClickKind(mods({}), false)).toBeNull();
+    expect(rowClickKind(mods({ altKey: true, shiftKey: true }), false)).toBeNull();
+  });
+
+  it("Ctrl+A selects the same rows as the box above the list", () => {
+    const shown = [1, 2, 3];
+    for (const before of [new Set<number>(), new Set([2])]) {
+      expect(ids(selectAll(shown, before))).toEqual(ids(toggleAll(shown, before)));
+    }
+    // Unlike the box, a second Ctrl+A keeps them selected.
+    expect(ids(selectAll(shown, new Set(shown)))).toEqual(shown);
   });
 });

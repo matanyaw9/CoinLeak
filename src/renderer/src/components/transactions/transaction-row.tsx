@@ -5,7 +5,7 @@
 // gutter selects; right click or "..." opens the row menu. Spec 17: the
 // category chip filters and explains itself (category-cell.tsx). Spec 20:
 // the note under the description and its button, cash rows and withdrawals
-// moved into the cash wallet.
+// moved into the cash wallet. Spec 31: Shift+click and Ctrl+click on the row.
 
 import { ArrowLeftRight, Check, CircleDashed, Clock, EyeOff, StickyNote, Wallet, WandSparkles } from "lucide-react";
 import type { Account, Category, TransactionRow as Row } from "@shared/types";
@@ -24,6 +24,11 @@ import { CategoryCell } from "./category-cell";
 import { CardBillPrompt, GonePrompt, InternalMenu } from "./review-prompt";
 import { NoteButton } from "./note-editor";
 import { RowContextMenu, RowMenuButton, type RowMenuModel } from "./row-menu";
+import { rowClickKind } from "./selection";
+import { isMac } from "./find";
+
+/** Parts of a row that keep their own click: the box, chips, pickers, the note and menu buttons. */
+const ROW_CONTROLS = 'button, a, input, textarea, select, label, [role="button"], [role="checkbox"], [role="combobox"]';
 
 export interface RowReview {
   /** The Needs review view is showing, where gone rows ask delete or keep. */
@@ -87,9 +92,24 @@ export function TransactionRow({
   const ignored = row.flow === "excluded";
   const chipRule = ruleChipId(row);
 
+  // spec 31: Shift+click and Ctrl+click (Cmd on a Mac) on the row itself select,
+  // except on its buttons, links and pickers, or inside a picker opened from it.
+  const selectClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as Element;
+    if (!e.currentTarget.contains(target) || target.closest(ROW_CONTROLS)) return null;
+    return rowClickKind(e, isMac());
+  };
+
   return (
     <RowContextMenu menu={menu}>
       <div
+        onMouseDown={(e) => {
+          if (selectClick(e) === "range") e.preventDefault();
+        }}
+        onClick={(e) => {
+          const kind = selectClick(e);
+          if (kind) onToggle(row.id, kind === "range");
+        }}
         className={cn(
           "group relative border-t border-border/70 transition-colors hover:bg-accent/35",
           selected && "bg-primary/[0.07] hover:bg-primary/10",
