@@ -124,6 +124,8 @@ export interface TransactionRow {
   source?: TxnSource;
   /** spec 20: a bank cash withdrawal counted as money moved into the cash wallet. Set by core. */
   movedToCash?: boolean;
+  /** spec 33: the purchase this money in pays back part of, or null. Set by core. */
+  paidBackFor?: PaidBackLink | null;
 }
 
 /** One day's money among the listed rows: the Transactions day subtotals. */
@@ -790,3 +792,22 @@ export interface MonthNet {
   /** True for the current month, which is not over yet. */
   partial: boolean;
 }
+
+// ---- spec 33: paid back for a purchase (F65) ----
+
+/** The purchase a money-in row pays back part of. */
+export interface PaidBackLink {
+  id: number;
+  description: string;
+  date: IsoDate;
+  /** The purchase's amount: negative, money out. */
+  amount: Agorot;
+}
+
+/**
+ * Why core refused to link a pay-back. Fixed codes; the window words them.
+ * `purchase_uncategorized`: the user categorizes the purchase first.
+ */
+export type PaidBackProblem = "not_money_in" | "not_a_purchase" | "purchase_uncategorized";
+
+export type PaidBackResult = { ok: true } | { ok: false; problem: PaidBackProblem };

@@ -48,6 +48,8 @@ import type {
   ThisMonth,
   PeriodTrend,
   MonthNet,
+  PaidBackResult,
+  TransactionRow,
 } from "./types";
 import type { Result } from "./errors";
 
@@ -180,6 +182,13 @@ export interface IpcContract {
   "budgets:status": { args: { month: IsoMonth }; result: BudgetStatus };
   /** Sets a spending category's monthly budget in agorot, or clears it with null. */
   "budgets:set": { args: { categoryId: number; monthlyBudget: Agorot | null }; result: null };
+  // ---- spec 33: paid back for a purchase (F65) ----
+  /** Purchases counting as spending from 60 days before to 7 days after the row, newest first, at most 50. */
+  "transactions:paidBackCandidates": { args: { rowId: number; text?: string }; result: TransactionRow[] };
+  /** The money-in row takes the purchase's category (as set by hand) and remembers it. Refusals are fixed codes. */
+  "transactions:markPaidBack": { args: { rowId: number; purchaseId: number }; result: PaidBackResult };
+  /** Removes the link and the category: the row is back in Needs review. */
+  "transactions:clearPaidBack": { args: { rowId: number }; result: { updated: number } };
 }
 
 export interface IpcEvents {
@@ -250,6 +259,10 @@ export const CHANNELS = [
   // spec 27
   "budgets:status",
   "budgets:set",
+  // spec 33
+  "transactions:paidBackCandidates",
+  "transactions:markPaidBack",
+  "transactions:clearPaidBack",
 ] as const satisfies readonly Channel[];
 
 // Main and preload register only CHANNELS, so a channel missing here would

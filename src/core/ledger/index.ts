@@ -23,3 +23,4 @@ export { addManualTransaction, editManualTransaction, getCashWallet } from "./ca
 export { balanceChecks } from "./balance";
 export { budgetStatus, setBudget } from "./budgets";
 export { restoreExclusions } from "./exclusions";
+export { clearPaidBack, markPaidBack, paidBackCandidates } from "./paid-back";

@@ -15,6 +15,7 @@ import type {
   IsoDate,
   IsoMonth,
   MonthSummary,
+  PaidBackLink,
   ReviewFlag,
   ScrapedStatus,
   TransactionFilter,
@@ -133,6 +134,10 @@ interface LedgerRow {
   flag_uncategorized: number;
   flag_possible_card_bill: number;
   flag_gone: number;
+  paid_back_for: number | null;
+  paid_back_description: string | null;
+  paid_back_date: IsoDate | null;
+  paid_back_amount: Agorot | null;
 }
 
 /**
@@ -216,7 +221,10 @@ export function listTransactions(db: Db, filter: TransactionFilter = {}): Transa
 
   const sort = filter.sort ?? "date";
   check(SORTS.includes(sort));
-  const sql = `${WITH_LEDGER} SELECT * FROM ledger
+  // spec 33: the purchase a pay-back row points at, if any.
+  const sql = `${WITH_LEDGER} SELECT ledger.*, pb.description AS paid_back_description,
+      pb.date AS paid_back_date, pb.amount AS paid_back_amount
+    FROM ledger LEFT JOIN transactions pb ON pb.id = ledger.paid_back_for
     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
     ORDER BY ${ORDER_SQL[sort]}`;
   const wallet = getCashWallet(db)?.id ?? null;
@@ -295,6 +303,17 @@ function toTransactionRow(r: LedgerRow, wallet: number | null): TransactionRow {
     ruleId: r.rule_id,
     source: r.source,
     movedToCash: movedToCash(r, wallet),
+    paidBackFor: paidBackLink(r),
+  };
+}
+
+function paidBackLink(r: LedgerRow): PaidBackLink | null {
+  if (r.paid_back_for === null || r.paid_back_description === null) return null;
+  return {
+    id: r.paid_back_for,
+    description: r.paid_back_description,
+    date: r.paid_back_date as IsoDate,
+    amount: r.paid_back_amount as Agorot,
   };
 }
 
