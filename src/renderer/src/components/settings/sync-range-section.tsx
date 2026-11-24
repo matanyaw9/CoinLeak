@@ -1,5 +1,6 @@
 // Settings > How far back to sync (spec 23): as far as each bank allows, or
-// from a day the user picks, and what each of the user's banks allows.
+// from a day the user picks, and what each of the user's banks allows. An
+// earlier start takes effect with Download everything again (spec 32).
 
 import { useEffect, useRef, useState } from "react";
 import type { IsoDate, SyncFrom } from "@shared/types";
@@ -86,6 +87,7 @@ export function SyncRangeSection() {
           )}
         </div>
         {mode === "day" && <p className="mt-3 text-xs text-muted-foreground">{r.earlierNote}</p>}
+        <p className="mt-3 text-xs text-muted-foreground">{s.quickSync.earlierHint}</p>
         {groups.length > 0 && (
           <div className="mt-5 rounded-2xl border border-border px-4 py-3.5">
             <div className="text-sm font-medium">{r.limits}</div>

@@ -1083,6 +1083,8 @@ export const s = {
     lastMonths: (months: number) => (months === 1 ? "Getting the last month" : `Getting the last ${months} months`),
     allowed: "Getting everything the bank allows (slower)",
     fromDay: (day: string) => `Getting everything from ${day} (slower)`,
+    earlierHint:
+      "A normal sync gets only recent months. To bring in an earlier start, use Download everything again on the Money accounts page.",
   },
 };
 
