@@ -1096,6 +1096,21 @@ export const s = {
       dialogCancel: "Cancel",
     } as Record<string, string>,
   },
+  listHeader: {
+    date: "Date",
+    description: "Description",
+    category: "Category",
+    amount: "Amount",
+    sortBy: (order: string) => `Sort: ${order}`,
+    order: {
+      date: "Newest first",
+      date_asc: "Oldest first",
+      amount_desc: "Largest amount first",
+      amount_asc: "Smallest amount first",
+      name: "A to Z",
+      name_desc: "Z to A",
+    } as Record<string, string>,
+  },
 };
 
 export type Strings = typeof s;

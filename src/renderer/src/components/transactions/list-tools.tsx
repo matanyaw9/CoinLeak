@@ -1,48 +1,20 @@
-// The Transactions toolbar pieces for spec 17 (F23): a sort menu, a filter
-// popover (category, money account, kind, status), and the active filters
-// as chips with an X each and "Clear all".
+// The Transactions toolbar pieces for spec 17 (F23): a filter popover
+// (category, money account, kind, status), and the active filters as chips
+// with an X each and "Clear all". Spec 31 moved the sort to the column headers.
 
-import { Menu } from "@base-ui/react/menu";
-import { ArrowDownUp, Check, ListFilter, X } from "lucide-react";
-import type { Account, TransactionSort } from "@shared/types";
+import { Check, ListFilter, X } from "lucide-react";
+import type { Account } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { colorOf, type CategoryIndex } from "@/lib/categories";
 import { accountLabel } from "@/components/common/chips";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { FLOW_CHOICES, SORTS, clearFilters, toggle, type FilterChip, type FlowChoice, type ListView } from "./list-view";
+import { FLOW_CHOICES, clearFilters, toggle, type FilterChip, type FlowChoice, type ListView } from "./list-view";
 
 const PILL =
   "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50";
 const pill = (on: boolean) =>
   cn(PILL, on ? "border-foreground/20 bg-accent text-foreground" : "border-border bg-background text-muted-foreground");
-
-export function SortMenu({ value, onChange }: { value: TransactionSort; onChange: (sort: TransactionSort) => void }) {
-  return (
-    <Menu.Root>
-      <Menu.Trigger aria-label={s.txTools.sort.label} className={pill(value !== "date")}>
-        <ArrowDownUp className="size-3.5" />
-        {s.txTools.sort[value]}
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner className="isolate z-50" side="bottom" align="start" sideOffset={6}>
-          <Menu.Popup className="z-50 min-w-48 rounded-2xl border border-border bg-popover p-1.5 text-popover-foreground shadow-lg shadow-black/10 outline-none dark:shadow-black/40">
-            {SORTS.map((sort) => (
-              <Menu.Item
-                key={sort}
-                onClick={() => onChange(sort)}
-                className="flex cursor-default items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm outline-none select-none data-[highlighted]:bg-accent"
-              >
-                <span className="flex-1">{s.txTools.sort[sort]}</span>
-                {sort === value && <Check className="size-3.5 text-primary" />}
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
-  );
-}
 
 function Option({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (

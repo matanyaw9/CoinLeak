@@ -6,6 +6,7 @@
 // Spec 17: the period's Income, Spent and Left on top, sort and filters kept
 // in the URL, a click on a row's category filters to it, and Ctrl+F.
 // Spec 20: select all (top and per day), notes, and cash rows typed by hand.
+// Spec 31: Ctrl+A and Esc, and the column headers that sort the list.
 // The pieces live in components/transactions; this page wires them together.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -43,9 +44,12 @@ import { Welcome } from "@/components/common/welcome";
 import { TransactionRow } from "@/components/transactions/transaction-row";
 import { BulkBar } from "@/components/transactions/bulk-bar";
 import { SummaryBar } from "@/components/transactions/summary-bar";
-import { FilterChips, FilterMenu, SortMenu } from "@/components/transactions/list-tools";
-import { chipsFor, clearFilters, onlyCategory, readView, toFilter, writeView, type ListView } from "@/components/transactions/list-view";
-import { onFind, takeFindRequest } from "@/components/transactions/find";
+import { FilterChips, FilterMenu } from "@/components/transactions/list-tools";
+import { ListHeader } from "@/components/transactions/list-header";
+import { chipsFor, clearFilters, groupsByDay, onlyCategory, readView, toFilter, writeView, type ListView } from "@/components/transactions/list-view";
+import { isMac, onFind, takeFindRequest } from "@/components/transactions/find";
+import { keyFor } from "@/lib/shortcuts";
+import { useShortcuts } from "@/lib/use-shortcuts";
 import { Hint } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
 import { checkState } from "@/components/transactions/selection";
@@ -104,7 +108,7 @@ export function TransactionsPage() {
   const bills = useTransactions({ ...filter, hideInternal: undefined, sort: undefined, flows: ["internal"] });
   const billCount = view.flows.length ? 0 : (bills.data?.rows.length ?? 0);
   const rows = useMemo(() => tx.data?.rows ?? [], [tx.data]);
-  const byDay = view.sort === "date";
+  const byDay = groupsByDay(view.sort);
   const groups = useMemo(
     () => (byDay ? groupByDay(rows, tx.data?.days) : [{ date: "", rows, spent: 0, income: 0 }]),
     [rows, byDay, tx.data],
@@ -124,6 +128,21 @@ export function TransactionsPage() {
   const selectedRows = rows.filter((r) => selected.has(r.id));
   // spec 20: the box above the list (hidden card bills are not in `rows`).
   const allIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const allState = checkState(allIds, selected);
+  const mac = isMac();
+
+  // spec 31: Ctrl+A selects the rows the top box would; Esc clears them.
+  useShortcuts({
+    selectAll: rows.length > 0 ? () => selection.selectAll(allIds) : undefined,
+    clearSelection: selected.size > 0 ? selection.clear : undefined,
+  });
+  // Screenshot aid (dev start route only): `?shot=ctrl-a` presses Ctrl+A.
+  const listed = rows.length > 0;
+  useEffect(() => {
+    if (shotName !== "ctrl-a" || !listed) return;
+    const id = setTimeout(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA", ctrlKey: true })), 400);
+    return () => clearTimeout(id);
+  }, [shotName, listed]);
 
   // spec 20: the note box of one row, and the cash form (a row to edit, or null to add).
   const [noteRow, setNoteRow] = useState<number | null>(null);
@@ -222,7 +241,6 @@ export function TransactionsPage() {
             ]}
           />
           <FilterMenu view={view} onChange={setView} index={index} accounts={accounts.data ?? []} walletId={walletId} defaultOpen={shotName === "filters"} />
-          <SortMenu value={view.sort} onChange={(sort) => setView({ ...view, sort })} />
           {(billCount > 0 || showBills) && (
             <Hint label={s.cardBills.hint}>
               <button
@@ -252,27 +270,36 @@ export function TransactionsPage() {
           </label>
         </div>
         <FilterChips chips={chips} view={view} onChange={setView} />
-        {/* spec 20: select every row shown, and add a cash row. */}
+        {/* spec 20: select every row shown, and add a cash row. Spec 31: the
+            column headers below it, both staying in view while the list scrolls. */}
         {tx.data && (
-          <div className="flex h-12 items-center gap-1 border-t border-border pe-4">
-            {rows.length > 0 && (
-              <>
-                <SelectBox
-                  state={checkState(allIds, selected)}
-                  label={checkState(allIds, selected) === "all" ? s.selectAll.clear : s.selectAll.allShown(allIds.length)}
-                  onToggle={() => selection.toggleMany(allIds)}
-                />
-                <span className="text-[13px] text-muted-foreground">
-                  {selected.size > 0 ? s.transactions.selected(selected.size) : s.selectAll.all}
-                </span>
-              </>
-            )}
-            <Hint label={s.cash.addHint}>
-              <Button variant="ghost" size="sm" className="ms-auto rounded-full" onClick={() => setCashForm({ open: true, row: null })}>
-                <Plus />
-                {s.cash.add}
-              </Button>
-            </Hint>
+          <div className="sticky top-16 z-10 bg-card">
+            <div className="flex h-12 items-center gap-1 border-t border-border pe-4">
+              {rows.length > 0 && (
+                <Hint
+                  label={allState === "all" ? s.selectAll.clear : s.selectAll.all}
+                  keys={keyFor(allState === "all" ? "clearSelection" : "selectAll", mac)}
+                >
+                  <span className="flex items-center gap-1">
+                    <SelectBox
+                      state={allState}
+                      label={allState === "all" ? s.selectAll.clear : s.selectAll.allShown(allIds.length)}
+                      onToggle={() => selection.toggleMany(allIds)}
+                    />
+                    <span className="text-[13px] text-muted-foreground">
+                      {selected.size > 0 ? s.transactions.selected(selected.size) : s.selectAll.all}
+                    </span>
+                  </span>
+                </Hint>
+              )}
+              <Hint label={s.cash.addHint}>
+                <Button variant="ghost" size="sm" className="ms-auto rounded-full" onClick={() => setCashForm({ open: true, row: null })}>
+                  <Plus />
+                  {s.cash.add}
+                </Button>
+              </Hint>
+            </div>
+            {rows.length > 0 && <ListHeader sort={view.sort} onSort={(sort) => setView({ ...view, sort })} />}
           </div>
         )}
 

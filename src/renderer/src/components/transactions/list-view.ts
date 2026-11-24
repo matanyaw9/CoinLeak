@@ -1,6 +1,6 @@
 // What the Transactions list shows (spec 17): sort and filters, kept in the
 // URL so Home links and Back work. Turns them into one core filter; core
-// does the sorting and filtering.
+// does the sorting and filtering. Spec 31: the column headers pick the sort.
 
 import type { Account, Category, Flow, TransactionFilter, TransactionSort } from "@shared/types";
 import { s } from "@/strings";
@@ -18,7 +18,38 @@ export const FLOW_CHOICES: Record<FlowChoice, Flow[]> = {
   card_bills: ["internal"],
 };
 
-export const SORTS: TransactionSort[] = ["date", "amount_desc", "amount_asc", "name"];
+export const SORTS: TransactionSort[] = ["date", "date_asc", "amount_desc", "amount_asc", "name", "name_desc"];
+
+/** spec 31 (F80): the sortable column headers. Description sorts by name. */
+export type SortColumn = "date" | "name" | "amount";
+
+/** Each column's first order, and the order a second click flips it to. */
+const COLUMN_SORTS: Record<SortColumn, [TransactionSort, TransactionSort]> = {
+  date: ["date", "date_asc"],
+  name: ["name", "name_desc"],
+  amount: ["amount_desc", "amount_asc"],
+};
+
+export function columnOf(sort: TransactionSort): SortColumn {
+  return (Object.keys(COLUMN_SORTS) as SortColumn[]).find((c) => COLUMN_SORTS[c].includes(sort)) ?? "date";
+}
+
+/** A click on a header: its first order, or the other way when it is the active one. */
+export function clickColumn(sort: TransactionSort, column: SortColumn): TransactionSort {
+  const [first, flipped] = COLUMN_SORTS[column];
+  if (columnOf(sort) !== column) return first;
+  return sort === first ? flipped : first;
+}
+
+/** The arrow on the active header: down for newest, largest and Z to A first. */
+export function sortArrow(sort: TransactionSort): "down" | "up" {
+  return sort === "date" || sort === "amount_desc" || sort === "name_desc" ? "down" : "up";
+}
+
+/** The list is grouped by day when sorted by date, either way. */
+export function groupsByDay(sort: TransactionSort): boolean {
+  return columnOf(sort) === "date";
+}
 
 export interface ListView {
   /** As picked: a parent stands for its children too. `null` is uncategorized. */
