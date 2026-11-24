@@ -115,23 +115,33 @@ export type DialogFocus =
   | "none"
   /** A one-line text box outside a form. */
   | "field"
-  /** A one-line text box in a form: the browser submits it. */
+  /** A box in a form: the browser would submit the form. */
   | "form"
   /** A multi-line box, where Enter is a new line. */
   | "multiline"
-  /** A button, link, check box or list: Enter is its own. */
+  /** The OK button itself. */
+  | "ok"
+  /** Another button, link, check box or list (Cancel, say): Enter is its own. */
   | "control";
 
+/** "ok" presses the dialog's OK, "block" stops the key, null leaves it to the focused element. */
+export type DialogEnter = "ok" | "block" | null;
+
 /**
- * True when the key should press the dialog's OK button: Ctrl+Enter from
- * anywhere in it, plain Enter unless the focused element has its own use
- * for it. A disabled OK is the caller's to skip.
+ * What Enter does in a dialog. Ctrl+Enter (Cmd on a Mac) presses OK from
+ * anywhere. Plain Enter presses OK unless focus has its own use for it, and
+ * never when OK deletes (`destructive`): there it only works on another
+ * focused button, such as Cancel. A held key never presses OK twice. A
+ * disabled OK is the caller's to skip.
  */
-export function dialogPressesOk(e: KeyPress, focus: DialogFocus, mac: boolean): boolean {
-  if (e.key !== "Enter" || e.altKey || e.shiftKey || e.isComposing) return false;
-  if (isMod(e, mac)) return true;
-  if (e.ctrlKey || e.metaKey) return false;
-  return focus === "none" || focus === "field";
+export function dialogEnter(e: KeyPress, focus: DialogFocus, mac: boolean, destructive: boolean): DialogEnter {
+  if (e.key !== "Enter" || e.isComposing) return null;
+  if (isMod(e, mac) && !e.altKey && !e.shiftKey) return e.repeat ? "block" : "ok";
+  if (focus === "multiline" || focus === "control") return null;
+  if (destructive) return "block";
+  const plain = !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey;
+  if (!plain || focus === "form" || focus === "ok") return null;
+  return e.repeat ? "block" : "ok";
 }
 
 /** How a key looks in the list and on badges: "H", "?", "Ctrl+A", "Cmd+Enter". */

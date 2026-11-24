@@ -1084,6 +1084,7 @@ export const s = {
     close: "Close",
     groups: { anywhere: "Anywhere", transactions: "Transactions", dialogs: "In a dialog" } as Record<string, string>,
     goTo: (page: string) => `Go to ${page}`,
+    okLine: (key: string) => `OK, when it is not greyed out; ${key} for delete`,
     does: {
       help: "Show this list",
       find: "Search",
@@ -1091,8 +1092,7 @@ export const s = {
       clearSelection: "Clear the selection",
       rangeClick: "Select every row from the last one clicked",
       toggleClick: "Add or remove one row",
-      dialogOk: "OK, when it is not greyed out",
-      dialogSubmit: "OK, also from a text box",
+      dialogSubmit: "OK, also from a text box or to delete",
       dialogCancel: "Cancel",
     } as Record<string, string>,
   },

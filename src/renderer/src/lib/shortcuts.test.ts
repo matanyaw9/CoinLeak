@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAGE_KEYS, SHORTCUTS, dialogPressesOk, keyFor, keyLabel, letterOf, shortcutFor, type KeyContext, type KeyPress } from "./shortcuts";
+import { PAGE_KEYS, SHORTCUTS, dialogEnter, keyFor, keyLabel, letterOf, shortcutFor, type KeyContext, type KeyPress } from "./shortcuts";
 
 const press = (key: string, extra: Partial<KeyPress> = {}): KeyPress => ({
   key,
@@ -87,30 +87,50 @@ describe("keys on the window", () => {
 });
 
 describe("Enter in a dialog", () => {
+  const FOCUS = ["none", "field", "form", "multiline", "ok", "control"] as const;
+  const enter = (extra: Partial<KeyPress>, focus: (typeof FOCUS)[number], destructive = false, onMac = false) =>
+    dialogEnter(press("Enter", extra), focus, onMac, destructive);
+
   it("presses OK from the dialog itself or a lone text box", () => {
-    expect(dialogPressesOk(press("Enter"), "none", false)).toBe(true);
-    expect(dialogPressesOk(press("Enter"), "field", false)).toBe(true);
+    expect(enter({}, "none")).toBe("ok");
+    expect(enter({}, "field")).toBe("ok");
   });
 
   it("leaves Enter to a form, a multi-line box and a focused button", () => {
-    expect(dialogPressesOk(press("Enter"), "form", false)).toBe(false);
-    expect(dialogPressesOk(press("Enter"), "multiline", false)).toBe(false);
-    expect(dialogPressesOk(press("Enter"), "control", false)).toBe(false);
+    for (const focus of ["form", "multiline", "ok", "control"] as const) expect(enter({}, focus)).toBeNull();
   });
 
   it("Ctrl+Enter (Cmd+Enter on a Mac) presses OK from anywhere", () => {
-    for (const focus of ["none", "field", "form", "multiline", "control"] as const) {
-      expect(dialogPressesOk(press("Enter", { ctrlKey: true }), focus, false)).toBe(true);
-      expect(dialogPressesOk(press("Enter", { metaKey: true }), focus, true)).toBe(true);
+    for (const focus of FOCUS) {
+      expect(enter({ ctrlKey: true }, focus)).toBe("ok");
+      expect(enter({ metaKey: true }, focus, false, true)).toBe("ok");
     }
-    expect(dialogPressesOk(press("Enter", { metaKey: true }), "multiline", false)).toBe(false);
-    expect(dialogPressesOk(press("Enter", { ctrlKey: true }), "multiline", true)).toBe(false);
+    expect(enter({ metaKey: true }, "multiline")).toBeNull();
+    expect(enter({ ctrlKey: true }, "multiline", false, true)).toBeNull();
   });
 
-  it("ignores other keys and Shift or Alt with Enter", () => {
-    expect(dialogPressesOk(press("a"), "none", false)).toBe(false);
-    expect(dialogPressesOk(press("Enter", { shiftKey: true }), "none", false)).toBe(false);
-    expect(dialogPressesOk(press("Enter", { altKey: true }), "none", false)).toBe(false);
+  it("never lets plain Enter press an OK that deletes; Ctrl+Enter still does", () => {
+    for (const focus of ["none", "field", "form", "ok"] as const) {
+      expect(enter({}, focus, true)).toBe("block");
+      expect(enter({ shiftKey: true }, focus, true)).toBe("block");
+      expect(enter({ metaKey: true }, focus, true)).toBe("block");
+      expect(enter({ ctrlKey: true }, focus, true)).toBe("ok");
+    }
+    // Enter on a focused Cancel still cancels, and makes a new line in a multi-line box.
+    expect(enter({}, "control", true)).toBeNull();
+    expect(enter({}, "multiline", true)).toBeNull();
+  });
+
+  it("does not press OK twice for a held key", () => {
+    expect(enter({ repeat: true }, "none")).toBe("block");
+    expect(enter({ ctrlKey: true, repeat: true }, "field", true)).toBe("block");
+  });
+
+  it("ignores other keys, Shift or Alt with Enter, and typing in progress", () => {
+    expect(dialogEnter(press("a"), "none", false, false)).toBeNull();
+    expect(enter({ shiftKey: true }, "none")).toBeNull();
+    expect(enter({ altKey: true }, "none")).toBeNull();
+    expect(enter({ isComposing: true }, "none")).toBeNull();
   });
 });
 

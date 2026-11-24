@@ -1,12 +1,13 @@
 // Modal dialog on base-ui: a soft blurred backdrop and a rounded card that
 // fades and zooms in, styled like the app's popovers. Spec 31: Enter presses
-// OK and Ctrl+Enter presses it from a text box too; base-ui's Esc cancels.
+// OK, Ctrl+Enter presses it from a text box too, and only Ctrl+Enter presses
+// an OK that deletes. base-ui's Esc cancels.
 
 import { useRef } from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { dialogPressesOk, type DialogFocus } from "@/lib/shortcuts";
+import { dialogEnter, type DialogFocus } from "@/lib/shortcuts";
 import { isMac } from "@/components/transactions/find";
 
 function Dialog(props: DialogPrimitive.Root.Props) {
@@ -16,11 +17,12 @@ function Dialog(props: DialogPrimitive.Root.Props) {
 const CONTROL = 'button, a[href], select, [role="checkbox"], [role="radio"], [role="option"], [role="combobox"], [role="switch"], [role="menuitem"]';
 const SINGLE_LINE = new Set(["text", "search", "email", "number", "tel", "url", "password", "date", "month"]);
 
-function focusKind(el: Element): DialogFocus {
+function focusKind(el: Element, ok: HTMLButtonElement | null): DialogFocus {
+  if (ok?.contains(el)) return "ok";
   if (el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable)) return "multiline";
   if (el instanceof HTMLInputElement) {
-    if (!SINGLE_LINE.has(el.type)) return "control";
-    return el.form ? "form" : "field";
+    if (el.form) return "form";
+    return SINGLE_LINE.has(el.type) ? "field" : "control";
   }
   return el.closest(CONTROL) ? "control" : "none";
 }
@@ -28,13 +30,17 @@ function focusKind(el: Element): DialogFocus {
 /**
  * The dialog's OK button: its form's submit button, or else its last solid
  * button (variants default and destructive; Cancel buttons are ghost or
- * outline). Null when there is none or it is disabled.
+ * outline). It may be disabled.
  */
-function okButton(popup: HTMLElement): HTMLButtonElement | null {
-  const submit = popup.querySelector<HTMLButtonElement>('button[type="submit"]:not([hidden])');
-  const solid = [...popup.querySelectorAll<HTMLButtonElement>('button[data-variant="default"], button[data-variant="destructive"]')].at(-1);
-  const ok = submit ?? solid ?? null;
-  return ok && !ok.disabled ? ok : null;
+function okButton(card: HTMLElement): HTMLButtonElement | null {
+  const submit = card.querySelector<HTMLButtonElement>('button[type="submit"]:not([hidden])');
+  const solid = [...card.querySelectorAll<HTMLButtonElement>('button[data-variant="default"], button[data-variant="destructive"]')].at(-1);
+  return submit ?? solid ?? null;
+}
+
+/** OK deletes or removes something: Enter alone must never press it. */
+function isDestructive(ok: HTMLButtonElement | null): boolean {
+  return ok?.dataset["variant"] === "destructive";
 }
 
 function DialogContent({
@@ -51,9 +57,19 @@ function DialogContent({
   const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const target = e.target as Element;
     if (e.defaultPrevented || !e.currentTarget.contains(target)) return;
-    if (!dialogPressesOk(e.nativeEvent, focusKind(target), isMac())) return;
+    const ok = okButton(e.currentTarget);
+    const what = dialogEnter(e.nativeEvent, focusKind(target, ok), isMac(), isDestructive(ok));
+    if (!what) return;
     e.preventDefault();
-    okButton(e.currentTarget)?.click();
+    if (what === "ok" && ok && !ok.disabled) ok.click();
+  };
+
+  // A text box with autoFocus keeps focus. Otherwise the card takes it, so
+  // Enter means OK rather than pressing Cancel, the first button; except
+  // when OK deletes, where focus stays on the first button as before.
+  const initialFocus = () => {
+    const card = popup.current;
+    return card && !isDestructive(okButton(card)) ? card : true;
   };
 
   return (
@@ -63,9 +79,7 @@ function DialogContent({
         <DialogPrimitive.Popup
           ref={popup}
           data-slot="dialog-content"
-          // A text box with autoFocus keeps focus; otherwise the card takes it,
-          // so Enter means OK rather than pressing Cancel, the first button.
-          initialFocus={popup}
+          initialFocus={initialFocus}
           onKeyDown={(e) => {
             onKeyDown?.(e);
             onKey(e);

@@ -3,7 +3,7 @@
 // with ? or the link at the foot of the sidebar.
 
 import { s } from "@/strings";
-import { SHORTCUTS, keyLabel, type Shortcut, type ShortcutGroup } from "@/lib/shortcuts";
+import { SHORTCUTS, keyFor, keyLabel, type Shortcut, type ShortcutGroup } from "@/lib/shortcuts";
 import { isMac } from "@/components/transactions/find";
 import { pageName } from "@/components/layout/app-sidebar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -11,8 +11,10 @@ import { KeyHint } from "./key-hint";
 
 const GROUPS: ShortcutGroup[] = ["anywhere", "transactions", "dialogs"];
 
-function what(k: Shortcut): string {
-  return k.to !== undefined ? s.keys.goTo(pageName(k.to)) : (s.keys.does[k.id] ?? k.id);
+function what(k: Shortcut, mac: boolean): string {
+  if (k.to !== undefined) return s.keys.goTo(pageName(k.to));
+  if (k.id === "dialogOk") return s.keys.okLine(keyFor("dialogSubmit", mac));
+  return s.keys.does[k.id] ?? k.id;
 }
 
 export function KeyboardHelp({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -30,7 +32,7 @@ export function KeyboardHelp({ open, onOpenChange }: { open: boolean; onOpenChan
                 <ul className="mt-2 divide-y divide-border/70">
                   {SHORTCUTS.filter((k) => k.group === group).map((k) => (
                     <li key={k.id} className="flex items-center justify-between gap-4 py-2 text-sm">
-                      <span>{what(k)}</span>
+                      <span>{what(k, mac)}</span>
                       <KeyHint keys={keyLabel(k, mac)} className="h-5 px-1.5 text-[11px]" />
                     </li>
                   ))}
