@@ -1,5 +1,5 @@
 // Floating bar while rows are selected: how many, categorize, make a rule,
-// ignore or count again, move to trash, clear.
+// ignore or count again, move to trash, clear (Esc, spec 31).
 // Adapted from Spent (github.com/Shaya16/Spent), src/components/transactions/bulk-action-bar.tsx.
 
 import { Eye, EyeOff, LoaderCircle, Tags, Trash2, WandSparkles, X } from "lucide-react";
@@ -8,7 +8,10 @@ import { s } from "@/strings";
 import type { CategoryIndex } from "@/lib/categories";
 import { useShot } from "@/lib/shot";
 import { cn } from "@/lib/utils";
+import { keyFor } from "@/lib/shortcuts";
 import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/tooltip";
+import { isMac } from "./find";
 import { CategoryPicker } from "./category-picker";
 
 const ACTION = "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50";
@@ -65,9 +68,11 @@ export function BulkBar({
           <Trash2 className="size-4" />
           {s.bulk.trash}
         </button>
-        <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label={s.transactions.clearSelection} onClick={onClear}>
-          <X />
-        </Button>
+        <Hint label={s.transactions.clearSelection} keys={keyFor("clearSelection", isMac())}>
+          <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label={s.transactions.clearSelection} onClick={onClear}>
+            <X />
+          </Button>
+        </Hint>
       </div>
     </div>
   );
