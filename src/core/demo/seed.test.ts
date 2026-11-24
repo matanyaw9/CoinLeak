@@ -94,6 +94,23 @@ describe("seedDemo", () => {
     expect(atm).toMatchObject({ flow: "internal", movedToCash: true });
   });
 
+  it("has a Bit payment this month paid back for a restaurant purchase (spec 33)", () => {
+    for (const today of [TODAY, new Date("2026-12-01T10:00:00Z")]) {
+      const db = openDatabase(":memory:");
+      seedDemo(db, today);
+      const month = today.toISOString().slice(0, 7);
+      const linked = listTransactions(db, {}).filter((r) => r.paidBackFor);
+      expect(linked).toHaveLength(1);
+      const [payBack] = linked;
+      const restaurants = listCategories(db).find((c) => c.name === "Restaurants")?.id;
+      expect(payBack).toMatchObject({ amount: 12000, flow: "refund", categoryId: restaurants, categorySource: "user" });
+      expect(payBack?.date.slice(0, 7)).toBe(month);
+      const purchase = listTransactions(db, {}).find((r) => r.id === payBack?.paidBackFor?.id);
+      expect(purchase).toMatchObject({ amount: -24000, flow: "spending", categoryId: restaurants });
+      expect(purchase?.date.slice(0, 7)).toBe(month);
+    }
+  });
+
   it("has budgets this month: one over, one near, one well under (spec 27)", () => {
     for (const today of [TODAY, new Date("2026-11-28T10:00:00Z"), new Date("2026-12-03T10:00:00Z")]) {
       const db = openDatabase(":memory:");

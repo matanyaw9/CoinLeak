@@ -1,8 +1,9 @@
 // Fills a database with about six months of made-up money for the Demo
 // profile, through the real core: ingest() for the downloads, createRule()
 // and createCategory() for the setup, then a few hand edits and a cash
-// wallet (spec 20). The bank syncs twice, so its two accounts have balances
-// to check (spec 24): one adds up, one has a small gap. Same date in, same data out.
+// wallet (spec 20), and a pizza half paid back by a friend (spec 33). The
+// bank syncs twice, so its two accounts have balances to check (spec 24):
+// one adds up, one has a small gap. Same date in, same data out.
 
 import type { Agorot, IsoDate, RuleCondition, RuleInput, ScrapedAccount, ScrapedTransaction } from "@shared/types";
 import { openDatabase, type Db } from "../db";
@@ -13,6 +14,7 @@ import {
   listAccounts,
   listCategories,
   listTransactions,
+  markPaidBack,
   setAccountsSyncing,
   setBudget,
   trashTransactions,
@@ -96,6 +98,11 @@ export function seedDemo(db: Db, today: Date): void {
     addManualTransaction(db, { date, amount: c.amount, description: c.description, categoryId: category, note: c.note ?? null }, now);
   }
 
+  // spec 33: the friend's Bit payment is marked as paid back for that pizza.
+  const pizza = listTransactions(db, { search: PIZZA_MEMO })[0];
+  const payBack = listTransactions(db, { search: "העברה מ-BIT" })[0];
+  if (pizza && payBack) markPaidBack(db, { rowId: payBack.id, purchaseId: pizza.id }, now);
+
   addBudgets(db, todayIso);
 }
 
@@ -121,6 +128,12 @@ function addBudgets(db: Db, today: IsoDate): void {
   if (near) setBudget(db, near.categoryId as number, tens(near.amount / 0.9, Math.ceil));
   if (under) setBudget(db, under.categoryId as number, tens(under.amount * 3, Math.ceil));
 }
+
+/** spec 33: the memo that finds the pizza a friend paid half of back. */
+const PIZZA_MEMO = "ערב פיצה עם נועה";
+
+/** The later of two days. */
+const later = (a: IsoDate, b: IsoDate): IsoDate => (a > b ? a : b);
 
 /** Rows typed into the cash wallet, the days after the ATM withdrawal (`ATM_DAYS_AGO`). */
 const ATM_DAYS_AGO = 6;
@@ -214,6 +227,9 @@ function makeDrafts(today: IsoDate): Draft[] {
     { account: "bank", date: first, amount: 4000, description: "החזר עמלה" },
     { account: "everyday", date: first, amount: -8500, description: "PAYBOX" },
     { account: "everyday", date: first, amount: -24900, description: "ח.י. שיווק בע״מ" },
+    // spec 33: a pizza on the first, half paid back by a friend over Bit a few days later.
+    { account: "everyday", date: first, amount: -24000, description: "פיצה שמש", memo: PIZZA_MEMO },
+    { account: "bank", date: later(first, toIsoDate(dayNumber(today) - 3)), amount: 12000, description: "העברה מ-BIT", memo: "נועה" },
     { account: "online", date: today, amount: 0, description: "ETSY.COM", pending: true, original: { amount: -5000, currency: "USD" } },
     // spec 20: the cash the wallet's rows are spent from.
     { account: "bank", date: toIsoDate(dayNumber(today) - ATM_DAYS_AGO), amount: -30000, description: "משיכת מזומן", memo: "כספומט" },
