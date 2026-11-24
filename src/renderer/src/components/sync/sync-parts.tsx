@@ -1,6 +1,7 @@
 // Sync building blocks shared by the top bar and the Money accounts page: the
 // stage stepper, the live note, the "log in now" note, and one row per provider with its
-// Sync and Cancel buttons and a tooltip of its money accounts' last syncs.
+// Sync and Cancel buttons, "Download everything again" (spec 32) and a tooltip
+// of its money accounts' last syncs.
 
 import { AppWindow, Check, LoaderCircle, RefreshCw } from "lucide-react";
 import type { Account, ProviderId, SyncStage } from "@shared/types";
@@ -14,7 +15,7 @@ import { ProviderBadge, lastDigits } from "@/components/common/chips";
 import { ProviderTag } from "@/components/accounts/provider-tag";
 import { syncedText } from "@/components/accounts/sync-time";
 import { useCurrentProfile } from "@/components/layout/use-profiles";
-import { formatRangeDay, useSyncStart } from "./sync-range";
+import { formatRangeDay, scopeText, useQuickStart, useSyncStart } from "./sync-range";
 
 const STEPS: SyncStage[] = ["opening_browser", "waiting_for_login", "downloading", "saving"];
 /** Stages where Cancel still stops something; saving is quick and final. */
@@ -85,6 +86,7 @@ export function LiveDot({ className }: { className?: string }) {
 /** While a sync runs (spec 18): who, how long so far, and to keep the bank window open. */
 export function LiveNote({ provider, className }: { provider: ProviderId; className?: string }) {
   const elapsed = useSyncElapsed();
+  const { scope } = useSync();
   return (
     <div className={cn("rounded-2xl border border-border bg-muted/50 px-3.5 py-3", className)}>
       <div className="flex items-center gap-2.5">
@@ -96,6 +98,7 @@ export function LiveNote({ provider, className }: { provider: ProviderId; classN
           </span>
         )}
       </div>
+      {scope && <p className="mt-1.5 text-xs font-medium">{scopeText(scope)}</p>}
       <p role="status" className="mt-1.5 text-xs leading-relaxed text-pretty text-muted-foreground">
         {s.syncLive.keepOpen}
       </p>
@@ -136,6 +139,7 @@ export function ProviderSyncRow({
   showStart?: boolean;
 }) {
   const start = useSyncStart(provider);
+  const quickStart = useQuickStart(provider);
   const sync = useSync();
   const mine = sync.provider === provider;
   const busy = sync.provider != null;
@@ -155,7 +159,22 @@ export function ProviderSyncRow({
           {stage ? s.sync.stageShort[stage] : when ? s.sync.lastSynced(formatRelative(when)) : s.sync.never}
         </div>
         {showStart && start && (
-          <div className="truncate text-xs text-muted-foreground">{s.syncRange.downloadsFrom(formatRangeDay(start))}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {s.syncRange.downloadsFrom(formatRangeDay(quickStart ?? start))}
+          </div>
+        )}
+        {/* After the first sync, Sync is quick; this is the slower full download (spec 32). */}
+        {!mine && quickStart && start && (
+          <Button
+            variant="link"
+            size="xs"
+            className="-ms-0.5 h-auto px-0.5 py-0.5 text-xs font-normal"
+            disabled={busy || demo}
+            title={demo ? s.profiles.syncOff : s.quickSync.everythingTitle(formatRangeDay(start))}
+            onClick={() => sync.start(provider, "full")}
+          >
+            {s.quickSync.everything}
+          </Button>
         )}
       </div>
       {mine ? (

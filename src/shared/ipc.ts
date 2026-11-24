@@ -42,6 +42,7 @@ import type {
   SyncProgress,
   SyncRange,
   SyncResult,
+  SyncMode,
   TransactionFilter,
   TransactionPatch,
   TransactionList,
@@ -100,7 +101,8 @@ export interface IpcContract {
    * same months as the month-by-month bars, from the first transaction's month on.
    */
   "summary:monthlyNet": { args: DateRange; result: MonthNet[] };
-  "sync:start": { args: { provider: ProviderId }; result: SyncResult };
+  /** `mode` defaults to quick (spec 32). */
+  "sync:start": { args: { provider: ProviderId; mode?: SyncMode }; result: SyncResult };
   "sync:cancel": { args: undefined; result: null };
   /** Rules in evaluation order. Every change below reapplies all rules to all rows. */
   "rules:list": { args: undefined; result: Rule[] };

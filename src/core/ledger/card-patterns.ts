@@ -70,6 +70,15 @@ export function readCardLine(description: string): CardLine | null {
   return { numbers, companies };
 }
 
+// Exactly 4 digits on their own (spec 32): not inside a longer number like
+// 98761234, a date like 12/2025 or 2025-12-01, an amount like 1234.50, or a time.
+const STANDALONE_4 = /(?<!\d)(?<!\d[/.,:-])\d{4}(?!\d)(?![/.,:-]\d)/g;
+
+/** Every standalone run of exactly 4 digits in the line, for matching a synced card's last 4. */
+export function standaloneNumbers(description: string): string[] {
+  return description.match(STANDALONE_4) ?? [];
+}
+
 export function last4(value: string): string | null {
   const digits = value.replace(/\D/g, "");
   return digits.length >= 4 ? digits.slice(-4) : null;

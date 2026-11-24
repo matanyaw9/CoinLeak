@@ -1,8 +1,10 @@
 // How far back a sync goes (spec 23): the saved choice, each provider's
-// range from main, and the words for them. Main does the date math.
+// range from main, the next quick sync's first day (spec 32), and the words
+// for them. Main does the date math.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { IsoDate, ProviderId, SyncFrom, SyncRange } from "@shared/types";
+import type { IsoDate, ProviderId, SyncFrom, SyncRange, SyncScope } from "@shared/types";
+import { s } from "@/strings";
 import { call } from "@/lib/api";
 import { parseDate } from "@/lib/month";
 
@@ -35,7 +37,18 @@ export function useSyncStart(provider: ProviderId): IsoDate | null {
   return useSyncRanges().data?.find((r) => r.provider === provider)?.from ?? null;
 }
 
-const dayWithYear = new Intl.DateTimeFormat("en-IL", { day: "numeric", month: "short", year: "numeric" });
+/** The first day the next quick sync asks for; null before the first sync or while loading (spec 32). */
+export function useQuickStart(provider: ProviderId): IsoDate | null {
+  return useSyncRanges().data?.find((r) => r.provider === provider)?.quickFrom ?? null;
+}
+
+/** "Getting the last 2 months", or the slower full download (spec 32). */
+export function scopeText(scope: SyncScope): string {
+  if (scope.mode === "quick" && scope.months !== null) return s.quickSync.lastMonths(scope.months);
+  return scope.from ? s.quickSync.fromDay(formatRangeDay(scope.from)) : s.quickSync.allowed;
+}
+
+const dayWithYear =new Intl.DateTimeFormat("en-IL", { day: "numeric", month: "short", year: "numeric" });
 
 /** "1 Jan 2026". */
 export const formatRangeDay = (day: IsoDate): string => dayWithYear.format(parseDate(day));

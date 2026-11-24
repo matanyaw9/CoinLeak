@@ -7,7 +7,7 @@ import moment from "moment";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodedError, toAppError, type ErrorCode } from "@shared/errors";
 import type { ProviderId, SyncStage } from "@shared/types";
-import { effectiveStartDate, runSync, type SyncDeps } from "./index";
+import { effectiveStartDate, runSync, timingLine, type SyncDeps } from "./index";
 import type { SelfLoginHooks } from "./self-login";
 
 const FAKE_PASSWORD = "Hunter2-FAKE-pw!";
@@ -111,6 +111,22 @@ describe("runSync", () => {
       expect.objectContaining({ provider: "discount", accountNumber: "000-111111", balance: 1050 }),
     ]);
     expect(accounts[0]?.transactions[0]).toMatchObject({ date: "2026-10-02", amount: -1200 });
+  });
+
+  it("measures the login wait and the download (spec 32)", async () => {
+    const pause = () => new Promise((resolve) => setTimeout(resolve, 25));
+    const { timings } = await runSync("discount", {}, {
+      withSyncBrowser: fakeBrowser(),
+      createScraper: fakeScraper(async (hooks) => {
+        hooks.onWaitingForLogin();
+        await pause();
+        hooks.onLoggedIn();
+        await pause();
+        return libraryAccounts;
+      }),
+    });
+    expect(timings.loginMs).toBeGreaterThanOrEqual(20);
+    expect(timings.downloadMs).toBeGreaterThanOrEqual(20);
   });
 
   it("returns the first day the download covers, read from the clock after the download", async () => {
@@ -353,5 +369,37 @@ describe("effectiveStartDate", () => {
         expect(effectiveStartDate(provider, EARLIEST, NOW)).toBe(library);
       }
     });
+  });
+});
+
+describe("timingLine (spec 32)", () => {
+  const SAFE = /^\[sync\] [a-zA-Z]+ mode=(quick|full) loginMs=\d+ downloadMs=\d+ saveMs=\d+ accounts=\d+ rows=\d+$/;
+
+  it("holds the provider id, the mode and whole numbers only", () => {
+    const line = timingLine({
+      provider: "visaCal",
+      mode: "quick",
+      loginMs: 4200.4,
+      downloadMs: 31000,
+      saveMs: 12,
+      accounts: 2,
+      rows: 340,
+    });
+    expect(line).toBe("[sync] visaCal mode=quick loginMs=4200 downloadMs=31000 saveMs=12 accounts=2 rows=340");
+    expect(line).toMatch(SAFE);
+  });
+
+  it("lets nothing else through, whatever it is handed", () => {
+    const line = timingLine({
+      provider: `https://bank.example/?id=${FAKE_PASSWORD}` as never,
+      mode: "סופר הדר -123.45" as never,
+      loginMs: Number.NaN,
+      downloadMs: -5,
+      saveMs: Number.POSITIVE_INFINITY,
+      accounts: 1,
+      rows: 0,
+    });
+    expect(line).toMatch(SAFE);
+    expect(line).toBe("[sync] unknown mode=quick loginMs=0 downloadMs=0 saveMs=0 accounts=1 rows=0");
   });
 });

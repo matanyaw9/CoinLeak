@@ -1,11 +1,11 @@
 // One sync: sync browser, user logs in, library downloads, normalized accounts
 // and the first day the download surely covers. Emits opening_browser,
 // waiting_for_login, downloading; the caller that saves the rows emits saving,
-// done and failed. Throws only CodedError.
+// done and failed, and logs the timing line (spec 32). Throws only CodedError.
 
 import { CodedError, type ErrorCode } from "@shared/errors";
 import { isEnabledProvider, type EnabledProviderId } from "@shared/providers";
-import type { IsoDate, ProviderId, ScrapedAccount, SyncStage } from "@shared/types";
+import type { IsoDate, ProviderId, ScrapedAccount, SyncMode, SyncStage } from "@shared/types";
 import { withSyncBrowser, type SyncBrowserOptions, type SyncSession } from "./browser";
 import { codeForResult, toCodedError } from "./errors";
 import { effectiveStartDate, requestStart } from "./history";
@@ -26,6 +26,32 @@ export interface SyncDownload {
   accounts: ScrapedAccount[];
   /** First Israel day the download surely covers (see `effectiveStartDate`). */
   since: IsoDate;
+  /** How long each step took, for the timing log (spec 32). */
+  timings: { loginMs: number; downloadMs: number };
+}
+
+export interface SyncTiming {
+  provider: EnabledProviderId;
+  mode: SyncMode;
+  loginMs: number;
+  downloadMs: number;
+  saveMs: number;
+  accounts: number;
+  rows: number;
+}
+
+/**
+ * The one log line per sync (spec 32): fixed words, the provider id, the mode
+ * and whole numbers. Never text, amounts, account numbers or URLs.
+ */
+export function timingLine(t: SyncTiming): string {
+  const n = (value: number): number => (Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0);
+  const provider = isEnabledProvider(t.provider) ? t.provider : "unknown";
+  const mode = t.mode === "full" ? "full" : "quick";
+  return (
+    `[sync] ${provider} mode=${mode} loginMs=${n(t.loginMs)} downloadMs=${n(t.downloadMs)} ` +
+    `saveMs=${n(t.saveMs)} accounts=${n(t.accounts)} rows=${n(t.rows)}`
+  );
 }
 
 export interface SyncOptions {
@@ -94,6 +120,8 @@ async function download(
   progress: (stage: SyncStage) => void,
 ): Promise<SyncDownload> {
   let loginFailure: ErrorCode | undefined;
+  const openedAt = Date.now();
+  let loggedInAt: number | undefined;
   // Reads the clock only for a library without its own clamp; see requestStart.
   const startDate = requestStart(provider, options.startDate, deps.now);
   const scraper = deps.createScraper(
@@ -102,7 +130,10 @@ async function download(
     {
       stopped: session.stopped,
       onWaitingForLogin: () => progress("waiting_for_login"),
-      onLoggedIn: () => progress("downloading"),
+      onLoggedIn: () => {
+        loggedInAt = Date.now();
+        progress("downloading");
+      },
       onLoginFailed: (code) => {
         loginFailure = code;
       },
@@ -122,7 +153,10 @@ async function download(
     if (code) throw new CodedError(code);
     const accounts = normalizeAccounts(provider, result.accounts ?? []);
     // Read the clock after the download: the library read it earlier, so its clamp is no later.
-    return { accounts, since: effectiveStartDate(provider, startDate, deps.now()) };
+    const doneAt = Date.now();
+    const loginEnd = loggedInAt ?? openedAt;
+    const timings = { loginMs: loginEnd - openedAt, downloadMs: doneAt - loginEnd };
+    return { accounts, since: effectiveStartDate(provider, startDate, deps.now()), timings };
   } catch (e) {
     // Closing the window mid-download surfaces as a library error first; report the real cause.
     throw new CodedError(session.stopReason() ?? toCodedError(e).code);
