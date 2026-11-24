@@ -1075,6 +1075,15 @@ export const s = {
     hint: "Income minus spending each calendar month. Card bills count once; money moved to savings is not counted.",
     clickHint: "Click to see this month's transactions.",
   },
+
+  // spec 32
+  quickSync: {
+    everything: "Download everything again",
+    everythingTitle: (day: string) => `Slower: downloads everything from ${day} again. A normal sync gets only recent months.`,
+    lastMonths: (months: number) => (months === 1 ? "Getting the last month" : `Getting the last ${months} months`),
+    allowed: "Getting everything the bank allows (slower)",
+    fromDay: (day: string) => `Getting everything from ${day} (slower)`,
+  },
 };
 
 export type Strings = typeof s;

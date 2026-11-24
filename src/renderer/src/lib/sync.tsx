@@ -5,7 +5,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { ProviderId, SyncStage } from "@shared/types";
+import type { ProviderId, SyncMode, SyncScope, SyncStage } from "@shared/types";
 import { s } from "@/strings";
 import { showFailure } from "@/lib/failure";
 import { loadAddedProviders, type AddedStore } from "@/components/sync/added-providers";
@@ -15,9 +15,12 @@ import { ApiError, call, listen } from "./api";
 interface SyncState {
   provider: ProviderId | null;
   stage: SyncStage | null;
+  /** What the running sync downloads, quick or full (spec 32). */
+  scope: SyncScope | null;
   /** When the running sync started and stopped (spec 18). */
   clock: SyncClock;
-  start: (provider: ProviderId) => void;
+  /** Quick unless `mode` is full (spec 32). */
+  start: (provider: ProviderId, mode?: SyncMode) => void;
   cancel: () => void;
   /** The top bar's Sync panel, so a welcome screen can open it. */
   panelOpen: boolean;
@@ -56,6 +59,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const [provider, setProvider] = useState<ProviderId | null>(null);
   const [stage, setStage] = useState<SyncStage | null>(null);
+  const [scope, setScope] = useState<SyncScope | null>(null);
   const [clock, setClock] = useState<SyncClock>(IDLE);
   const tick = useCallback((event: ClockEvent) => setClock((c) => onClock(c, event)), []);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -78,20 +82,21 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       listen("sync:progress", (p) => {
         if (!active.current) return;
         setStage(p.stage);
+        if (p.scope) setScope(p.scope);
         tick({ type: "stage", stage: p.stage, at: Date.now() });
       }),
     [tick],
   );
 
   const start = useCallback(
-    (id: ProviderId) => {
+    (id: ProviderId, mode: SyncMode = "quick") => {
       if (active.current) return;
       active.current = true;
       setProvider(id);
       setStage("opening_browser");
       tick({ type: "start", at: Date.now() });
       const name = s.providers[id].short;
-      call("sync:start", { provider: id })
+      call("sync:start", { provider: id, mode })
         .then((r) => {
           const more = r.updatedRows > 0 ? { description: s.sync.updated(r.updatedRows) } : {};
           if (r.newRows > 0) toast.success(s.sync.added(name, r.newRows), more);
@@ -105,6 +110,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           active.current = false;
           setProvider(null);
           setStage(null);
+          setScope(null);
           tick({ type: "end" });
           // A sync can bring accounts, categories and rows: refresh it all.
           void client.invalidateQueries();
@@ -139,6 +145,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     () => ({
       provider,
       stage,
+      scope,
       clock,
       start,
       cancel,
@@ -150,7 +157,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       addProvider,
       removeProvider,
     }),
-    [provider, stage, clock, start, cancel, panelOpen, pickerOpen, added, addProvider, removeProvider],
+    [provider, stage, scope, clock, start, cancel, panelOpen, pickerOpen, added, addProvider, removeProvider],
   );
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
 }
