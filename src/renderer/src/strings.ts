@@ -664,6 +664,8 @@ export const s = {
         publicTransport: "Public transport",
         telecom: "Phone and internet",
         streaming: "Streaming",
+        investments: "Investments and brokers",
+        savings: "Savings, deposits and funds",
       } as Record<string, string>,
       fallbackName: "Starter list",
       into: (category: string) => `into ${category}`,
