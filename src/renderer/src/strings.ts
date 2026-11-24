@@ -1077,6 +1077,37 @@ export const s = {
     hint: "Income minus spending each calendar month. Card bills count once; money moved to savings is not counted.",
     clickHint: "Click to see this month's transactions.",
   },
+
+  // spec 33
+  paidBack: {
+    menu: "Paid back for a purchase…",
+    menuHint: "A friend paid you back? It counts as less spending",
+    clear: "Not paid back",
+    clearHint: "Removes the link and its category",
+    title: "Paid back for a purchase",
+    body: "Pick the purchase it paid back. It takes that purchase's category, so the purchase counts as that much less spending.",
+    search: "Search purchases",
+    window: "Purchases from 60 days before to a week after",
+    empty: "No purchases from 60 days before to a week after.",
+    noMatch: "No purchase matches your search.",
+    keys: "↑ ↓ to move · Enter to pick · Esc to close",
+    uncategorized: "No category yet",
+    close: "Close",
+    linked: (business: string) => `Paid back for ${business}`,
+    linkedBody: (category: string) => `It now counts as less spending in ${category}.`,
+    clearTitle: "Not paid back?",
+    clearBody: (business: string) =>
+      `It will no longer be linked to ${business} and loses that category, so it goes back to Needs review. ${business} itself does not change.`,
+    cancel: "Cancel",
+    cleared: "No longer paid back",
+    clearedBody: "It's back in Needs review.",
+    tooltip: (business: string, date: string, amount: string) => `Paid back for ${business}, ${date} (${amount})`,
+    problems: {
+      not_money_in: "Only money that came in can pay back a purchase.",
+      not_a_purchase: "That row no longer counts as spending. Pick another purchase.",
+      purchase_uncategorized: "That purchase has no category yet. Categorize it first, then pick it here.",
+    },
+  },
 };
 
 export type Strings = typeof s;

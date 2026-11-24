@@ -82,3 +82,31 @@ export const useRulePreview = (rule: RuleInput | null) =>
     placeholderData: (prev) => prev,
     staleTime: 0,
   });
+
+// ---- spec 33: paid back for a purchase ----
+
+/** Purchases the money-in row may pay back, newest first; `text` searches them. */
+export const usePaidBackCandidates = (rowId: number, text: string) =>
+  useQuery({
+    queryKey: queryKey("transactions:paidBackCandidates", { rowId, text }),
+    queryFn: () => call("transactions:paidBackCandidates", { rowId, text }),
+    placeholderData: (prev) => prev,
+  });
+
+/** Links money in to the purchase it pays back; refusals come back as `{ ok: false, problem }`. */
+export function useMarkPaidBack() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { rowId: number; purchaseId: number }) => call("transactions:markPaidBack", args),
+    onSettled: () => refreshLedger(client),
+  });
+}
+
+/** "Not paid back": the row loses the link and its category. */
+export function useClearPaidBack() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (rowId: number) => call("transactions:clearPaidBack", { rowId }),
+    onSettled: () => refreshLedger(client),
+  });
+}

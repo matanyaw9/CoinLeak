@@ -7,7 +7,7 @@ import { rowMenu, type RowMenuActions } from "./row-menu-entries";
 const groceries = { id: 2, parentId: null, name: "Groceries", kind: "expense", emoji: null, color: null, archived: false } as Category;
 const index = indexCategories([groceries]);
 const row = (id: number, more: Partial<TransactionRow> = {}) =>
-  ({ id, description: " Shop ", categoryId: null, note: null, source: "sync", excluded: false, ...more }) as TransactionRow;
+  ({ id, description: " Shop ", amount: -1000, categoryId: null, note: null, source: "sync", excluded: false, ...more }) as TransactionRow;
 
 function actions(): RowMenuActions {
   return {
@@ -31,9 +31,9 @@ describe("row menu entries", () => {
     const menu = rowMenu(one, [one], index, act);
     expect(menu.heading).toBeUndefined();
     expect(keys(menu)).toEqual(["rule", "known", "note", "ignore", "trash"]);
-    entry(menu, "known")?.onSelect();
+    entry(menu, "known")?.onSelect?.();
     expect(act.addKnownPlace).toHaveBeenCalledWith(" Shop ", groceries);
-    entry(menu, "ignore")?.onSelect();
+    entry(menu, "ignore")?.onSelect?.();
     expect(act.setIgnored).toHaveBeenCalledWith([one], true, undefined);
   });
 
@@ -42,7 +42,7 @@ describe("row menu entries", () => {
     const act = actions();
     const menu = rowMenu(cash, [cash], index, act);
     expect(keys(menu)).toEqual(["rule", "note", "edit", "ignore", "trash"]);
-    entry(menu, "edit")?.onSelect();
+    entry(menu, "edit")?.onSelect?.();
     expect(act.editCash).toHaveBeenCalledWith(cash);
   });
 
@@ -52,9 +52,9 @@ describe("row menu entries", () => {
     const menu = rowMenu(targets[0] as TransactionRow, targets, index, act);
     expect(menu.heading).toBe(s.rowMenu.forSelection(2));
     expect(keys(menu)).toEqual(["rule", "ignore", "trash"]);
-    entry(menu, "ignore")?.onSelect();
+    entry(menu, "ignore")?.onSelect?.();
     expect(act.setIgnored).toHaveBeenCalledWith(targets, true, act.clearSelection);
-    entry(menu, "trash")?.onSelect();
+    entry(menu, "trash")?.onSelect?.();
     expect(act.trash).toHaveBeenCalledWith(targets, act.clearSelection);
   });
 
@@ -63,7 +63,37 @@ describe("row menu entries", () => {
     const act = actions();
     const menu = rowMenu(ignored, [ignored], index, act);
     expect(entry(menu, "ignore")?.label).toBe(s.rowMenu.countAgain);
-    entry(menu, "ignore")?.onSelect();
+    entry(menu, "ignore")?.onSelect?.();
     expect(act.setIgnored).toHaveBeenCalledWith([ignored], false, undefined);
+  });
+});
+
+// Spec 33: money in can be marked as paid back for a purchase, and unmarked.
+describe("paid back entries", () => {
+  it("money in offers it, opening the dialog rather than acting at once", () => {
+    const moneyIn = row(1, { amount: 5000, flow: "income", status: "completed" });
+    const menu = rowMenu(moneyIn, [moneyIn], index, actions());
+    expect(keys(menu)).toEqual(["rule", "note", "paidBack", "ignore", "trash"]);
+    const paidBack = entry(menu, "paidBack");
+    expect(paidBack?.label).toBe(s.paidBack.menu);
+    expect(paidBack?.onSelect).toBeUndefined();
+    expect(paidBack?.dialog).toBeTypeOf("function");
+  });
+
+  it("a linked row offers Not paid back instead", () => {
+    const link = { id: 9, description: "Pizza", date: "2026-03-01", amount: -10000 };
+    const linked = row(1, { amount: 5000, flow: "refund", categoryId: 2, paidBackFor: link });
+    const menu = rowMenu(linked, [linked], index, actions());
+    expect(keys(menu)).toEqual(["rule", "known", "note", "notPaidBack", "ignore", "trash"]);
+    expect(entry(menu, "notPaidBack")?.label).toBe(s.paidBack.clear);
+    expect(entry(menu, "notPaidBack")?.dialog).toBeTypeOf("function");
+  });
+
+  it("not for money out, card bills, gone rows or a selection", () => {
+    const has = (r: TransactionRow, targets = [r]) => keys(rowMenu(r, targets, index, actions())).includes("paidBack");
+    expect(has(row(1, { amount: -5000, flow: "spending" }))).toBe(false);
+    expect(has(row(1, { amount: 5000, flow: "internal" }))).toBe(false);
+    expect(has(row(1, { amount: 5000, flow: "gone", status: "gone" }))).toBe(false);
+    expect(has(row(1, { amount: 5000, flow: "income" }), [row(1, { amount: 5000 }), row(2, { amount: 10 })])).toBe(false);
   });
 });

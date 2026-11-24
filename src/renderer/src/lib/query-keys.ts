@@ -31,6 +31,8 @@ export const LEDGER_VIEWS: Channel[] = [
   "accounts:list",
   "accounts:balanceChecks",
   "budgets:status",
+  // spec 33: purchases a pay-back may point at
+  "transactions:paidBackCandidates",
 ];
 
 /** A rule changed: every rule is reapplied to every row, so the ledger views too. */
