@@ -7,7 +7,7 @@ import type { Agorot, IsoDate, IsoMonth } from "@shared/types";
 import type { Db } from "../db";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testing/ledger";
 import { ingest } from "./ingest";
-import { monthRange, periodCurves } from "./period";
+import { MAX_SUMMED, monthRange, periodCurveSum, periodCurves, periodTrendWithAverage } from "./period";
 import { listTransactions, monthSummary, updateTransactions } from "./queries";
 
 type DayPoint = { date: IsoDate; amount: Agorot };
@@ -152,5 +152,67 @@ describe("periodCurves over a month", () => {
       expect(() => categoryCurves(db, args as never)).toThrow(expect.objectContaining({ code: "BAD_REQUEST" }));
     }
     expect(() => periodCurves(db, null as never)).toThrow(expect.objectContaining({ code: "BAD_REQUEST" }));
+  });
+});
+
+describe("periodCurveSum: chosen categories as one curve (spec 38)", () => {
+  let db: Db;
+  beforeEach(() => {
+    db = ledger();
+  });
+  const march = monthRange("2026-03");
+  // Early April: February and March are the average months.
+  const opts = { now: LATER };
+  const amounts = (points: { amount: Agorot }[] | undefined) => (points ?? []).map((p) => p.amount);
+  /** Several lines added up point by point. */
+  const added = (lines: ({ amount: Agorot }[] | undefined)[]) =>
+    amounts(lines[0]).map((_, i) => lines.reduce((sum, line) => sum + (line?.[i]?.amount ?? 0), 0));
+
+  it("equals the single curves added up for categories that do not overlap, previous and average too", () => {
+    const ids = [categoryId(db, "Groceries"), categoryId(db, "Restaurants"), null, categoryId(db, "Cash & ATM")];
+    const sum = periodCurveSum(db, { ...march, categoryIds: ids }, opts);
+    const singles = periodCurves(db, { ...march, categoryIds: ids }, opts);
+    expect(sum.categoryIds).toEqual(ids);
+    expect(sum.bucket).toBe("day");
+    expect(amounts(sum.series)).toEqual(added(singles.map((c) => c.series)));
+    expect(amounts(sum.previous)).toEqual(added(singles.map((c) => c.previous)));
+    expect(sum.average).toMatchObject({ from: "2026-02", to: "2026-03", count: 2 });
+    expect(amounts(sum.average?.series)).toEqual(added(singles.map((c) => c.average?.series)));
+    // 10,000 + 5,000 on the 2nd, -2,000 on the 7th, 4,000 on the 10th, 20,000 on the 20th.
+    expect(on(sum.series.map((p) => ({ date: p.from, amount: p.amount })), 1, 2, 7, 10, 20, 31)).toEqual([0, 15000, 13000, 17000, 37000, 37000]);
+  });
+
+  it("a parent and its child together count each row once", () => {
+    const food = categoryId(db, "Food");
+    const both = periodCurveSum(db, { ...march, categoryIds: [categoryId(db, "Groceries"), food] }, opts);
+    const [alone] = periodCurves(db, { ...march, categoryIds: [food] }, opts);
+    expect(both.series).toEqual(alone?.series);
+    expect(both.previous).toEqual(alone?.previous);
+    expect(both.average).toEqual(alone?.average);
+  });
+
+  it("takes uncategorized in the list, and ends on the bars' average for the same categories", () => {
+    const groceries = categoryId(db, "Groceries");
+    const sum = periodCurveSum(db, { ...march, categoryIds: [null, groceries] }, opts);
+    // Groceries 8,000 and the 4,000 unknown shop; the gone cafe does not count.
+    expect(sum.series.at(-1)?.amount).toBe(12000);
+    const bars = periodTrendWithAverage(db, { from: "2025-04-01", to: "2026-03-31", categoryIds: [null, groceries] }, opts).average;
+    expect(sum.average?.series.at(-1)?.amount).toBe(bars?.amount);
+  });
+
+  it("stops this period at today, like the single curves", () => {
+    const mid = { now: new Date("2026-03-10T09:00:00Z") };
+    const sum = periodCurveSum(db, { ...march, categoryIds: [categoryId(db, "Food")] }, mid);
+    expect(sum.series).toHaveLength(10);
+    expect(sum.previous).toHaveLength(28);
+  });
+
+  it("rejects an empty list, more than 500 ids, repeats and bad ids", () => {
+    const bad = [[], Array.from({ length: MAX_SUMMED + 1 }, (_, i) => i + 1), [3, 3], [null, null], [0], ["1"], null];
+    for (const categoryIds of bad) {
+      expect(() => periodCurveSum(db, { ...march, categoryIds } as never)).toThrow(expect.objectContaining({ code: "BAD_REQUEST" }));
+    }
+    const many = Array.from({ length: MAX_SUMMED }, (_, i) => i + 1);
+    expect(periodCurveSum(db, { ...march, categoryIds: many }, opts).series).toHaveLength(31);
   });
 });

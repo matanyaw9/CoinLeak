@@ -6,6 +6,7 @@ import { CodedError } from "@shared/errors";
 import { isEnabledProvider } from "@shared/providers";
 import type { AppSettings, SettingEntry, SettingKey } from "@shared/types";
 import type { Db } from "./db";
+import { MAX_SUMMED } from "./ledger/period";
 
 interface SettingSpec<K extends SettingKey> {
   fallback: AppSettings[K];
@@ -30,7 +31,7 @@ const SPECS: { [K in SettingKey]: SettingSpec<K> } = {
     fallback: [],
     valid: (v): v is AppSettings["homeCurveCategories"] =>
       Array.isArray(v) &&
-      v.length <= 30 &&
+      v.length <= MAX_SUMMED &&
       v.every((id) => id === null || (Number.isSafeInteger(id) && id > 0)) &&
       new Set(v).size === v.length,
   },

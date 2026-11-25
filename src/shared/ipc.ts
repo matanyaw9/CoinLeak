@@ -20,6 +20,7 @@ import type {
   ExclusionState,
   GroupFlow,
   PeriodCurve,
+  SummedCurve,
   PeriodFlow,
   PeriodSummary,
   KnownPlaceAdded,
@@ -95,6 +96,8 @@ export interface IpcContract {
     result: PeriodTrend;
   };
   "summary:periodCurves": { args: DateRange & { categoryIds: (number | null)[] }; result: PeriodCurve[] };
+  /** spec 38: the chosen categories added up into one curve (1 to 500 ids, each row counted once). */
+  "summary:periodCurveSum": { args: DateRange & { categoryIds: (number | null)[] }; result: SummedCurve };
   /** Money left this calendar month (Israel time) and per day until its end (spec 22). */
   "summary:thisMonth": { args: undefined; result: ThisMonth };
   /**
@@ -226,6 +229,7 @@ export const CHANNELS = [
   "summary:groupFlow",
   "summary:periodTrend",
   "summary:periodCurves",
+  "summary:periodCurveSum",
   "summary:thisMonth",
   "summary:monthlyNet",
   "sync:start",

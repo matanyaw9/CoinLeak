@@ -16,6 +16,7 @@ import type {
   SeriesBucket,
   SeriesPoint,
   SpendingComparison,
+  SummedCurve,
   ThisMonth,
   TrendPoint,
 } from "@shared/types";
@@ -32,6 +33,8 @@ export const NEEDS_REVIEW_SQL = "(ledger.flag_uncategorized OR ledger.flag_possi
 const MAX_DAYS = 366 * 30;
 /** Enough for "top categories" plus a few more. */
 const MAX_CURVES = 30;
+/** Added up into one curve (spec 38), so as many as a full category tree holds. */
+export const MAX_SUMMED = 500;
 const MIN_TREND_MONTHS = 3;
 
 // ---- Ranges and buckets ----
@@ -103,19 +106,29 @@ export function previousRange(range: DateRange): DateRange {
 // ---- Sums over [from, until) ----
 
 /**
- * Which rows a sum looks at: all, uncategorized (null), or a category with
- * everything under it (its children and grandchildren, spec 34).
+ * Which rows a sum looks at: all (undefined), uncategorized (null), a
+ * category with everything under it (its children and grandchildren, spec
+ * 34), or a row matching any of a list of those (spec 38). A row counts
+ * once even when the list overlaps.
  */
-type Match = number | null | undefined;
-
-/** The rows on a category or anywhere under it, over the `ledger` CTE; three `?` for the same id. */
-const UNDER_CATEGORY_SQL =
-  "(ledger.category_id = ? OR ledger.category_parent_id = ? OR ledger.category_grandparent_id = ?)";
+type Match = number | null | undefined | (number | null)[];
 
 function whereSql(match: Match): { sql: string; params: SQLInputValue[] } {
-  if (match === null) return { sql: " AND ledger.category_id IS NULL", params: [] };
-  if (typeof match === "number") return { sql: ` AND ${UNDER_CATEGORY_SQL}`, params: [match, match, match] };
-  return { sql: "", params: [] };
+  if (match === undefined) return { sql: "", params: [] };
+  const list = Array.isArray(match) ? match : [match];
+  const ids = list.filter((id) => id !== null);
+  const any: string[] = [];
+  if (list.includes(null)) any.push("ledger.category_id IS NULL");
+  if (ids.length > 0) {
+    const marks = ids.map(() => "?").join(", ");
+    any.push(
+      `ledger.category_id IN (${marks})`,
+      `ledger.category_parent_id IN (${marks})`,
+      `ledger.category_grandparent_id IN (${marks})`,
+    );
+  }
+  // An empty list matches nothing.
+  return { sql: ` AND (${any.join(" OR ") || "0"})`, params: [...ids, ...ids, ...ids] };
 }
 
 export interface Totals {
@@ -354,7 +367,18 @@ export function periodTrend(
   return months.map((m) => (categoryIds ? chosenTrendPoint(db, m, categoryIds) : trendPoint(db, m)));
 }
 
-/** Cumulative spending per bucket for each category, this period (to today) and the one before (full). */
+/** One curve: cumulative spending per bucket this period (to today), the period before (full), and the average month. */
+function curveOf(db: Db, range: DateRange, match: Match, now: Date | undefined): Omit<PeriodCurve, "categoryId"> {
+  const bucket = bucketFor(range);
+  return {
+    bucket,
+    series: seriesOf(db, range, bucket, match, israelToday(now ?? new Date())).series,
+    previous: seriesOf(db, previousRange(range), bucket, match).series,
+    average: monthAverageCurve(db, range, match, now),
+  };
+}
+
+/** One curve per category, in the order asked. */
 export function periodCurves(
   db: Db,
   args: DateRange & { categoryIds: (number | null)[] },
@@ -364,17 +388,26 @@ export function periodCurves(
   const { categoryIds } = args;
   check(Array.isArray(categoryIds) && categoryIds.length <= MAX_CURVES);
   check(categoryIds.every((id) => id === null || isId(id)));
-  const today = israelToday(opts.now ?? new Date());
   const range = { from: args.from, to: args.to };
-  const bucket = bucketFor(range);
-  const before = previousRange(range);
-  return categoryIds.map((categoryId) => ({
-    categoryId,
-    bucket,
-    series: seriesOf(db, range, bucket, categoryId, today).series,
-    previous: seriesOf(db, before, bucket, categoryId).series,
-    average: monthAverageCurve(db, range, categoryId, opts.now),
-  }));
+  return categoryIds.map((categoryId) => ({ categoryId, ...curveOf(db, range, categoryId, opts.now) }));
+}
+
+/**
+ * The chosen categories added up into one curve (spec 38): a row counts
+ * when its category is any of them or under any of them, and only once.
+ */
+export function periodCurveSum(
+  db: Db,
+  args: DateRange & { categoryIds: (number | null)[] },
+  opts: { now?: Date } = {},
+): SummedCurve {
+  assertRange(args);
+  const { categoryIds } = args;
+  check(Array.isArray(categoryIds) && categoryIds.length > 0 && categoryIds.length <= MAX_SUMMED);
+  check(categoryIds.every((id) => id === null || isId(id)));
+  check(new Set(categoryIds).size === categoryIds.length);
+  const range = { from: args.from, to: args.to };
+  return { categoryIds: [...categoryIds], ...curveOf(db, range, categoryIds, opts.now) };
 }
 
 /** The bars with the average month over their full months (spec 26), with the same categories. */

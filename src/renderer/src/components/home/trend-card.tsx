@@ -1,10 +1,12 @@
 // Month by month: the last 12 months up to the period (more if it is longer) as stacked
-// bars by top-level category (spec 16). Ticking categories (in the list, or by
+// bars by top-level category (spec 16). Ticking categories (in the chooser, or by
 // clicking a bar segment or legend name) shows only theirs, one level down,
-// with a clear way back. Pointing at a segment or a legend name lights that
-// series in every bar (F60).
+// with a clear way back. Once ticked, a click opens Transactions (spec 38,
+// trend-filter.ts says which). Pointing at a segment or a legend name lights
+// that series in every bar (F60). Keys: the bars are one Tab stop (Left and
+// Right light a month, Enter opens it); the legend is one roving list.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
 import {
   Bar,
   BarChart,
@@ -18,21 +20,30 @@ import {
   YAxis,
   type BarShapeProps,
 } from "recharts";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Layers } from "lucide-react";
 import type { DateRange, IsoMonth, TrendPoint } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { categorySlice, otherSlice, ownRowsSlice, parentSlices, type CategoryIndex, type Slice } from "@/lib/categories";
-import { monthOf, shiftMonth, toIsoMonth } from "@/lib/month";
+import { monthOf, monthRange, shiftMonth, toIsoMonth } from "@/lib/month";
 import { formatMonth, formatMonthShort, ils, percent } from "@/lib/format";
+import { useRoving } from "@/lib/roving";
 import { useShot } from "@/lib/shot";
 import { Card, CardHeader } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
 import { Money } from "@/components/common/money";
 import { Button } from "@/components/ui/button";
 import { chartAnimation, ChartTooltip } from "@/components/charts/chart-tooltip";
-import { TrendCategoryPicker } from "./trend-category-picker";
-import { toggleTick, type TrendTicks } from "./trend-filter";
+import { CategoryChooser } from "./category-chooser";
+import {
+  legendAction,
+  monthAction,
+  segmentAction,
+  toggleTick,
+  TREND_LIMIT,
+  type TrendAction,
+  type TrendTicks,
+} from "./trend-filter";
 import { usePeriodTrend } from "./period-data";
 
 type Row = { month: IsoMonth; label: string; total: number; top?: string } & Record<string, number | string | undefined>;
@@ -46,11 +57,14 @@ export function TrendCard({
 }: {
   range: DateRange;
   index: CategoryIndex;
-  onOpen: (slice: Slice, month: IsoMonth) => void;
+  /** Transactions for one month or a range of days, filtered to these categories (none: all spending). */
+  onOpen: (categories: TrendTicks, when: IsoMonth | DateRange) => void;
 }) {
   const shot = useShot();
-  const [ticks, setTicks] = useState<TrendTicks>(() => (shot === "trend-some" || shot === "trend-picker" ? firstGroups(index, 2) : shot === "trend-one" ? firstGroups(index, 1) : []));
+  const [ticks, setTicks] = useState<TrendTicks>(() => shotTicks(shot, index));
+  // The month lit by the pointer or the arrow keys; `keyed` while the keys lead.
   const [hover, setHover] = useState<number | null>(null);
+  const [keyed, setKeyed] = useState(false);
   // The series under the pointer; demo screenshots (`?shot=trend-hover`) light the first group.
   const [lit, setLit] = useState<string | null>(shot === "trend-hover" ? String(firstGroups(index, 1)[0]) : null);
   const box = useRef<HTMLDivElement>(null);
@@ -69,18 +83,69 @@ export function TrendCard({
   const toggle = (id: number | null) => setTicks((t) => toggleTick(t, id, index));
   const series = filtered ? tickedSeries(index, ticks, points) : topGroups(index, points);
   const data = points.map((t) => rowOf(t, series, filtered));
+  const { list: legendList, item: legendItem } = useRoving(
+    series.map((x) => x.key),
+    // One line of names: Left and Right move along it.
+    { columns: series.length },
+  );
 
-  const focus = hover != null ? data[hover] : (data.findLast((d) => inPeriod(d.month)) ?? data.at(-1));
+  // The month shown when nothing is lit: the period's last, else the last bar.
+  const lastInPeriod = data.findLastIndex((d) => inPeriod(d.month));
+  const restIndex = lastInPeriod >= 0 ? lastInPeriod : data.length - 1;
+  const focus = hover != null ? data[hover] : data[restIndex];
   const hasData = points.some((t) => t.spending > 0);
 
-  /** A segment of all spending ticks its group; once ticked, or for "Other", it opens the month's rows. */
-  const pick = (x: Slice, month: IsoMonth) => {
-    if (filtered || x.categoryId === undefined) onOpen(x, month);
-    else toggle(x.categoryId);
+  const act = (a: TrendAction | null) => {
+    if (a?.kind === "tick") toggle(a.id);
+    else if (a?.kind === "month") onOpen(a.categories, a.month);
+    else if (a?.kind === "range") {
+      // Every month the bars show, first day to last.
+      const first = points[0]?.month;
+      const last = points.at(-1)?.month;
+      if (first && last) onOpen(a.categories, { from: monthRange(first).from, to: monthRange(last).to });
+    }
   };
-  const legendClickable = (x: Slice) => x.categoryId !== undefined;
-  const legendClick = (x: Slice) => {
-    if (x.categoryId !== undefined) toggle(x.categoryId);
+
+  /** The tooltip's last line: what a click on the segment under the pointer does. */
+  const tooltipHint = (month: IsoMonth) => {
+    if (!filtered) return s.periodHome.trendPickHint;
+    const x = series.find((y) => y.key === lit);
+    if (!x) return s.periodHome.trendFilterHint;
+    return segmentAction(ticks, index, x, month).kind === "tick" ? s.trendClick.drill(x.name) : s.trendClick.month(formatMonth(month));
+  };
+
+  // Demo screenshots (`?shot=trend-legend`): the first legend name, clicked once the bars are in.
+  const clicked = useRef(false);
+  useEffect(() => {
+    if (shot !== "trend-legend" || clicked.current || !trend.data || series.length === 0) return;
+    clicked.current = true;
+    act(legendAction(ticks, series[0] as Slice));
+  });
+
+  /** The bars' keys: Left and Right (Home, End) light a month as pointing does; Enter opens it. */
+  const onBarsKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const at = hover ?? restIndex;
+    const to =
+      e.key === "ArrowLeft" ? at - 1 : e.key === "ArrowRight" ? at + 1 : e.key === "Home" ? 0 : e.key === "End" ? data.length - 1 : null;
+    if (to !== null) {
+      e.preventDefault();
+      setKeyed(true);
+      setHover(Math.min(Math.max(to, 0), data.length - 1));
+    } else if (e.key === "Enter" && data[at]) {
+      e.preventDefault();
+      act(monthAction(ticks, data[at].month));
+    }
+  };
+  const onBarsFocus = (e: FocusEvent<HTMLDivElement>) => {
+    // From the keyboard only: a click lands here too, and the pointer already lights its month.
+    if (e.target !== e.currentTarget || !e.currentTarget.matches(":focus-visible")) return;
+    setKeyed(true);
+    setHover(restIndex);
+  };
+  const onBarsBlur = () => {
+    if (!keyed) return;
+    setKeyed(false);
+    setHover(null);
   };
 
   const cellOpacity = (key: string, month: IsoMonth) => {
@@ -102,12 +167,14 @@ export function TrendCard({
                   {s.periodHome.trendBack}
                 </Button>
               )}
-              <TrendCategoryPicker
+              <CategoryChooser
                 index={index}
-                ticks={ticks}
-                onToggle={toggle}
-                onClear={showAll}
-                defaultOpen={shot === "trend-picker"}
+                value={ticks}
+                onApply={setTicks}
+                none={s.periodHome.trendAll}
+                icon={<Layers className="size-3.5 text-muted-foreground" />}
+                limit={TREND_LIMIT}
+                demo={shot === "trend-picker" ? { search: "", ticks } : undefined}
               />
             </span>
           }
@@ -124,17 +191,30 @@ export function TrendCard({
                 <span className="text-sm text-muted-foreground">{formatMonth(focus.month)}</span>
               </div>
             )}
-            <div className="-mx-2 h-64">
+            <div
+              tabIndex={0}
+              role="group"
+              aria-label={s.trendClick.barsLabel}
+              onKeyDown={onBarsKey}
+              onFocus={onBarsFocus}
+              onBlur={onBarsBlur}
+              className="-mx-2 h-64 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={data}
                   margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
                   barCategoryGap="28%"
                   maxBarSize={72}
-                  onMouseMove={(st) => setHover(typeof st.activeTooltipIndex === "number" ? st.activeTooltipIndex : null)}
+                  // The box around the chart is the one Tab stop and takes the keys.
+                  accessibilityLayer={false}
+                  onMouseMove={(st) => {
+                    setKeyed(false);
+                    setHover(typeof st.activeTooltipIndex === "number" ? st.activeTooltipIndex : null);
+                  }}
                   onMouseLeave={() => {
-                    setHover(null);
                     setLit(null);
+                    if (!keyed) setHover(null);
                   }}
                 >
                   <CartesianGrid vertical={false} stroke="var(--border)" />
@@ -164,6 +244,9 @@ export function TrendCard({
                   <YAxis hide />
                   <Tooltip
                     cursor={{ fill: "var(--accent)", opacity: 0.5, radius: 10 } as object}
+                    // The arrow keys show the tooltip on their month, as pointing does.
+                    active={keyed ? true : undefined}
+                    defaultIndex={keyed && hover != null ? hover : undefined}
                     content={({ active, payload }) => {
                       const row = payload?.[0]?.payload as Row | undefined;
                       if (!active || !row) return null;
@@ -190,7 +273,7 @@ export function TrendCard({
                                   {s.average.line(ils(average?.amount ?? 0, { decimals: false }))} · {averageNote}
                                 </div>
                               )}
-                              {filtered ? s.periodHome.trendFilterHint : s.periodHome.trendPickHint}
+                              {tooltipHint(row.month)}
                             </>
                           }
                         />
@@ -210,7 +293,7 @@ export function TrendCard({
                       className="cursor-pointer"
                       onMouseEnter={() => setLit(x.key)}
                       onMouseLeave={() => setLit(null)}
-                      onClick={(entry: { payload?: Row }) => entry.payload && pick(x, entry.payload.month)}
+                      onClick={(entry: { payload?: Row }) => entry.payload && act(segmentAction(ticks, index, x, entry.payload.month))}
                     >
                       {data.map((d) => (
                         <Cell key={d.month} opacity={cellOpacity(x.key, d.month)} className="transition-opacity" />
@@ -235,27 +318,42 @@ export function TrendCard({
               </ResponsiveContainer>
             </div>
             <div className="mt-4 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
-              {series.map((x) => (
-                <button
-                  key={x.key}
-                  type="button"
-                  // aria-disabled, not disabled: a disabled button gets no hover, so it could not light its bars.
-                  aria-disabled={!legendClickable(x)}
-                  title={!legendClickable(x) ? undefined : filtered ? s.periodHome.trendUntickHint : s.periodHome.trendPickHint}
-                  onClick={() => legendClickable(x) && legendClick(x)}
-                  onMouseEnter={() => setLit(x.key)}
-                  onMouseLeave={() => setLit(null)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-[color,background-color,opacity]",
-                    legendClickable(x) && "cursor-pointer hover:bg-accent/60 hover:text-foreground",
-                    lit !== null && lit !== x.key && "opacity-55",
-                    lit === x.key && "bg-accent/60 text-foreground",
-                  )}
-                >
-                  <span className="size-2.5 rounded-full" style={{ backgroundColor: x.color }} />
-                  {x.name}
-                </button>
-              ))}
+              <div ref={legendList} role="group" aria-label={s.trendClick.legendLabel} className="contents">
+                {series.map((x, i) => {
+                  const action = legendAction(ticks, x);
+                  return (
+                    <button
+                      key={x.key}
+                      type="button"
+                      {...legendItem(i)}
+                      // aria-disabled, not disabled: a disabled button gets no hover, so it could not light its bars.
+                      aria-disabled={!action}
+                      title={!action ? undefined : filtered ? s.periodHome.trendRangeHint : s.periodHome.trendPickHint}
+                      onClick={() => act(action)}
+                      onMouseEnter={() => setLit(x.key)}
+                      onMouseLeave={() => setLit(null)}
+                      // The keys light the name's bars too.
+                      onFocus={() => {
+                        legendItem(i).onFocus();
+                        setLit(x.key);
+                      }}
+                      onBlur={(e) => {
+                        legendItem(i).onBlur(e);
+                        setLit(null);
+                      }}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-[color,background-color,opacity] outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                        action && "cursor-pointer hover:bg-accent/60 hover:text-foreground",
+                        lit !== null && lit !== x.key && "opacity-55",
+                        lit === x.key && "bg-accent/60 text-foreground",
+                      )}
+                    >
+                      <span className="size-2.5 rounded-full" style={{ backgroundColor: x.color }} />
+                      {x.name}
+                    </button>
+                  );
+                })}
+              </div>
               {average ? (
                 <span title={averageNote ?? undefined} className="flex items-center gap-1.5 px-1.5 py-1">
                   <span className="w-4 border-t-2 border-dashed border-foreground/55" />
@@ -355,4 +453,20 @@ function firstGroups(index: CategoryIndex, n: number): TrendTicks {
     .filter((r) => r.kind === "expense")
     .slice(0, n)
     .map((r) => r.id);
+}
+
+/**
+ * Demo screenshots start ticked: `trend-some` and `trend-picker` two groups,
+ * `trend-one` one; `trend-deep` and `trend-legend` a second-level category
+ * with its own children, so the bars show the third level (two clicks down).
+ */
+function shotTicks(shot: string | null, index: CategoryIndex): TrendTicks {
+  if (shot === "trend-some" || shot === "trend-picker") return firstGroups(index, 2);
+  if (shot === "trend-one") return firstGroups(index, 1);
+  if (shot === "trend-deep" || shot === "trend-legend") {
+    const roots = index.roots.filter((r) => r.kind === "expense");
+    const deep = roots.flatMap((r) => index.children.get(r.id) ?? []).find((c) => (index.children.get(c.id)?.length ?? 0) > 0);
+    return deep ? [deep.id] : [];
+  }
+  return [];
 }
