@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Agorot, IsoMonth, RuleInput, TransactionFilter, TransactionPatch } from "@shared/types";
 import { call } from "./api";
 import { queryKey, refreshBudgets, refreshLedger } from "./query-keys";
+import { hashParam } from "./shot";
 
 export const useAppInfo = () => useQuery({ queryKey: queryKey("app:info"), queryFn: () => call("app:info", undefined) });
 
@@ -21,6 +22,8 @@ export const useCashWallet = () => useQuery({ queryKey: queryKey("cash:wallet"),
 export function useFirstRun(): boolean | undefined {
   const accounts = useAccounts();
   const wallet = useCashWallet();
+  // Screenshot aid (spec 39): `?shot=welcome` shows the greeting on the Demo profile.
+  if (hashParam("shot") === "welcome") return true;
   return firstRun(accounts, wallet);
 }
 

@@ -1169,6 +1169,36 @@ export const s = {
     deleteBody: (n: number) =>
       `This deletes ${plural(n, "transaction", "transactions")} for good. A later sync will not bring ${n === 1 ? "it" : "them"} back. The rest of the trash stays.`,
   },
+
+  // spec 39
+  backup: {
+    title: "Backup and export",
+    hint: "Move your data to another computer, or open your transactions in Excel.",
+    backupTitle: "Back up this profile",
+    backupBody: (name: string) =>
+      `One file with everything in ${name}: transactions, categories, rules, notes, budgets, accounts and settings.`,
+    backupButton: "Back up now",
+    restoreTitle: "Restore from backup",
+    restoreBody: "Opens a backup as a new profile, so nothing you have now changes. This is how you move to a new computer.",
+    restoreButton: "Restore from backup",
+    csvTitle: "Export transactions (CSV)",
+    csvBody: "For Excel or another spreadsheet. A CSV is not a backup: it cannot bring rules, notes or budgets back.",
+    csvButton: "Export CSV",
+    plainTitle: "The backup file is not encrypted",
+    plainBody:
+      "Anyone who opens it can read your transactions. Keep it on your own drive or a USB stick. Do not email it or put it in a shared folder.",
+    saved: (n: number) => `Backed up ${plural(n, "transaction", "transactions")}`,
+    exported: (n: number) => `Exported ${plural(n, "transaction", "transactions")}`,
+    restored: "Restored.",
+    restoredBody: "Sync once to log in to your banks on this computer.",
+    welcomeAsk: "Moving from another computer?",
+    welcomeLink: "Restore a backup",
+    failed: {
+      backup: "Failed to back up.",
+      restore: "Failed to restore the backup.",
+      csv: "Failed to export the transactions.",
+    },
+  },
 };
 
 export type Strings = typeof s;
