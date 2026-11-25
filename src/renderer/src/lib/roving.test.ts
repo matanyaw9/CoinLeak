@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextIndex } from "./roving";
+import { firstOpen, nextIndex } from "./roving";
 
 describe("arrow keys in a list", () => {
   it("Down and Up move one item", () => {
@@ -59,5 +59,44 @@ describe("arrow keys in a grid", () => {
   it("Home and End jump to the first and last item", () => {
     expect(move("Home", 5)).toBe(0);
     expect(move("End", 1)).toBe(7);
+  });
+});
+
+// Review of wave 14: the move dialog's disabled lines are passed over.
+describe("arrow keys past skipped items", () => {
+  // 6 items; 1, 2 and 5 are disabled.
+  const off = (i: number) => i === 1 || i === 2 || i === 5;
+  const move = (key: string, from: number) => nextIndex(key, from, 6, 1, off);
+
+  it("Down and Up pass over skipped items", () => {
+    expect(move("ArrowDown", 0)).toBe(3);
+    expect(move("ArrowUp", 3)).toBe(0);
+    expect(move("ArrowDown", 3)).toBe(4);
+  });
+
+  it("stays put when only skipped items lie that way", () => {
+    expect(move("ArrowDown", 4)).toBe(4);
+    expect(move("ArrowUp", 0)).toBe(0);
+  });
+
+  it("Home and End go to the first and last open item", () => {
+    expect(move("Home", 4)).toBe(0);
+    expect(move("End", 0)).toBe(4);
+    expect(nextIndex("Home", 3, 4, 1, (i) => i === 0)).toBe(1);
+  });
+
+  it("a list with nothing open has nowhere to go", () => {
+    for (const key of ["ArrowDown", "ArrowUp", "Home", "End"]) expect(nextIndex(key, 0, 3, 1, () => true)).toBeNull();
+  });
+
+  it("firstOpen looks one way from a start, and says when there is none", () => {
+    expect(firstOpen(1, 1, 6, off)).toBe(3);
+    expect(firstOpen(2, -1, 6, off)).toBe(0);
+    expect(firstOpen(5, 1, 6, off)).toBeNull();
+  });
+
+  it("a grid passes over skipped items a line at a time", () => {
+    // 3 columns: 0 1 2 / 3 4 5 / 6 7 8, with 4 disabled.
+    expect(nextIndex("ArrowDown", 1, 9, 3, (i) => i === 4)).toBe(7);
   });
 });
