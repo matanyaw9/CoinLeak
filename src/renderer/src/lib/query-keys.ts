@@ -32,6 +32,7 @@ export const LEDGER_VIEWS: Channel[] = [
   "accounts:list",
   "accounts:balanceChecks",
   "budgets:status",
+  "budgets:plan",
   // spec 33: purchases a pay-back may point at
   "transactions:paidBackCandidates",
 ];
@@ -54,6 +55,6 @@ export const refreshRules = (client: QueryClient) => refresh(client, RULE_VIEWS)
 export const refreshCategories = (client: QueryClient) => refresh(client, CATEGORY_VIEWS);
 export const refreshAccounts = (client: QueryClient) => refresh(client, ACCOUNT_VIEWS);
 
-/** spec 27: a budget was set or cleared. Only the budget views read it. */
-export const BUDGET_VIEWS: Channel[] = ["budgets:status"];
+/** spec 27: a budget (spec 37: or the total) was set or cleared. Only the budget views read it. */
+export const BUDGET_VIEWS: Channel[] = ["budgets:status", "budgets:plan"];
 export const refreshBudgets = (client: QueryClient) => refresh(client, BUDGET_VIEWS);

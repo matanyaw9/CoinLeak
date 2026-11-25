@@ -1,6 +1,7 @@
 // Home's "Budgets" card (spec 27): one bar per budgeted category, spent as a
 // percent of its budget, this month or this week (Sunday to Saturday). Core
-// sends spent and budget; this card only divides them for display.
+// sends spent and budget; this card only divides them for display. Spec 37:
+// its header and empty state link to the Budgets page.
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -85,12 +86,26 @@ export function BudgetCard({ month, index }: { month: IsoMonth; index: CategoryI
     />
   );
 
+  // spec 37: the header links to the Budgets page.
+  const action = (
+    <div className="flex items-center gap-3">
+      {toggle}
+      <Link
+        to="/budgets"
+        className="group inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        {s.plan.cardLink}
+        <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+      </Link>
+    </div>
+  );
+
   return (
     <Card>
-      <CardHeader label={label} action={toggle} />
+      <CardHeader label={label} action={action} />
       {status.data.lines.length === 0 ? (
         <Link
-          to="/categories"
+          to="/budgets"
           className="group inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
           {s.budgets.empty}

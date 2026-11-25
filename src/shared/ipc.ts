@@ -5,6 +5,8 @@ import type {
   Account,
   Agorot,
   AppInfo,
+  BudgetChange,
+  BudgetPlan,
   BudgetStatus,
   IsoMonth,
   BalanceCheck,
@@ -190,8 +192,17 @@ export interface IpcContract {
   // ---- spec 27: budgets ----
   /** Every budgeted category's month and week (Sunday to Saturday) spending. Today is Israel time. */
   "budgets:status": { args: { month: IsoMonth }; result: BudgetStatus };
-  /** Sets a spending category's monthly budget in agorot, or clears it with null. */
-  "budgets:set": { args: { categoryId: number; monthlyBudget: Agorot | null }; result: null };
+  /**
+   * Sets a spending category's monthly budget in agorot, or clears it with null.
+   * spec 37: refused with a fixed problem when it does not fit its parent or the
+   * total; `raiseParents` raises them just enough instead.
+   */
+  "budgets:set": { args: { categoryId: number; monthlyBudget: Agorot | null; raiseParents?: boolean }; result: BudgetChange };
+  // ---- spec 37: budgets page ----
+  /** The total, the split, the averages over the last full months, and every spending category's line. */
+  "budgets:plan": { args: { month: IsoMonth }; result: BudgetPlan };
+  /** Sets the month's total budget in agorot, or clears it with null. Refused below the top budgets' sum. */
+  "budgets:setTotal": { args: { total: Agorot | null }; result: BudgetChange };
   // ---- spec 33: paid back for a purchase (F65) ----
   /** Purchases counting as spending from 60 days before to 7 days after the row, newest first, at most 50. */
   "transactions:paidBackCandidates": { args: { rowId: number; text?: string }; result: TransactionRow[] };
@@ -271,6 +282,9 @@ export const CHANNELS = [
   // spec 27
   "budgets:status",
   "budgets:set",
+  // spec 37
+  "budgets:plan",
+  "budgets:setTotal",
   // spec 33
   "transactions:paidBackCandidates",
   "transactions:markPaidBack",

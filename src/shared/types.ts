@@ -509,6 +509,8 @@ export interface AppSettings {
   homeCurveCompare: HomeCurveCompare;
   /** The categories Home's category curves draw (null: uncategorized); empty is the top 5 (spec 26, F61). */
   homeCurveCategories: (number | null)[];
+  /** The month's total budget in agorot, or null for none (spec 37). */
+  budgetTotal: Agorot | null;
 }
 
 /** The dashed line on Home's month curves: last month or the average month. */
@@ -826,3 +828,75 @@ export interface PaidBackLink {
 export type PaidBackProblem = "not_money_in" | "not_a_purchase" | "purchase_uncategorized";
 
 export type PaidBackResult = { ok: true } | { ok: false; problem: PaidBackProblem };
+
+// ---- spec 37: budgets page (F73) ----
+
+/** A monthly average over the last full months before this month (at most 3). */
+export interface BudgetAverage {
+  /** The first and last month it is taken over. */
+  from: IsoMonth;
+  to: IsoMonth;
+  /** How many months: 1 to 3, fewer when the history is shorter. */
+  count: number;
+  amount: Agorot;
+}
+
+/** One spending category on the Budgets page, in tree order. */
+export interface BudgetPlanLine {
+  categoryId: number;
+  /** 1 for a top-level category, up to 3 (spec 34). */
+  depth: number;
+  budget: Agorot | null;
+  /** `budget / 4`, rounded down to whole agorot (spec 27); null with no budget. */
+  weekly: Agorot | null;
+  /** Its average month in whole shekels, everything under it included, over `BudgetPlan.averageSpending`'s months. Null with none. */
+  usual: Agorot | null;
+  /** Spent in the chosen month, everything under it included. */
+  spent: Agorot;
+  /** The sum of the nearest budgeted categories under it; 0 with none. */
+  inside: Agorot;
+  /**
+   * The most its budget may be: its nearest budgeted parent's budget minus
+   * that parent's other budgeted children, or the total minus the other top
+   * budgets. Null when nothing above limits it.
+   */
+  room: Agorot | null;
+}
+
+/** Everything the Budgets page shows. Budgets are standing monthly amounts; only `spent` follows the month. */
+export interface BudgetPlan {
+  month: IsoMonth;
+  /** The month's total budget, or null when none is set. */
+  total: Agorot | null;
+  /** The sum of the top budgets: budgets with no budgeted category above them. */
+  split: Agorot;
+  /** `total - split`, or null with no total. */
+  left: Agorot | null;
+  /** Over the last full months before this month (at most 3), in whole shekels; null with no history. */
+  averageIncome: BudgetAverage | null;
+  averageSpending: BudgetAverage | null;
+  lines: BudgetPlanLine[];
+}
+
+/** One amount `raiseParents` would raise: a budgeted parent, or the total (`categoryId` null). */
+export interface BudgetRaise {
+  categoryId: number | null;
+  to: Agorot;
+}
+
+/**
+ * Why core refused a budget or the total. Fixed codes with their numbers;
+ * the window words them.
+ * - `over_parent`: the nearest budgeted parent has only `room` left for it.
+ * - `over_total`: the total has only `room` left for it.
+ *   Both list the `raises` that `raiseParents` would make, nearest first.
+ * - `under_children`: the budgeted categories under it already add up to `inside`.
+ * - `under_split`: the top budgets already add up to `split`.
+ */
+export type BudgetProblem =
+  | { code: "over_parent"; parentId: number; room: Agorot; raises: BudgetRaise[] }
+  | { code: "over_total"; room: Agorot; raises: BudgetRaise[] }
+  | { code: "under_children"; inside: Agorot }
+  | { code: "under_split"; split: Agorot };
+
+export type BudgetChange = { ok: true } | { ok: false; problem: BudgetProblem };

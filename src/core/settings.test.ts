@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodedError } from "@shared/errors";
 import type { SettingEntry } from "@shared/types";
 import { newDb } from "./testing/ledger";
+import { BUDGET_MAX } from "./ledger/budgets";
 import { SETTING_KEYS, getSetting, setSetting } from "./settings";
 
 describe("settings", () => {
   it("knows a fixed list of keys", () => {
-    expect(SETTING_KEYS).toEqual(["addedProviders", "syncFrom", "homeCurveCompare", "homeCurveCategories"]);
+    expect(SETTING_KEYS).toEqual(["addedProviders", "syncFrom", "homeCurveCompare", "homeCurveCategories", "budgetTotal"]);
   });
 
   it("returns the default until set, then the saved value", () => {
@@ -98,5 +99,32 @@ describe("syncFrom (spec 23)", () => {
     setSetting(db, { key: "homeCurveCategories", value: full });
     expect(getSetting(db, "homeCurveCategories")).toEqual(full);
     expect(() => setSetting(db, { key: "homeCurveCategories", value: [...full, 500] })).toThrow(CodedError);
+  });
+});
+
+describe("budgetTotal (spec 37)", () => {
+  it("is none until set, then keeps a whole number of agorot up to BUDGET_MAX", () => {
+    const db = newDb();
+    expect(getSetting(db, "budgetTotal")).toBeNull();
+    for (const value of [1, 1_200_000, BUDGET_MAX]) {
+      setSetting(db, { key: "budgetTotal", value });
+      expect(getSetting(db, "budgetTotal")).toBe(value);
+    }
+  });
+
+  it("refuses too big, zero, negative and not a whole number of agorot", () => {
+    const db = newDb();
+    setSetting(db, { key: "budgetTotal", value: 500_000 });
+    for (const value of [BUDGET_MAX + 1, 0, -100, 10.5, Number.NaN, Number.POSITIVE_INFINITY, "500000", [500_000]]) {
+      expect(() => setSetting(db, { key: "budgetTotal", value } as SettingEntry)).toThrow(CodedError);
+    }
+    expect(getSetting(db, "budgetTotal")).toBe(500_000);
+  });
+
+  it("clears with null", () => {
+    const db = newDb();
+    setSetting(db, { key: "budgetTotal", value: 500_000 });
+    setSetting(db, { key: "budgetTotal", value: null });
+    expect(getSetting(db, "budgetTotal")).toBeNull();
   });
 });

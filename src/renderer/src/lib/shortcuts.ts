@@ -9,6 +9,7 @@ export type ShortcutId =
   | "home"
   | "transactions"
   | "categories"
+  | "budgets"
   | "rules"
   | "accounts"
   | "trash"
@@ -59,6 +60,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "home", group: "anywhere", key: "h", to: "/" },
   { id: "transactions", group: "anywhere", key: "t", to: "/transactions" },
   { id: "categories", group: "anywhere", key: "c", to: "/categories" },
+  { id: "budgets", group: "anywhere", key: "u", to: "/budgets" },
   { id: "rules", group: "anywhere", key: "r", to: "/rules" },
   { id: "accounts", group: "anywhere", key: "b", to: "/accounts" },
   { id: "trash", group: "anywhere", key: "x", to: "/trash" },

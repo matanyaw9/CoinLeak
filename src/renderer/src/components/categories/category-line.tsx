@@ -1,7 +1,8 @@
 // One category on the Categories page: drag handle, emoji bubble, name, this
-// month's amount, its budget (spec 27), Add (levels 1 and 2, spec 34), Move
-// and Edit buttons, and its known places underneath. Level 3 lines sit
-// indented. The name opens its transactions; a group header gets Edit and Add.
+// month's amount, its budget (spec 37: text opening the Budgets page), Add
+// (levels 1 and 2, spec 34), Move and Edit buttons, and its known places
+// underneath. Level 3 lines sit indented. The name opens its transactions; a
+// group header gets Edit and Add.
 
 import type { DragEvent, ReactNode } from "react";
 import { Link } from "react-router";
@@ -65,7 +66,7 @@ export function CategoryLine({
   onAdd?: () => void;
   dragProps: DragProps;
   dropProps: DropProps | undefined;
-  /** spec 27: the budget field, on spending categories. */
+  /** spec 37: the budget as text, linking to the Budgets page, on spending categories. */
   budget?: ReactNode;
 }) {
   const deep = depth >= 3;

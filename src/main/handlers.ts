@@ -24,7 +24,7 @@ import {
 import { groupFlow, monthlyNet, periodCurves, periodCurveSum, periodFlow, periodSummary, periodTrendWithAverage, thisMonth } from "@core/ledger";
 import { addManualTransaction, editManualTransaction, getCashWallet } from "@core/ledger";
 import { balanceChecks } from "@core/ledger";
-import { budgetStatus, israelToday, setBudget } from "@core/ledger";
+import { budgetPlan, budgetStatus, israelToday, setBudget, setBudgetTotal } from "@core/ledger";
 import { clearPaidBack, markPaidBack, paidBackCandidates } from "@core/ledger";
 import {
   addKnownPlace,
@@ -133,7 +133,9 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "categories:update": ({ id, patch }) => updateCategory(getDb(), id, patch),
     "categories:delete": ({ id, moveTo }) => deleteCategory(getDb(), id, moveTo),
     "budgets:status": ({ month }) => budgetStatus(getDb(), { month, today: israelToday(now()) }),
-    "budgets:set": ({ categoryId, monthlyBudget }) => setBudget(getDb(), categoryId, monthlyBudget),
+    "budgets:set": ({ categoryId, monthlyBudget, raiseParents }) => setBudget(getDb(), categoryId, monthlyBudget, { raiseParents }),
+    "budgets:plan": ({ month }) => budgetPlan(getDb(), { month, today: israelToday(now()) }),
+    "budgets:setTotal": ({ total }) => setBudgetTotal(getDb(), total),
     // spec 33: paid back for a purchase
     "transactions:paidBackCandidates": (args) => paidBackCandidates(getDb(), args),
     "transactions:markPaidBack": (args) => markPaidBack(getDb(), args),

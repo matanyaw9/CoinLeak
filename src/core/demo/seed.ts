@@ -9,6 +9,7 @@ import type { Agorot, IsoDate, RuleCondition, RuleInput, ScrapedAccount, Scraped
 import { openDatabase, type Db } from "../db";
 import {
   addManualTransaction,
+  budgetPlan,
   createCategory,
   ingest,
   listAccounts,
@@ -17,6 +18,7 @@ import {
   markPaidBack,
   setAccountsSyncing,
   setBudget,
+  setBudgetTotal,
   trashTransactions,
   updateTransactions,
 } from "../ledger";
@@ -122,6 +124,10 @@ export function seedDemo(db: Db, today: Date): void {
  * spec 27: budgets on this month's three biggest spending subcategories (not bills), set
  * from what they spent so far: the first over budget, the second near it,
  * the third well under. Round ₪10 amounts, like a person would type.
+ * spec 37: then nested budgets and a total, as the Budgets page would have
+ * them: two level 3 budgets inside the first, each subcategory's group and
+ * Home & Bills at their usual month (at least what sits inside), and a
+ * total that leaves about a sixth still to split.
  */
 function addBudgets(db: Db, today: IsoDate): void {
   const { from, until } = monthBounds(today.slice(0, 7));
@@ -139,10 +145,32 @@ function addBudgets(db: Db, today: IsoDate): void {
   const [over, near, under] = spendingUnder(db, from, until).filter(
     (r) => subcategories.has(r.categoryId) && r.amount > 0,
   );
-  const tens = (agorot: number, round: (x: number) => number): Agorot => Math.max(1, round(agorot / 1000)) * 1000;
-  if (over) setBudget(db, over.categoryId, tens(over.amount * 0.85, Math.floor));
+  const round = (agorot: number, step: Agorot, how: (x: number) => number): Agorot => Math.max(1, how(agorot / step)) * step;
+  const tens = (agorot: number, how: (x: number) => number): Agorot => round(agorot, 1000, how);
+  if (!over) return;
+  const overBudget = tens(over.amount * 0.85, Math.floor);
+  setBudget(db, over.categoryId, overBudget);
   if (near) setBudget(db, near.categoryId, tens(near.amount / 0.9, Math.ceil));
   if (under) setBudget(db, under.categoryId, tens(under.amount * 3, Math.ceil));
+
+  // spec 37: two level 3 budgets inside the first one, leaving some of it unsplit.
+  const inner = all.filter((c) => c.parentId === over.categoryId);
+  [0.4, 0.25].forEach((share, i) => {
+    const c = inner[i];
+    if (c) setBudget(db, c.id, tens(overBudget * share, Math.floor));
+  });
+  // The groups at their usual month, rounded up to ₪100, and never less than what sits inside.
+  const month = today.slice(0, 7);
+  const groups = new Set([bills]);
+  for (const r of [over, near, under]) {
+    const parentId = r && all.find((c) => c.id === r.categoryId)?.parentId;
+    if (parentId) groups.add(parentId);
+  }
+  for (const line of budgetPlan(db, { month, today }).lines.filter((l) => groups.has(l.categoryId))) {
+    setBudget(db, line.categoryId, round(Math.max(line.usual ?? 0, line.inside), 10_000, Math.ceil));
+  }
+  // The total: the top budgets are about 85% of it, rounded up to ₪1,000.
+  setBudgetTotal(db, round(budgetPlan(db, { month, today }).split / 0.85, 100_000, Math.ceil));
 }
 
 /** spec 33: the memo that finds the pizza a friend paid half of back. */

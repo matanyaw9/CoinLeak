@@ -13,6 +13,9 @@ interface SettingSpec<K extends SettingKey> {
   valid: (value: unknown) => value is AppSettings[K];
 }
 
+/** The same as BUDGET_MAX in ledger/budgets.ts (that file reads this one, so it cannot be imported here). */
+const BUDGET_TOTAL_MAX = 1_000_000_000;
+
 const SPECS: { [K in SettingKey]: SettingSpec<K> } = {
   addedProviders: {
     fallback: [],
@@ -34,6 +37,11 @@ const SPECS: { [K in SettingKey]: SettingSpec<K> } = {
       v.length <= MAX_SUMMED &&
       v.every((id) => id === null || (Number.isSafeInteger(id) && id > 0)) &&
       new Set(v).size === v.length,
+  },
+  budgetTotal: {
+    fallback: null,
+    valid: (v): v is AppSettings["budgetTotal"] =>
+      v === null || (typeof v === "number" && Number.isSafeInteger(v) && v > 0 && v <= BUDGET_TOTAL_MAX),
   },
 };
 
