@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Db } from "../db";
 import { ingest } from "../ledger/ingest";
 import {
@@ -11,8 +11,8 @@ import {
 import { NOW, bank, card, categoryId, charge, idOf, newDb, snapshot, stored, txn } from "../testing/ledger";
 import { lastRunId, ruleFields, ruleInput } from "../testing/rules";
 import { applyRules } from "./engine";
-import { createRule, deleteRule } from "./queries";
-import { insertRule } from "./store";
+import { createRule, deleteRule, reorderRules, updateRule } from "./queries";
+import { addExceptions, insertRule } from "./store";
 
 const out = (date: string, amount: number, description: string) => txn({ date, amount, description });
 
@@ -286,5 +286,69 @@ describe("trashed rows (spec 11)", () => {
     const before = stored(db, id);
     deleteRule(db, rule.id);
     expect(stored(db, id)).toEqual({ ...before, rule_id: null });
+  });
+});
+
+describe("exceptions (spec 35)", () => {
+  /** Two supermarket rows; rule 1 sorts and hides them, rule 2 sorts them elsewhere. */
+  function twoRules(db: Db) {
+    ingest(db, [bank([out("2026-03-01", -5000, "שופרסל דיל"), out("2026-03-02", -6000, "שופרסל שלי")])], { now: NOW });
+    const first = saveRule(db, { matchText: "שופרסל", setCategoryId: categoryId(db, "Groceries"), setExcluded: true }, 1);
+    const second = saveRule(db, { matchText: "שופרסל", setCategoryId: categoryId(db, "Shopping") }, 2);
+    return { first, second, deal: idOf(db, "שופרסל דיל"), mine: idOf(db, "שופרסל שלי") };
+  }
+
+  it("a rule skips its excepted rows for every action, and a lower rule still sets them", () => {
+    const db = newDb();
+    const { first, second, deal, mine } = twoRules(db);
+    addExceptions(db, first, [deal]);
+    applyRules(db, "all");
+    expect(ruleFields(db, deal)).toEqual({
+      category_id: categoryId(db, "Shopping"),
+      category_source: "rule",
+      excluded: 0,
+      excluded_source: null,
+      rule_id: second,
+    });
+    // The other row is not excepted, so rule 1 still decides it.
+    expect(ruleFields(db, mine)).toMatchObject({ category_id: categoryId(db, "Groceries"), excluded: 1, rule_id: first });
+  });
+
+  it("an exception of a lower rule does not stop a higher rule", () => {
+    const db = newDb();
+    const { first, second, deal } = twoRules(db);
+    addExceptions(db, second, [deal]);
+    applyRules(db, "all");
+    expect(ruleFields(db, deal)).toMatchObject({ category_id: categoryId(db, "Groceries"), rule_id: first });
+  });
+
+  it("survives editing the rule's conditions and reordering", () => {
+    const db = newDb();
+    const { first, second, deal, mine } = twoRules(db);
+    addExceptions(db, first, [deal]);
+    updateRule(db, first, ruleInput({ matchText: "שופרסל ד", setCategoryId: categoryId(db, "Home") }));
+    expect(ruleFields(db, deal)).toMatchObject({ category_id: categoryId(db, "Shopping"), rule_id: second });
+    updateRule(db, first, ruleInput({ matchText: "שופרסל", setCategoryId: categoryId(db, "Home") }));
+    reorderRules(db, [second, first]);
+    reorderRules(db, [first, second]);
+    expect(ruleFields(db, deal)).toMatchObject({ category_id: categoryId(db, "Shopping"), rule_id: second });
+    expect(ruleFields(db, mine)).toMatchObject({ category_id: categoryId(db, "Home"), rule_id: first });
+  });
+
+  it("reads every exception in one query per run, also with thousands of them", () => {
+    const db = newDb();
+    const day = (i: number) => new Date(Date.UTC(2020, 0, 1 + i)).toISOString().slice(0, 10);
+    ingest(db, [bank(Array.from({ length: 3000 }, (_, i) => out(day(i), -(100 + i), `קפה ${i}`)))], { now: NOW });
+    const coffee = saveRule(db, { matchText: "קפה", setCategoryId: categoryId(db, "Coffee & Cafes") }, 1);
+    const ids = (db.prepare("SELECT id FROM transactions ORDER BY id").all() as { id: number }[]).map((r) => r.id);
+    addExceptions(db, coffee, ids.slice(0, 2999));
+
+    const prepare = vi.spyOn(db, "prepare");
+    applyRules(db, "all");
+    const reads = prepare.mock.calls.filter(([sql]) => sql.includes("rule_exceptions"));
+    prepare.mockRestore();
+    expect(reads).toHaveLength(1);
+    const sorted = db.prepare("SELECT COUNT(*) AS n FROM transactions WHERE rule_id = ?").get(coffee) as { n: number };
+    expect(sorted.n).toBe(1);
   });
 });

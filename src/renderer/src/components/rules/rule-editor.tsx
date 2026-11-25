@@ -1,7 +1,8 @@
 // The rule editor dialog: name, the "If" conditions (all or any), what to
-// do, the rows sorted by hand it will take over on save (F45), and an
-// Advanced corner, with a live preview beside it that asks the app what the
-// rule fits today. Saving creates or updates and says how many it sorted.
+// do, and an Advanced corner, with a live preview beside it that lists the
+// rows the rule fits today, each with a tick box (spec 35): unticked rows
+// become the rule's exceptions, ticked rows sorted by hand move to the
+// rule's category (F45). Saving creates or updates and says how many it sorted.
 
 import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
@@ -19,10 +20,11 @@ import { Input } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CategoryField, OptionRow, Problem, Section } from "./rule-fields";
-import { HandSetList, handSetIds } from "./hand-set";
 import { RuleConditions } from "./rule-conditions";
 import { RulePreview } from "./rule-preview";
 import { RuleSentence, useSentenceContext } from "./rule-sentence";
+import { tickArgs, tickedIds, toggleAll, toggleOne, type TickChoices, type TickRows } from "./rule-ticks";
+import { useUntickShot } from "./tick-shot";
 
 export interface EditorRequest {
   /** An existing rule to edit. */
@@ -70,14 +72,27 @@ export function RuleEditor({
   const regex = form.conditions.some((c) => c.kind === "text" && c.mode === "regex");
   // Rows sorted by hand that the rule would take over, for the category chosen now.
   const fresh = previewInput !== null && previewInput.setCategoryId === form.setCategoryId && form.setCategoryId !== null;
-  const handSet = fresh && form.enabled ? (preview.data?.handSet ?? []) : [];
+
+  // spec 35: the rows listed, the rule's exceptions among them, and the user's clicks.
+  const [choices, setChoices] = useState<TickChoices>(() => new Map());
+  const listed = previewInput !== null && !broken ? preview.data : undefined;
+  const handOver = fresh && form.enabled;
+  const tickRows = useMemo(
+    (): TickRows => ({
+      shown: listed?.sample.map((row) => row.id) ?? [],
+      exceptions: listed?.exceptions ?? [],
+      handSet: handOver ? (listed?.handSet.map((row) => row.id) ?? []) : [],
+    }),
+    [listed, handOver],
+  );
+  const ticked = useMemo(() => tickedIds(tickRows, choices), [tickRows, choices]);
+  useUntickShot(tickRows.shown, (ids) => setChoices(new Map(ids.map((id) => [id, false]))));
 
   const save = () => {
     setTried(true);
     if (!check.rule) return;
-    // F45: the listed hand-set rows always go to the rule on save.
     actions
-      .save(editing?.id ?? null, check.rule, handSetIds(handSet))
+      .save(editing?.id ?? null, check.rule, tickArgs(tickRows, choices))
       .then(() => onOpenChange(false))
       .catch(() => undefined);
   };
@@ -143,8 +158,6 @@ export function RuleEditor({
               {tried && check.problems.action && <Problem>{check.problems.action}</Problem>}
             </Section>
 
-            <HandSetList rows={handSet} index={index} />
-
             <section>
               <button
                 type="button"
@@ -177,6 +190,12 @@ export function RuleEditor({
               loading={preview.isFetching || JSON.stringify(check.preview) !== previewKey}
               broken={broken}
               index={index}
+              ticks={{
+                ticked,
+                movesHandSet: tickRows.handSet.filter((id) => ticked.has(id)).length,
+                onToggle: (id) => setChoices(toggleOne(choices, id, ticked)),
+                onToggleAll: () => setChoices(toggleAll(choices, tickRows.shown, ticked)),
+              }}
             >
               <RuleSentence rule={check.draft} context={context} />
             </RulePreview>

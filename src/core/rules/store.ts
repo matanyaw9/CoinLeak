@@ -1,6 +1,6 @@
-// Reading and writing the `rules` and `rule_conditions` tables, and their
-// mapping to the shared `Rule`. No checks and no reapplying here:
-// `queries.ts` does both.
+// Reading and writing the `rules`, `rule_conditions` and (spec 35)
+// `rule_exceptions` tables, and their mapping to the shared `Rule`. No
+// checks and no reapplying here: `queries.ts` does both.
 
 import type {
   Rule,
@@ -152,4 +152,48 @@ function toRule(r: RuleRow, conditions: RuleCondition[]): Rule {
     setCategoryId: r.set_category_id,
     setExcluded: r.set_excluded === null ? null : r.set_excluded === 1,
   };
+}
+
+// ---- Exceptions (spec 35): rows a rule never matches ----
+
+/** Per rule id, the rows it must skip. One query, for a whole run. */
+export function loadExceptions(db: Db): Map<number, Set<number>> {
+  const rows = db.prepare("SELECT rule_id, transaction_id FROM rule_exceptions").all() as unknown as {
+    rule_id: number;
+    transaction_id: number;
+  }[];
+  const out = new Map<number, Set<number>>();
+  for (const r of rows) {
+    const set = out.get(r.rule_id) ?? new Set<number>();
+    set.add(r.transaction_id);
+    out.set(r.rule_id, set);
+  }
+  return out;
+}
+
+/** The rule's exceptions among `ids`. */
+export function exceptionsAmong(db: Db, ruleId: number, ids: number[]): number[] {
+  const rows = db
+    .prepare(
+      `SELECT transaction_id FROM rule_exceptions WHERE rule_id = ? AND transaction_id IN (SELECT value FROM json_each(?))
+       ORDER BY transaction_id`,
+    )
+    .all(ruleId, JSON.stringify(ids)) as unknown as { transaction_id: number }[];
+  return rows.map((r) => r.transaction_id);
+}
+
+/** Adds exceptions for the rows among `ids` that exist and are not in Trash; the rest are ignored. */
+export function addExceptions(db: Db, ruleId: number, ids: number[]): void {
+  db.prepare(
+    `INSERT OR IGNORE INTO rule_exceptions (rule_id, transaction_id)
+     SELECT ?, id FROM transactions WHERE trashed_at IS NULL AND id IN (SELECT value FROM json_each(?))`,
+  ).run(ruleId, JSON.stringify(ids));
+}
+
+/** Ends the exceptions for the rows among `ids` that are not in Trash. */
+export function removeExceptions(db: Db, ruleId: number, ids: number[]): void {
+  db.prepare(
+    `DELETE FROM rule_exceptions WHERE rule_id = ? AND transaction_id IN (
+       SELECT id FROM transactions WHERE trashed_at IS NULL AND id IN (SELECT value FROM json_each(?)))`,
+  ).run(ruleId, JSON.stringify(ids));
 }

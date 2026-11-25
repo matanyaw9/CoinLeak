@@ -131,8 +131,14 @@ export interface IpcContract {
    * Creates (`id` null) or updates a rule and reapplies all rules. `alsoChange`
    * names rows the user sorted by hand (from the preview's `handSet`) that this
    * rule may take over once; any other row the user set stays as it is.
+   * spec 35: `unticked` names rows the editor showed unticked, which become
+   * the rule's exceptions (a row it sorted keeps that, as the user's), and
+   * `ticked` names rows it showed ticked, whose exceptions end.
    */
-  "rules:save": { args: { id: number | null; rule: RuleInput; alsoChange?: number[] }; result: RuleSaved };
+  "rules:save": {
+    args: { id: number | null; rule: RuleInput; alsoChange?: number[]; unticked?: number[]; ticked?: number[] };
+    result: RuleSaved;
+  };
   /** Reapplies every rule to every row now. */
   "rules:apply": { args: undefined; result: RulesApplied };
   /** Per category, the names in its list rules, in category id order. Only categories that have some. */

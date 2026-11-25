@@ -315,7 +315,7 @@ export type RulePreviewArgs = RuleInput & {
 export interface RulePreview {
   /** Rows whose text, account, amount and direction match today. */
   matches: number;
-  /** Up to 20 of them, newest first. */
+  /** Up to 500 of them, newest first: the rows the editor lists with tick boxes (spec 35). */
   sample: TransactionRow[];
   /**
    * Matching rows the user sorted by hand into a category other than the
@@ -325,6 +325,13 @@ export interface RulePreview {
   handSet: TransactionRow[];
   /** spec 21: matching rows where a higher rule decides what this rule would set. */
   decidedHigher?: number;
+  /** spec 35: matching rows past the 500 listed in `sample`. */
+  more: number;
+  /**
+   * spec 35: ids of the rows in `sample` that are exceptions of the rule
+   * being edited (`ruleId`): it never matches them. Empty for a new rule.
+   */
+  exceptions: number[];
 }
 
 // ---- Rules v2 (spec 13) ----

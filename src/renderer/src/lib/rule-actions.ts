@@ -6,6 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Category, Rule, RuleInput } from "@shared/types";
+import type { Args } from "@shared/ipc";
 import { s } from "@/strings";
 import { showFailure } from "@/lib/failure";
 import { call } from "./api";
@@ -14,6 +15,9 @@ import { restoreRule, toInput } from "./rules";
 
 const failed = (e: unknown) => showFailure(e, s.errors.failed.rules);
 const LIST = queryKey("rules:list");
+
+/** The rule editor's tick boxes, as `rules:save` takes them (spec 35). */
+export type SaveTicks = Pick<Args<"rules:save">, "alsoChange" | "unticked" | "ticked">;
 
 export function useRuleActions() {
   const client = useQueryClient();
@@ -28,8 +32,8 @@ export function useRuleActions() {
   };
 
   const save = useMutation({
-    mutationFn: (args: { id: number | null; rule: RuleInput; alsoChange: number[] }) =>
-      call("rules:save", args.alsoChange.length > 0 ? args : { id: args.id, rule: args.rule }),
+    mutationFn: (args: { id: number | null; rule: RuleInput; ticks: SaveTicks }) =>
+      call("rules:save", { id: args.id, rule: args.rule, ...args.ticks }),
     onSuccess: ({ rule, applied }) => toast.success(s.rulesV2.saved(rule.name), { description: s.rulesV2.applied(applied) }),
     onError: failed,
     onSettled: refresh,
@@ -98,10 +102,11 @@ export function useRuleActions() {
 
   return {
     /**
-     * Creates when `id` is null. `alsoChange` names hand-sorted rows the rule
-     * may take over once. Resolves with what the save did, rejects on error.
+     * Creates when `id` is null. `ticks` says which listed rows the user left
+     * ticked or unticked, and which hand-sorted rows the rule may take over
+     * once (spec 35). Resolves with what the save did, rejects on error.
      */
-    save: (id: number | null, rule: RuleInput, alsoChange: number[] = []) => save.mutateAsync({ id, rule, alsoChange }),
+    save: (id: number | null, rule: RuleInput, ticks: SaveTicks = {}) => save.mutateAsync({ id, rule, ticks }),
     saving: save.isPending,
     applyNow: () => apply.mutate(),
     applying: apply.isPending,

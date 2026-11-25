@@ -8,6 +8,7 @@ import { updateTransactions } from "../ledger/queries";
 import { NOW, bank, categoryId, idOf, newDb, txn } from "../testing/ledger";
 import { ruleInput } from "../testing/rules";
 import { createRule, listRules, previewRule, reorderRules, updateRule } from "./queries";
+import { addExceptions } from "./store";
 
 function ledger(): Db {
   const db = newDb();
@@ -118,5 +119,28 @@ describe("the editor preview", () => {
   it("refuses a ruleId that is not an id", () => {
     const db = ledger();
     expect(() => previewRule(db, { ...ruleInput({ matchText: "x" }), ruleId: "1" })).toThrow("BAD_REQUEST");
+  });
+});
+
+describe("exceptions (spec 35)", () => {
+  it("a rule's exceptions count as neither its wins nor its overlaps, in the list and the preview", () => {
+    const db = ledger();
+    const cafes = categoryId(db, "Coffee & Cafes");
+    const food = categoryId(db, "Restaurants");
+    const broad = createRule(db, ruleInput({ matchText: "קפה", setCategoryId: cafes }), NOW);
+    const narrow = createRule(db, ruleInput({ matchText: "קפה הפינה", setCategoryId: food }), NOW);
+    const corner = idOf(db, "קפה הפינה");
+    const telAviv = idOf(db, "קפה הפינה תל אביב");
+    expect(overlapsOf(db, "קפה הפינה")).toEqual([{ action: "category", count: 2, winnerId: broad.id }]);
+
+    // The higher rule skips one row, so the lower rule decides it.
+    addExceptions(db, broad.id, [corner]);
+    expect(overlapsOf(db, "קפה הפינה")).toEqual([{ action: "category", count: 1, winnerId: broad.id }]);
+    const draft = { ...ruleInput({ matchText: "קפה הפינה", setCategoryId: food }), ruleId: narrow.id };
+    expect(previewRule(db, draft).decidedHigher).toBe(1);
+
+    // The lower rule skips the other row, so it no longer fits it either.
+    addExceptions(db, narrow.id, [telAviv]);
+    expect(overlapsOf(db, "קפה הפינה")).toBeUndefined();
   });
 });

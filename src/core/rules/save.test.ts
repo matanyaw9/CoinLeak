@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { Db } from "../db";
 import { ingest } from "../ledger/ingest";
-import { updateTransactions } from "../ledger/queries";
+import { trashTransactions, updateTransactions } from "../ledger/queries";
 import { NOW, bank, categoryId, idOf, newDb, snapshot, txn } from "../testing/ledger";
 import { multiRule, ruleFields, ruleInput } from "../testing/rules";
 import { applyAllRules, createRule, deleteRule, previewRule, saveRule, updateRule } from "./queries";
@@ -136,5 +136,148 @@ describe("applyAllRules (Apply now)", () => {
     );
     expect(applyAllRules(db)).toEqual({ changed: 1, sorted: 1 });
     expect(ruleFields(db, id)).toMatchObject({ category_id: categoryId(db, "Restaurants"), category_source: "rule" });
+  });
+});
+
+describe("ticks in the editor (spec 35)", () => {
+  const exceptions = (db: Db) =>
+    db.prepare("SELECT rule_id, transaction_id FROM rule_exceptions ORDER BY rule_id, transaction_id").all();
+  const coffee = (db: Db) => categoryId(db, "Coffee & Cafes");
+  const restaurants = (db: Db) => categoryId(db, "Restaurants");
+
+  /** The cafe rule saved, then saved again with Aroma Haifa unticked. */
+  function untickedAroma() {
+    const db = cafes();
+    const id = saveRule(db, { id: null, rule: cafeRule(db) }).rule.id;
+    const aroma = idOf(db, "Aroma Haifa");
+    const others = [idOf(db, "ארומה תל אביב"), idOf(db, "קופיקס רמת גן")];
+    saveRule(db, { id, rule: cafeRule(db), unticked: [aroma], ticked: others });
+    return { db, id, aroma, others };
+  }
+
+  it("unticking a row the rule set keeps its category as the user's, also after later edits", () => {
+    const { db, id, aroma, others } = untickedAroma();
+    expect(ruleFields(db, aroma)).toEqual({
+      category_id: coffee(db),
+      category_source: "user",
+      excluded: 0,
+      excluded_source: null,
+      rule_id: null,
+    });
+    expect(exceptions(db)).toEqual([{ rule_id: id, transaction_id: aroma }]);
+
+    saveRule(db, { id, rule: { ...cafeRule(db), setCategoryId: restaurants(db) } });
+    expect(ruleFields(db, aroma)).toMatchObject({ category_id: coffee(db), category_source: "user" });
+    for (const other of others) {
+      expect(ruleFields(db, other)).toMatchObject({ category_id: restaurants(db), category_source: "rule", rule_id: id });
+    }
+  });
+
+  it("ticking it back ends the exception and the rule applies again", () => {
+    const { db, id, aroma } = untickedAroma();
+    saveRule(db, { id, rule: cafeRule(db), ticked: [aroma] });
+    expect(exceptions(db)).toEqual([]);
+    expect(ruleFields(db, aroma)).toMatchObject({ category_id: coffee(db), category_source: "rule", rule_id: id });
+    saveRule(db, { id, rule: { ...cafeRule(db), setCategoryId: restaurants(db) } });
+    expect(ruleFields(db, aroma)).toMatchObject({ category_id: restaurants(db), category_source: "rule" });
+  });
+
+  it("a row kept in another category comes back when ticked, as a hand-set row does (F45)", () => {
+    const { db, id, aroma } = untickedAroma();
+    const toRestaurants = { ...cafeRule(db), setCategoryId: restaurants(db) };
+    saveRule(db, { id, rule: toRestaurants });
+    expect(previewRule(db, toRestaurants).handSet.map((t) => t.id)).toContain(aroma);
+    saveRule(db, { id, rule: toRestaurants, ticked: [aroma], alsoChange: [aroma] });
+    expect(ruleFields(db, aroma)).toMatchObject({ category_id: restaurants(db), category_source: "rule", rule_id: id });
+  });
+
+  it("a row the rule had ignored stays ignored, as the user's", () => {
+    const db = cafes();
+    const hide = { ...cafeRule(db), setCategoryId: null, setExcluded: true };
+    const id = saveRule(db, { id: null, rule: hide }).rule.id;
+    const aroma = idOf(db, "Aroma Haifa");
+    saveRule(db, { id, rule: hide, unticked: [aroma] });
+    expect(ruleFields(db, aroma)).toEqual({
+      category_id: null,
+      category_source: null,
+      excluded: 1,
+      excluded_source: "user",
+      rule_id: null,
+    });
+    saveRule(db, { id, rule: { ...hide, setExcluded: false } });
+    expect(ruleFields(db, aroma)).toMatchObject({ excluded: 1, excluded_source: "user" });
+  });
+
+  it("a new rule leaves unticked rows as they are, and a lower rule still sorts them", () => {
+    const db = cafes();
+    const cofix = idOf(db, "קופיקס רמת גן");
+    const id = saveRule(db, { id: null, rule: cafeRule(db), unticked: [cofix] }).rule.id;
+    expect(ruleFields(db, cofix)).toMatchObject({ category_id: null, category_source: null, rule_id: null });
+    const shopping = createRule(db, ruleInput({ matchText: "קופיקס", setCategoryId: categoryId(db, "Shopping") }));
+    expect(shopping.position).toBeGreaterThan(1);
+    expect(ruleFields(db, cofix)).toMatchObject({ category_id: categoryId(db, "Shopping"), rule_id: shopping.id });
+    expect(exceptions(db)).toEqual([{ rule_id: id, transaction_id: cofix }]);
+  });
+
+  it("hand-set rows: ticked ones change with the rule, unticked ones keep their category", () => {
+    const ticked = cafes();
+    const landwer = idOf(ticked, "לנדוור");
+    saveRule(ticked, { id: null, rule: cafeRule(ticked), ticked: [landwer], alsoChange: [landwer] });
+    expect(ruleFields(ticked, landwer)).toMatchObject({ category_id: coffee(ticked), category_source: "rule" });
+
+    const unticked = cafes();
+    const id = saveRule(unticked, { id: null, rule: cafeRule(unticked), unticked: [landwer] }).rule.id;
+    expect(ruleFields(unticked, landwer)).toMatchObject({ category_id: restaurants(unticked), category_source: "user" });
+    // Naming an excepted row in `alsoChange` alone never hands it over.
+    saveRule(unticked, { id, rule: cafeRule(unticked), alsoChange: [landwer] });
+    expect(ruleFields(unticked, landwer)).toMatchObject({ category_id: restaurants(unticked), category_source: "user" });
+
+    // Unticked wins over the same id ticked or in `alsoChange`.
+    const both = cafes();
+    saveRule(both, { id: null, rule: cafeRule(both), unticked: [landwer], ticked: [landwer], alsoChange: [landwer] });
+    expect(ruleFields(both, landwer)).toMatchObject({ category_id: restaurants(both), category_source: "user" });
+    expect(exceptions(both)).toHaveLength(1);
+  });
+
+  it("keeps exceptions on rows no longer shown, so widening the rule again never brings them back", () => {
+    const { db, id, aroma, others } = untickedAroma();
+    const hebrewOnly = multiRule(
+      "all",
+      [{ kind: "text", field: "description", mode: "contains", values: ["ארומה", "קופיקס"] }],
+      coffee(db),
+      "Cafes",
+    );
+    saveRule(db, { id, rule: hebrewOnly, ticked: others });
+    saveRule(db, { id, rule: cafeRule(db), ticked: [...others, idOf(db, "Landwer TLV")] });
+    expect(exceptions(db)).toEqual([{ rule_id: id, transaction_id: aroma }]);
+    expect(ruleFields(db, aroma)).toMatchObject({ category_id: coffee(db), category_source: "user" });
+  });
+
+  it("ignores unknown and trashed ids, and refuses ids that are not positive integers", () => {
+    const { db, id, aroma, others } = untickedAroma();
+    const [tlv] = others as [number];
+    trashTransactions(db, [aroma, tlv]);
+    const trashed = ruleFields(db, tlv);
+    saveRule(db, { id, rule: cafeRule(db), unticked: [tlv, 99999], ticked: [aroma, 88888], alsoChange: [77777] });
+    // The trashed row keeps its exception and gets none new; nothing else changes on it.
+    expect(exceptions(db)).toEqual([{ rule_id: id, transaction_id: aroma }]);
+    expect(ruleFields(db, tlv)).toEqual(trashed);
+
+    const rows = snapshot(db);
+    for (const bad of [["x"], [0], [-3], [1.5], "1"]) {
+      expect(() => saveRule(db, { id, rule: cafeRule(db), unticked: bad })).toThrow("BAD_REQUEST");
+      expect(() => saveRule(db, { id, rule: cafeRule(db), ticked: bad })).toThrow("BAD_REQUEST");
+    }
+    expect(snapshot(db)).toEqual(rows);
+    expect(exceptions(db)).toEqual([{ rule_id: id, transaction_id: aroma }]);
+  });
+
+  it("the preview marks the shown rows the rule skips, and deleting the rule forgets them", () => {
+    const { db, id, aroma } = untickedAroma();
+    expect(previewRule(db, { ...cafeRule(db), ruleId: id }).exceptions).toEqual([aroma]);
+    expect(previewRule(db, cafeRule(db)).exceptions).toEqual([]);
+    deleteRule(db, id);
+    expect(exceptions(db)).toEqual([]);
+    expect(ruleFields(db, aroma)).toMatchObject({ category_id: coffee(db), category_source: "user" });
   });
 });

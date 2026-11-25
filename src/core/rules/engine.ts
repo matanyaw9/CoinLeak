@@ -3,13 +3,14 @@
 // user set is never touched; a field a rule set earlier is recomputed, and
 // cleared when no rule matches any more, so editing a rule fixes old rows.
 // Trashed rows are left alone until the user restores them.
+// A rule never matches the rows in its exceptions (spec 35); other rules do.
 
 import type { CategorySource, Rule } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { applyCardBills } from "../ledger/card-bills";
 import { assertIds, check, isId } from "../ledger/validate";
 import { compileMatcher, prepareRow, type Matcher } from "./match";
-import { loadRules } from "./store";
+import { loadExceptions, loadRules } from "./store";
 
 /** Rows from one sync run, chosen rows, or every row. */
 export type RuleScope = "all" | { runId: number } | { ids: number[] };
@@ -35,6 +36,8 @@ export type RuleLike = Pick<Rule, "id" | "enabled" | "join" | "conditions" | "se
 export interface CompiledRule {
   id: number;
   matches: Matcher;
+  /** Row ids this rule never matches: its exceptions (spec 35). */
+  skips: ReadonlySet<number>;
   setCategoryId: number | null;
   setExcluded: Bit | null;
 }
@@ -78,7 +81,7 @@ export function applyRulesInTransaction(db: Db, scope: RuleScope, now = new Date
 /** Applies the rules and also counts what each rule sorts now. Inside a transaction. */
 export function runRules(db: Db, scope: RuleScope, now = new Date()): RuleRunDetail {
   assertScope(scope);
-  const rules = compileRules(loadRules(db));
+  const rules = compileRules(loadRules(db), loadExceptions(db));
   const update = db.prepare(
     `UPDATE transactions SET category_id = ?, category_source = ?, excluded = ?, excluded_source = ?, rule_id = ?,
        updated_at = ? WHERE id = ?`,
@@ -106,10 +109,11 @@ export function runRules(db: Db, scope: RuleScope, now = new Date()): RuleRunDet
 /**
  * Without writing anything: per rule id, the rows whose category that rule
  * would set if `rules` were the rules, in this order. For offers such as the
- * starter lists, whose rules are not saved yet.
+ * starter lists, whose rules are not saved yet (their stand-in ids are below
+ * zero, so they have no exceptions; saved rules keep theirs).
  */
 export function wouldCategorize(db: Db, rules: RuleLike[]): Map<number, StoredRow[]> {
-  const compiled = compileRules(rules);
+  const compiled = compileRules(rules, loadExceptions(db));
   const out = new Map<number, StoredRow[]>();
   for (const row of loadRows(db, "all")) {
     const { next, categoryRule } = decide(row, compiled);
@@ -119,12 +123,14 @@ export function wouldCategorize(db: Db, rules: RuleLike[]): Map<number, StoredRo
   return out;
 }
 
-export function compileRules(rules: RuleLike[]): CompiledRule[] {
+/** `exceptions` maps a rule id to the rows it skips (from `loadExceptions`); none when left out. */
+export function compileRules(rules: RuleLike[], exceptions = new Map<number, Set<number>>()): CompiledRule[] {
   return rules
     .filter((r) => r.enabled)
     .map((r) => ({
       id: r.id,
       matches: compileMatcher(r),
+      skips: exceptions.get(r.id) ?? new Set<number>(),
       setCategoryId: r.setCategoryId,
       setExcluded: r.setExcluded === null ? null : r.setExcluded ? 1 : 0,
     }));
@@ -135,6 +141,21 @@ export function userSet(row: StoredRow): { category: boolean; excluded: boolean 
   // An exclusion with no source predates rules, so it is the user's.
   const excluded = row.excluded_source === "user" || (row.excluded === 1 && row.excluded_source === null);
   return { category: row.category_source === "user", excluded };
+}
+
+/**
+ * Among rows `ids` (Trash left out): those whose category, and those whose
+ * exclusion, rule `ruleId` decides under the rules as saved now. Reads only.
+ */
+export function decidedBy(db: Db, ruleId: number, ids: number[]): { category: number[]; excluded: number[] } {
+  const rules = compileRules(loadRules(db), loadExceptions(db));
+  const out = { category: [] as number[], excluded: [] as number[] };
+  for (const row of loadRows(db, { ids })) {
+    const { categoryRule, excludedRule } = decide(row, rules);
+    if (categoryRule === ruleId) out.category.push(row.id);
+    if (excludedRule === ruleId) out.excluded.push(row.id);
+  }
+  return out;
 }
 
 function decide(row: StoredRow, rules: CompiledRule[]): Decision {
@@ -149,7 +170,7 @@ function decide(row: StoredRow, rules: CompiledRule[]): Decision {
   for (const rule of rules) {
     const wantsCategory = !userCategory && !categoryRule && rule.setCategoryId !== null;
     const wantsExcluded = !userExcluded && !excludedRule && rule.setExcluded !== null;
-    if (!(wantsCategory || wantsExcluded) || !rule.matches(facts)) continue;
+    if (!(wantsCategory || wantsExcluded) || rule.skips.has(row.id) || !rule.matches(facts)) continue;
     if (wantsCategory) categoryRule = rule;
     if (wantsExcluded) excludedRule = rule;
   }
