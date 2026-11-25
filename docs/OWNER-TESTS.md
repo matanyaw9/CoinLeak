@@ -322,3 +322,50 @@ merged app: `.claude/shots/wave14/`.
     dialog on Categories, the parent list in the category editor, the
     "Move them to" list when deleting a category, and the category list
     on Home's "Spending by category through the month" card.
+
+## 11. Wave 15 (specs 37, 38, 39)
+
+Restart `npm run dev` first. Try each item on the Demo profile first, then
+on your own. Screenshots of the merged app: `.claude/shots/wave15/`.
+
+1. **Budgets page (F73).** Sidebar: Budgets (or press `U`). Set the
+   monthly total; next to it "Average income, <months>: ₪X" and "Use this"
+   fills the box. The bar says "N% set · ₪X left to split". Each category
+   shows "Usually ₪X", what it spent this month, and its budget box with
+   "≈ ₪X a week". Up and Down move between boxes, Enter saves, Esc puts the
+   saved amount back.
+2. **Children never add up to more than the parent.** Give a parent a
+   budget, then give a child more than the parent has left: the line asks
+   "Raise <parent> to ₪X too?". Raise both raises the parent (and the total
+   if needed); Cancel keeps the old amount. Try to lower a parent below
+   its children: refused, saying what they add up to. Try to lower the
+   total below what the categories add up to: refused the same way.
+3. **Budgets elsewhere.** Categories shows "Budget ₪X" or "No budget" as a
+   link: it opens the Budgets page at that line. Home's Budgets card has
+   "Plan budgets".
+4. **Month by month bars click through (F78).** Click a group: it opens
+   one level down. Click a bar of a category with subcategories: one more
+   level. Click a bar of a category without subcategories: Transactions
+   for that month and category. Click a name in the legend: Transactions
+   for the whole 12 months, filtered to it (Home keeps that range until
+   you change it). Keyboard: Tab to the bars, Left and Right pick a month,
+   Enter opens it.
+5. **One category chooser (F79).** "Spending by category through the
+   month": the button says "Top 5". Open it, type to search (full paths),
+   tick three, Apply: one line, the three added up, against last month or
+   the average month. No limit. Esc or clicking outside drops the ticks.
+   The month by month card's button opens the same chooser.
+6. **Backup (F56).** Settings, Backup and export, Back up now: save to
+   Documents; the message names the file. The note says the file is not
+   encrypted.
+7. **Restore.** Restore from backup, pick that file: a new profile
+   "Restored <date>" opens with the same transactions, categories, rules,
+   notes and budgets, and says to sync once to log in on this computer.
+   Your other profile is untouched. Pick a file that is not a backup (any
+   PDF): "This is not a CoinLeak backup", and no new profile. The Welcome
+   screen (a new empty profile) has "Restore a backup" too.
+8. **CSV.** Export CSV and open it in Excel or LibreOffice: Hebrew reads
+   right, amounts are numbers, a description starting with `-` or `=`
+   shows as text.
+9. **Keyboard list.** Press `?`: Budgets (`U`) and a new "Home charts"
+   group are listed.
