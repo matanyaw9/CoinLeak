@@ -222,7 +222,7 @@ describe("on the Demo profile", () => {
       for (const line of plan.lines) {
         expect(line.spent).toBe(summary.spendingUnder.find((c) => c.categoryId === line.categoryId)?.amount ?? 0);
         const sum = past.find((c) => c.categoryId === line.categoryId)?.amount ?? 0;
-        expect(line.usual).toBe(Math.round(sum / 3));
+        expect(line.usual).toBe(Math.round(sum / 3 / 100) * 100);
       }
       expect(plan.lines.some((l) => l.spent > 0)).toBe(true);
     }
@@ -358,9 +358,9 @@ describe("budgetPlan", () => {
     // Lifestyle has no budget: Shopping would sit inside it.
     expect(planLine(db, "Lifestyle")).toMatchObject({ budget: null, inside: 100_000, room: 300_000 });
     // Food less its other budgeted children.
-    expect(planLine(db, "Groceries")).toMatchObject({ budget: 120_000, inside: 50_000, room: 170_000 });
+    expect(planLine(db, "Groceries")).toMatchObject({ budget: 120_000, weekly: 30_000, inside: 50_000, room: 170_000 });
     expect(planLine(db, "Restaurants")).toMatchObject({ budget: 30_000, room: 80_000 });
-    expect(planLine(db, "Coffee & Cafes")).toMatchObject({ budget: null, room: 50_000 });
+    expect(planLine(db, "Coffee & Cafes")).toMatchObject({ budget: null, weekly: null, room: 50_000 });
     // Groceries less nothing else.
     expect(planLine(db, "Weekly shop")).toMatchObject({ budget: 50_000, room: 120_000 });
   });
@@ -403,6 +403,18 @@ describe("budgetPlan", () => {
     expect(plan.averageSpending).toEqual({ from: "2026-01", to: "2026-01", count: 1, amount: 30_000 });
     expect(planLine(db, "Groceries", args)?.usual).toBe(30_000);
     expect(planLine(db, "Restaurants", args)?.usual).toBe(0);
+  });
+
+  it("rounds the averages and usual to whole shekels", () => {
+    const db = newDb();
+    ingest(db, [bank([txn({ date: "2026-01-05", amount: -1_051, description: "SYNTH ODD" }), txn({ date: "2026-01-06", amount: 2_049, description: "SYNTH ODD PAY" })])], { now: NOW });
+    updateTransactions(db, [idOf(db, "SYNTH ODD")], { categoryId: categoryId(db, "Shopping") });
+    updateTransactions(db, [idOf(db, "SYNTH ODD PAY")], { categoryId: categoryId(db, "Salary") });
+    const args = { month: "2026-02", today: "2026-02-15" };
+    const plan = budgetPlan(db, args);
+    expect(plan.averageSpending?.amount).toBe(1_100);
+    expect(plan.averageIncome?.amount).toBe(2_000);
+    expect(planLine(db, "Shopping", args)?.usual).toBe(1_100);
   });
 
   it("with no full month of history there are no averages and no usual", () => {

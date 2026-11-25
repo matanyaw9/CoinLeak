@@ -830,7 +830,9 @@ export interface BudgetPlanLine {
   /** 1 for a top-level category, up to 3 (spec 34). */
   depth: number;
   budget: Agorot | null;
-  /** Its average month, everything under it included, over `BudgetPlan.averageSpending`'s months. Null with none. */
+  /** `budget / 4`, rounded down to whole agorot (spec 27); null with no budget. */
+  weekly: Agorot | null;
+  /** Its average month in whole shekels, everything under it included, over `BudgetPlan.averageSpending`'s months. Null with none. */
   usual: Agorot | null;
   /** Spent in the chosen month, everything under it included. */
   spent: Agorot;
@@ -853,7 +855,7 @@ export interface BudgetPlan {
   split: Agorot;
   /** `total - split`, or null with no total. */
   left: Agorot | null;
-  /** Over the last full months before this month (at most 3); null with no history. */
+  /** Over the last full months before this month (at most 3), in whole shekels; null with no history. */
   averageIncome: BudgetAverage | null;
   averageSpending: BudgetAverage | null;
   lines: BudgetPlanLine[];

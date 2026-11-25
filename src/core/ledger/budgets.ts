@@ -265,6 +265,7 @@ export function budgetPlan(db: Db, args: { month: IsoMonth; today: IsoDate }): B
       categoryId: n.id,
       depth: n.depth,
       budget: n.budget,
+      weekly: n.budget === null ? null : weeklyBudget(n.budget),
       usual: past ? (past.usual.get(n.id) ?? 0) : null,
       spent: spent.get(n.id) ?? 0,
       inside: insideOf(tree, n.id),
@@ -274,8 +275,9 @@ export function budgetPlan(db: Db, args: { month: IsoMonth; today: IsoDate }): B
 }
 
 /**
- * The average month over `months` (oldest first): income, spending, and each
- * category's spending with everything under it. Null with no months.
+ * The average month over `months` (oldest first), in whole shekels: income,
+ * spending, and each category's spending with everything under it. Null with
+ * no months.
  */
 function pastMonths(
   db: Db,
@@ -286,7 +288,8 @@ function pastMonths(
   if (first === undefined || last === undefined) return null;
   const { from } = monthBounds(first);
   const { until } = monthBounds(last);
-  const perMonth = (amount: Agorot): Agorot => Math.round(amount / months.length);
+  // Whole shekels: an average is an estimate, and "Use this" puts it in a box as is.
+  const perMonth = (amount: Agorot): Agorot => Math.round(amount / months.length / 100) * 100;
   const average = (amount: Agorot): BudgetAverage => ({ from: first, to: last, count: months.length, amount: perMonth(amount) });
   const t = totals(db, from, until);
   return {
