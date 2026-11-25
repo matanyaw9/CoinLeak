@@ -9,8 +9,6 @@ Nothing open.
 
 ## From wave 14 (specs 34 and 36) and its merge
 
-- `components/categories/tree-choice.tsx` has its own small `arrowFocus`
-  (spec 34, built in parallel with spec 36): move it onto `lib/roving.ts`.
 - A budget can sit inside another budget's category (both count the same
   rows). The Demo avoids it; decide whether the window should warn.
 - A category's own rows open Transactions for the whole category: there
@@ -20,7 +18,7 @@ Nothing open.
   (OWNER-TESTS 10.8). The Menu key is caught on keydown; on Windows the
   native menu fires on keyup and might also open the right-click menu.
 - New screenshot hooks sit in product components (`emoji-grid.tsx`,
-  `trash-page.tsx`, `transactions-page.tsx`), as finding 6 of the
+  `trash-page.tsx`, `transactions-page.tsx`, `rules/tick-shot.ts`), as finding 6 of the
   2026-11-08 review describes; `demo-shot.ts` is a better home.
 - Lead, at merge: two bugs came only from specs 34 and 35 together and
   were fixed on `fix/picker-outside-router` (the rule editor crashed: a
@@ -38,8 +36,6 @@ Nothing open.
 - The editor lists at most 500 matching rows. Hand-set rows past the 500
   are not shown, so saving never moves them (user edits win); before spec
   35 every hand-set row was listed and moved.
-- The rule preview list has tick boxes reachable with Tab and Space; add
-  arrow keys with spec 36's helper (`lib/roving.ts`) once both are merged.
 
 ## From the wave 13 review (2026-11-25)
 

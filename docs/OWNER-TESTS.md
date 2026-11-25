@@ -283,8 +283,9 @@ merged app: `.claude/shots/wave14/`.
    are the lead's names. Rename any in the app, or tell the lead.
 6. **Rule tick boxes (F71).** Open a rule: every matching row has a tick
    box. Untick two, Save: they keep their category. Open the rule again:
-   still unticked. Tick one back, Save: the rule sorts it again. Tab and
-   Space reach and toggle the boxes.
+   still unticked. Tick one back, Save: it keeps its category and stays
+   yours (review fix: ticking back never hands your choice to the rule).
+   The list is one Tab stop: Up and Down move, Space ticks.
 7. **Rows you sorted by hand, in a rule.** Rows you sorted elsewhere show
    "Set by you" and are ticked: saving moves them to the rule's category
    (F45); untick to keep them. A row you sorted into a subcategory of the
@@ -311,3 +312,13 @@ merged app: `.claude/shots/wave14/`.
     offered. (b) Quick sync: if you ever "Add back" a card removed from
     syncing, the next Sync of that bank reaches back to that card's last
     sync, so nothing in between is missed.
+13. **Wave 14 review fixes** (`docs/reviews/2026-11-25-wave14-review.md`).
+    (a) Sort a row into Coffee by hand, make a rule that sets Coffee,
+    untick the row, Save; open the rule, tick it back, Save; delete the
+    rule: the row is still in Coffee. (b) In a Groceries rule, rows you
+    sorted into Weekly shop show "Already here" with no box, and rows a
+    higher rule decides show "Higher rule"; neither is counted in
+    "Changes N of M". (c) Arrow keys, one Tab stop per list: the Move
+    dialog on Categories, the parent list in the category editor, the
+    "Move them to" list when deleting a category, and the category list
+    on Home's "Spending by category through the month" card.

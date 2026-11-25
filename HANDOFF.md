@@ -21,7 +21,7 @@ Overnight: the wave 13 code review and its two bug fixes, then wave 14 (specs 34
 - Worktrees `.claude/worktrees/wave14-{categories,ruleticks,keys,shots}` still exist (all merged), kept in case a test sends work back. Remove with `git worktree remove --force <path>` and delete the `wave14/*` and `fix/picker-outside-router` branches after your tests.
 
 ## Evening run status (2026-11-25, from about 19:15)
-- **Wave 14 review fixes** (owner said go): `wave14-keys` (last lists onto useRoving, `arrowFocus` deleted) and `wave14-categories` (closed category picker does no work; stale backlog line dropped) are **merged** into `dev`. `wave14-ruleticks` (must fix: drop `giveBack`; rule editor list onto useRoving; `decidedHigher` skips own exceptions; "Already here" / "Higher rule" rows without a box) is in pane `w1:pT`, merge when its `.claude/shots/REPORT-fixes.md` is in. Each fix agent's report: `.claude/worktrees/wave14-<name>/.claude/shots/REPORT-fixes.md`.
+- **Wave 14 review fixes** (owner said go): all merged into `dev` (`00bcde4` keys, `42e17c4` categories, `59bc7c9` ruleticks), 1192 tests green. Owner test steps: OWNER-TESTS 10.6 and 10.13.
 - **Wave 15** (owner: "start wave 15 by the requirements"): specs 37 (Budgets page, F73), 38 (chart click-through and chooser, F78, F79), 39 (backup, restore as a new profile, CSV export, F56) committed (`f60d56e`). Three builders in herdr tab 2: `wave15-budgets` (`w1:pW`), `wave15-charts` (`w1:pX`), `wave15-backup` (`w1:pY`), worktrees `.claude/worktrees/wave15-*`, branches `wave15/*` from `dev` at `42e17c4`. Reports go to each worktree's `.claude/shots/REPORT.md`.
 - Release prep for the friend (0.1.0, F28, F57, pre-release) moves to after wave 15.
 - Sleep blocked by `coinleak-awake4` until Thu about 09:18.
