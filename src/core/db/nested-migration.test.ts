@@ -136,6 +136,75 @@ describe("migration 0015 (nested categories)", () => {
     expect(idOf(db, "Board games", "Entertainment")).toBe(own);
   });
 
+  it("adds the new defaults on a fresh database, in order, each with its own emoji and color", () => {
+    const db = openDatabase(":memory:");
+    const children = (name: string, parent: string) =>
+      db
+        .prepare("SELECT name, emoji, color, essential FROM categories WHERE parent_id = ? ORDER BY sort_order")
+        .all(idOf(db, name, parent)) as { name: string; emoji: string; color: string; essential: number | null }[];
+    const groceries = children("Groceries", "Groceries & Shop");
+    expect(groceries.map((c) => c.name)).toEqual(["Weekly shop", "Top-up", "Specialty food"]);
+    const transport = children("Transport", "Transportation");
+    expect(transport.map((c) => c.name)).toEqual(["Bus", "Train"]);
+    const top = db
+      .prepare("SELECT name, emoji, color, essential FROM categories WHERE parent_id = ? ORDER BY sort_order")
+      .all(idOf(db, "Transportation")) as { name: string; emoji: string; color: string; essential: number | null }[];
+    expect(top.map((c) => c.name)).toEqual([
+      "Transport",
+      "Travel",
+      "Fuel",
+      "Parking",
+      "Taxi & rides",
+      "Tolls",
+      "Car repairs",
+      "Car insurance",
+      "Car license & test",
+    ]);
+    for (const list of [groceries, transport, top]) {
+      expect(new Set(list.map((c) => c.emoji)).size, "emoji").toBe(list.length);
+      expect(new Set(list.map((c) => c.color)).size, "colors").toBe(list.length);
+    }
+    // No Routine / Treats tag on the new ones (spec 34, F72).
+    for (const c of [...groceries, ...transport, ...top.slice(4)]) expect(c.essential, c.name).toBeNull();
+  });
+
+  it("adds defaults only where the parent still looks default, skips names already there, and moves no row", () => {
+    const db = databaseBefore15();
+    // Groceries renamed, Tolls of the user's own (any case) under Transportation.
+    db.prepare("UPDATE categories SET name = 'Supermarket' WHERE id = ?").run(idOf(db, "Groceries", "Groceries & Shop"));
+    insert(db, idOf(db, "Transportation"), "TOLLS");
+    db.exec(`INSERT INTO accounts (provider, kind, account_number, created_at) VALUES ('discount', 'bank', '1', '')`);
+    db.prepare(
+      `INSERT INTO transactions (account_id, date, amount, description, status, category_id, category_source,
+         dedup_hash, dedup_seq, created_at, updated_at)
+       VALUES (1, '2026-03-01', -100, 'row', 'completed', ?, 'user', 'h', 0, 'c', 'u')`,
+    ).run(idOf(db, "Transport"));
+    const rows = all(db, "SELECT id, category_id FROM transactions");
+
+    migrate(db);
+
+    const under = (id: number) =>
+      (db.prepare("SELECT name FROM categories WHERE parent_id = ? ORDER BY sort_order").all(id) as { name: string }[]).map(
+        (r) => r.name,
+      );
+    expect(under(idOf(db, "Supermarket"))).toEqual([]);
+    expect(under(idOf(db, "Transport"))).toEqual(["Bus", "Train"]);
+    const transportation = under(idOf(db, "Transportation"));
+    expect(transportation.filter((n) => n.toLowerCase() === "tolls")).toEqual(["TOLLS"]);
+    expect(transportation.slice(-4)).toEqual(["Taxi & rides", "Car repairs", "Car insurance", "Car license & test"]);
+    expect(all(db, "SELECT id, category_id FROM transactions")).toEqual(rows);
+  });
+
+  it("gives a renamed or moved parent none of the defaults", () => {
+    const db = databaseBefore15();
+    db.prepare("UPDATE categories SET name = 'Getting around' WHERE id = ?").run(idOf(db, "Transportation"));
+    // Groceries back under another group: not where the default sits.
+    db.prepare("UPDATE categories SET parent_id = ? WHERE id = ?").run(idOf(db, "Eating out & Treats"), idOf(db, "Groceries"));
+    const before = all(db, "SELECT COUNT(*) AS n FROM categories");
+    migrate(db);
+    expect(all(db, "SELECT COUNT(*) AS n FROM categories")).toEqual(before);
+  });
+
   it("runs once: migrating again changes nothing", () => {
     const db = openDatabase(":memory:");
     const once = all(db, "SELECT * FROM categories ORDER BY id");

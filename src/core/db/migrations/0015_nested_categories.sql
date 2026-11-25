@@ -53,3 +53,42 @@ BEGIN
     + EXISTS (SELECT 1 FROM categories c JOIN categories gc ON gc.parent_id = c.id WHERE c.parent_id = NEW.id)
     > 3;
 END;
+
+-- New defaults (spec 34, F70), for new and existing profiles. As in 0013,
+-- only categories that still have their default name and place get them: a
+-- parent the user renamed, moved or deleted gets none, and a name already
+-- there (any case) is skipped. Nothing is moved or renamed, no row changes
+-- category, and the Routine / Treats column is left empty (spec 34, F72).
+
+-- Level 3: inside Groceries & Shop › Groceries and Transportation › Transport.
+INSERT INTO categories (parent_id, name, kind, emoji, color, sort_order)
+SELECT p.id, c.name, 'expense', c.emoji, c.color,
+  (SELECT COALESCE(MAX(s.sort_order), 0) FROM categories s WHERE s.parent_id = p.id) + c.sort_order
+FROM (
+            SELECT 'Groceries & Shop' AS grandparent, 'Groceries' AS parent, 'Weekly shop' AS name, '🥦' AS emoji, '#74AC76' AS color, 1 AS sort_order
+  UNION ALL SELECT 'Groceries & Shop', 'Groceries', 'Top-up', '🥛', '#96C696', 2
+  UNION ALL SELECT 'Groceries & Shop', 'Groceries', 'Specialty food', '🧀', '#A9BE78', 3
+  UNION ALL SELECT 'Transportation', 'Transport', 'Bus', '🚍', '#5BA4CC', 1
+  UNION ALL SELECT 'Transportation', 'Transport', 'Train', '🚆', '#74BEDA', 2
+) AS c
+JOIN categories g ON g.name = c.grandparent COLLATE NOCASE AND g.parent_id IS NULL AND g.kind = 'expense'
+JOIN categories p ON p.name = c.parent COLLATE NOCASE AND p.parent_id = g.id AND p.kind = 'expense'
+WHERE NOT EXISTS (
+  SELECT 1 FROM categories x WHERE x.parent_id = p.id AND x.name = c.name COLLATE NOCASE
+);
+
+-- Level 2: inside Transportation, after Fuel and Parking.
+INSERT INTO categories (parent_id, name, kind, emoji, color, sort_order)
+SELECT p.id, c.name, 'expense', c.emoji, c.color,
+  (SELECT COALESCE(MAX(s.sort_order), 0) FROM categories s WHERE s.parent_id = p.id) + c.sort_order
+FROM (
+            SELECT 'Transportation' AS parent, 'Taxi & rides' AS name, '🚕' AS emoji, '#7A8FD4' AS color, 1 AS sort_order
+  UNION ALL SELECT 'Transportation', 'Tolls', '🛣️', '#6E86B8', 2
+  UNION ALL SELECT 'Transportation', 'Car repairs', '🔧', '#8A86C8', 3
+  UNION ALL SELECT 'Transportation', 'Car insurance', '☂️', '#7C9CC6', 4
+  UNION ALL SELECT 'Transportation', 'Car license & test', '📋', '#95A0CF', 5
+) AS c
+JOIN categories p ON p.name = c.parent COLLATE NOCASE AND p.parent_id IS NULL AND p.kind = 'expense'
+WHERE NOT EXISTS (
+  SELECT 1 FROM categories x WHERE x.parent_id = p.id AND x.name = c.name COLLATE NOCASE
+);
