@@ -236,7 +236,8 @@ export function RulesPage() {
  * Screenshot aid: `?shot=new`, `?shot=edit-Groceries` (by name) or `?shot=suggest` opens
  * the editor; `?shot=empty` deletes every demo rule to show the empty state.
  * Spec 13: `?shot=handset` opens a rule that would take over rows sorted by
- * hand, `?shot=starters` the starter lists. Spec 21: `?shot=find-<text>` searches,
+ * hand (spec 35: they show in the preview list, no scrolling needed),
+ * `?shot=starters` the starter lists. Spec 21: `?shot=find-<text>` searches,
  * `?shot=move` moves the last rule up one (a real reorder) to show its toast.
  */
 function useDemoShot(
@@ -277,10 +278,6 @@ function useDemoShot(
             },
           });
         });
-        setTimeout(() => {
-          const form = document.querySelector("[data-hand-set]")?.closest("form");
-          if (form) form.scrollTop = form.scrollHeight;
-        }, 1500);
       }
       if (shot === "suggest") {
         void call("transactions:list", { search: "שופרסל" }).then(async ({ rows }) => {
