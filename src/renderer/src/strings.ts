@@ -986,7 +986,6 @@ export const s = {
     percent: (p: number) => `${p}%`,
     empty: "Set a monthly budget on any category",
     open: (name: string) => `Open ${name}'s transactions for this period`,
-    field: "Budget",
     fieldLabel: (name: string) => `Monthly budget for ${name}`,
     fieldPlaceholder: "No budget",
     perMonth: "a month",

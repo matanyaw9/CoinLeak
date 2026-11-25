@@ -26,7 +26,7 @@ import { Card } from "@/components/common/card";
 import { KINDS, kindLabel } from "@/components/categories/category-actions";
 import { CategoryEditor, type EditorRequest } from "@/components/categories/category-editor";
 import { CategoryLine, GroupActions } from "@/components/categories/category-line";
-import { BudgetField } from "@/components/categories/budget-field";
+import { BudgetLink } from "@/components/categories/budget-field";
 import { DeleteDialog } from "@/components/categories/delete-dialog";
 import { MoveDialog, useMoveCategory } from "@/components/categories/move-dialog";
 import { useKnownPlaces } from "@/components/categories/known-places";
@@ -48,11 +48,9 @@ export function CategoriesPage() {
   const places = useKnownPlaces();
   const budgets = useBudgetStatus(month);
   const budgetOf = (id: number) => budgets.data?.lines.find((l) => l.categoryId === id);
-  // spec 27: spending categories get a budget field; it remounts when the saved amount changes.
+  // spec 37: spending categories show their budget as text, opening the Budgets page at that line.
   const budgetField = (c: Category) =>
-    c.kind === "expense" && budgets.data ? (
-      <BudgetField key={`${c.id}-${budgetOf(c.id)?.monthlyBudget ?? "none"}`} category={c} budget={budgetOf(c.id)} />
-    ) : undefined;
+    c.kind === "expense" && budgets.data ? <BudgetLink category={c} budget={budgetOf(c.id)?.monthlyBudget ?? null} /> : undefined;
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
   const all = useMemo(() => (categories.data ?? []).filter((c) => !c.archived), [categories.data]);
   const [dialog, setDialog] = useState<Open | null>(null);
