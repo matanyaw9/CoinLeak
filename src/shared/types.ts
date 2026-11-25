@@ -465,11 +465,9 @@ export interface CategoryPatch {
 /**
  * Why core refused a category change. Fixed codes; the window turns them
  * into friendly text. The three-level and same-kind rules are the database's.
- * `parent_not_top_level` is from the two-level days; core no longer sends it.
  */
 export type CategoryProblem =
   | "name_taken"
-  | "parent_not_top_level"
   | "parent_other_kind"
   | "has_children"
   | "in_use"

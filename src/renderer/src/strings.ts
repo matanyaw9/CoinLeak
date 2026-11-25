@@ -221,7 +221,6 @@ export const s = {
 
   categories: {
     title: "Categories",
-    intro: "Your categories, two levels deep. Amounts are for",
     spending: "Spending",
     income: "Income",
     noSpend: "Nothing yet",
@@ -539,7 +538,6 @@ export const s = {
     color: "Color",
     kind: "Kind",
     kinds: { expense: "Spending", income: "Income", transfer: "Savings & investments" } as Record<string, string>,
-    group: "Group",
     noGroup: "None (top level)",
     save: "Save",
     create: "Create",
@@ -558,7 +556,6 @@ export const s = {
     dropHere: "Drop here",
     dropTop: "Drop here to make it a group of its own",
     moveTitle: (name: string) => `Move ${name}`,
-    moveIntro: "Pick the group it belongs to. Its transactions and rules come along.",
     moveTop: "Top level, a group of its own",
     current: "Current",
     deleteTitle: (name: string) => `Delete ${name}?`,
@@ -570,7 +567,6 @@ export const s = {
     deleteAndMove: "Move and delete",
     problem: {
       name_taken: "That name is already used here. Pick another one.",
-      parent_not_top_level: "Categories go only two levels deep. Pick a group, not a category inside one.",
       parent_other_kind: "A group holds one kind only. Spending, income and savings categories cannot mix.",
       has_children: "This group still holds categories. Move them out first.",
       in_use: "Transactions or rules still use this category. Move them first.",
