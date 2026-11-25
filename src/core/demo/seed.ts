@@ -127,9 +127,12 @@ function addBudgets(db: Db, today: IsoDate): void {
   const { from, until } = monthBounds(today.slice(0, 7));
   // Rent and bills are fixed amounts, a poor show for a budget.
   const bills = categoryId(db, "Home & Bills");
+  // Level 2 only (spec 34): none sits inside another, so no budget holds a bigger one.
+  const all = listCategories(db);
+  const topLevel = new Set(all.filter((c) => c.parentId === null).map((c) => c.id));
   const subcategories = new Set(
-    listCategories(db)
-      .filter((c) => c.kind === "expense" && c.parentId !== null && c.parentId !== bills)
+    all
+      .filter((c) => c.kind === "expense" && c.parentId !== null && topLevel.has(c.parentId) && c.parentId !== bills)
       .map((c) => c.id),
   );
   // Budgets count everything under a category (spec 34), so pick by the same totals.

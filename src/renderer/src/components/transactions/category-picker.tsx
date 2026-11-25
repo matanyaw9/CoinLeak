@@ -9,6 +9,7 @@ import type { Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { pathOf, treeOf, type CategoryIndex } from "@/lib/categories";
+import { useShot } from "@/lib/shot";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const KIND_LABEL: Record<CategoryKind, () => string> = {
@@ -42,6 +43,20 @@ export function pickerItems(index: CategoryIndex, preferKind: CategoryKind, quer
 
 const INDENT = ["", "ps-2", "ps-7", "ps-12"];
 
+/** The picker that answers `?shot=pick-<text>`: the first one on the page. */
+let demoOwner: string | null = null;
+
+/**
+ * Screenshot aid (spec 34): `?shot=pick-<text>` opens the first picker on the
+ * page with `<text>` typed in its search. Null for every other picker.
+ */
+function useDemoQuery(id: string): string | null {
+  const shot = useShot();
+  if (!shot?.startsWith("pick-")) return null;
+  demoOwner ??= id;
+  return demoOwner === id ? shot.slice("pick-".length) : null;
+}
+
 export function CategoryPicker({
   index,
   value,
@@ -62,12 +77,13 @@ export function CategoryPicker({
   align?: "start" | "center" | "end";
   side?: "top" | "bottom";
 }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [active, setActive] = useState(-1);
+  const idBase = useId();
+  const demo = useDemoQuery(idBase);
+  const [open, setOpen] = useState(demo !== null);
+  const [query, setQuery] = useState(demo ?? "");
+  const [active, setActive] = useState(demo ? 0 : -1);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
-  const idBase = useId();
 
   // Focus after the popup is positioned, so the page does not jump.
   useEffect(() => {
@@ -119,7 +135,15 @@ export function CategoryPicker({
         )}
       >
         <span className="w-5 shrink-0 text-center leading-none">{c.emoji}</span>
-        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        {searching ? (
+          // The full path wraps rather than hiding the name; what is above it is muted.
+          <span className="min-w-0 flex-1 break-words">
+            <span className="text-muted-foreground">{item.label.slice(0, item.label.length - c.name.length)}</span>
+            <span className="whitespace-nowrap">{c.name}</span>
+          </span>
+        ) : (
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        )}
         {value === c.id && <Check className="size-3.5 text-primary" />}
       </button>
     );
@@ -135,7 +159,7 @@ export function CategoryPicker({
       }}
     >
       <PopoverTrigger className={triggerClassName}>{children}</PopoverTrigger>
-      <PopoverContent align={align} side={side} className="w-72 p-0">
+      <PopoverContent align={align} side={side} className="w-80 p-0">
         <div className="flex items-center gap-2 border-b border-border px-3.5 py-3">
           <Search className="size-4 shrink-0 text-muted-foreground" />
           <input

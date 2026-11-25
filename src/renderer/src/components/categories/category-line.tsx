@@ -101,10 +101,13 @@ export function CategoryLine({
           {stat && stat.amount !== 0 && <Money amount={stat.amount} className="text-[17px]" />}
         </Link>
         {budget}
-        {onAdd && (
+        {onAdd ? (
           <Button variant="ghost" size="icon-xs" className={actionClass} aria-label={s.nested.addIn(category.name)} onClick={onAdd}>
             <Plus />
           </Button>
+        ) : (
+          // Same width as Add, so amounts and budgets line up at every level.
+          <span className="size-7 shrink-0" aria-hidden />
         )}
         <Button variant="ghost" size="icon-xs" className={actionClass} aria-label={s.catEdit.move(category.name)} onClick={onMove}>
           <FolderInput />

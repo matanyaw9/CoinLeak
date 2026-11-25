@@ -2,7 +2,7 @@
 // scrolling when long. Works as a radio group: Tab lands on the chosen line,
 // the arrow keys move and choose, Home and End jump to the ends.
 
-import type { KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TreeEntry } from "@/lib/categories";
@@ -49,8 +49,18 @@ export function TreeChoice({
   // Tab lands on the chosen line, or on the first one when none is chosen.
   const tabStop = options.some((o) => o.id === value) ? value : options[0]?.id;
 
+  // On open, the list (only the list, never the dialog) scrolls the chosen line into its middle.
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const list = box.current;
+    const chosen = list?.querySelector<HTMLElement>("[aria-checked='true']");
+    if (list && chosen) list.scrollTop = chosen.offsetTop - (list.clientHeight - chosen.offsetHeight) / 2;
+    // Once, when the list appears: later choices are made where the user is looking.
+  }, []);
+
   return (
     <div
+      ref={box}
       role="radiogroup"
       aria-label={label}
       onKeyDown={(e) => {
@@ -58,7 +68,7 @@ export function TreeChoice({
         const id = next?.dataset["id"];
         if (id !== undefined) onChange(id === "" ? null : Number(id));
       }}
-      className="max-h-56 overflow-y-auto rounded-2xl border border-border p-1"
+      className="relative max-h-56 overflow-y-auto rounded-2xl border border-border p-1"
     >
       {options.map((o) => {
         const on = o.id === value;
