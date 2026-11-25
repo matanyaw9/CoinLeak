@@ -10,7 +10,7 @@ import { pageName } from "@/components/layout/app-sidebar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { KeyHint } from "./key-hint";
 
-const GROUPS: ShortcutGroup[] = ["anywhere", "lists", "rows", "transactions", "trash", "dialogs"];
+const GROUPS: ShortcutGroup[] = ["anywhere", "lists", "rows", "transactions", "trash", "dialogs", "charts"];
 
 function what(k: Shortcut, mac: boolean): string {
   if (k.to !== undefined) return s.keys.goTo(pageName(k.to));

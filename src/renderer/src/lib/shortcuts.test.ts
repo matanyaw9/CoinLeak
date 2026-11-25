@@ -135,7 +135,7 @@ describe("keys on rows", () => {
 
   it("lists every row key, with the same Delete for Trash", () => {
     const listed = SHORTCUTS.filter((k) => k.listed).map((k) => k.id);
-    expect(listed).toEqual(["listMove", "listJump", "listTab", "rowToggle", "rowExtend", "rowMenu", "deleteForGood"]);
+    expect(listed).toEqual(["listMove", "listJump", "listTab", "rowToggle", "rowExtend", "rowMenu", "deleteForGood", "chartMonth", "chooserTick", "chooserApply"]);
     expect(keyFor("deleteRows", false)).toBe("Delete");
     expect(keyFor("deleteForGood", true)).toBe("Delete");
     expect(keyFor("ignoreRows", false)).toBe("I");

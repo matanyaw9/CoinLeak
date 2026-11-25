@@ -31,10 +31,13 @@ export type ShortcutId =
   | "deleteForGood"
   | "dialogOk"
   | "dialogSubmit"
-  | "dialogCancel";
+  | "dialogCancel"
+  | "chartMonth"
+  | "chooserTick"
+  | "chooserApply";
 
 /** Where a key works. `rows`: the rows of Transactions and of Trash. */
-export type ShortcutGroup = "anywhere" | "lists" | "rows" | "transactions" | "trash" | "dialogs";
+export type ShortcutGroup = "anywhere" | "lists" | "rows" | "transactions" | "trash" | "dialogs" | "charts";
 
 export interface Shortcut {
   id: ShortcutId;
@@ -84,6 +87,10 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "dialogOk", group: "dialogs", key: "Enter" },
   { id: "dialogSubmit", group: "dialogs", key: "Enter", mod: true },
   { id: "dialogCancel", group: "dialogs", key: "Escape" },
+  // spec 38: the charts handle these keys themselves.
+  { id: "chartMonth", group: "charts", listed: true, label: "← →" },
+  { id: "chooserTick", group: "charts", listed: true, label: "Space" },
+  { id: "chooserApply", group: "charts", listed: true, label: "Enter" },
 ];
 
 export const PAGE_KEYS = SHORTCUTS.filter((k): k is Shortcut & { key: string; to: string } => k.to !== undefined && k.key !== undefined);

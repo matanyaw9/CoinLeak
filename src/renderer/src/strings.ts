@@ -1142,7 +1142,7 @@ export const s = {
 
   // spec 36
   listKeys: {
-    groups: { lists: "In lists", rows: "Transactions and Trash", trash: "Trash" } as Record<string, string>,
+    groups: { lists: "In lists", rows: "Transactions and Trash", trash: "Trash", charts: "Home charts" } as Record<string, string>,
     does: {
       listMove: "Move within a list or a grid",
       listJump: "First or last in the list",
@@ -1153,6 +1153,9 @@ export const s = {
       ignoreRows: "Ignore, or count again",
       rowMenu: "Open the row's menu",
       deleteForGood: "Delete for good (asks first)",
+      chartMonth: "Month by month: pick a month (Enter opens its transactions)",
+      chooserTick: "Category chooser: tick or untick",
+      chooserApply: "Category chooser: apply",
     } as Record<string, string>,
   },
   trashSelect: {
