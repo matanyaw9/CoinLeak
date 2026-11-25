@@ -1,11 +1,13 @@
 // Rule order made visible (spec 21): per rule, the rows it fits whose
 // category or exclusion a higher rule decides, since the first match wins
-// per action. Reads only; nothing is written.
+// per action. A rule's exceptions (spec 35) are rows it neither wins nor
+// fits. Reads only; nothing is written.
 
 import type { RuleInput, RuleOverlap } from "@shared/types";
 import type { Db } from "../db";
 import { compileRules, loadRows, userSet, type RuleLike } from "./engine";
 import { compileMatcher, prepareRow, type PreparedRow } from "./match";
+import { loadExceptions } from "./store";
 
 type Action = RuleOverlap["action"];
 
@@ -16,7 +18,7 @@ interface Tally {
 
 /** Per rule id, its overlaps in rule order: category first, then exclude. Only rules with any. */
 export function ruleOverlaps(db: Db, rules: RuleLike[]): Map<number, RuleOverlap[]> {
-  const compiled = compileRules(rules);
+  const compiled = compileRules(rules, loadExceptions(db));
   const tallies = new Map<number, Map<Action, Tally>>();
   const record = (id: number, action: Action, winner: number) => {
     const byAction = tallies.get(id) ?? new Map<Action, Tally>();
@@ -35,7 +37,7 @@ export function ruleOverlaps(db: Db, rules: RuleLike[]): Map<number, RuleOverlap
     for (const rule of compiled) {
       const wantsCategory = !user.category && rule.setCategoryId !== null;
       const wantsExclude = !user.excluded && rule.setExcluded !== null;
-      if (!(wantsCategory || wantsExclude) || !rule.matches(facts)) continue;
+      if (!(wantsCategory || wantsExclude) || rule.skips.has(row.id) || !rule.matches(facts)) continue;
       if (wantsCategory) {
         if (categoryWinner === null) categoryWinner = rule.id;
         else record(rule.id, "category", categoryWinner);
@@ -69,7 +71,7 @@ export function decidedHigher(
   higher: RuleLike[],
 ): number {
   const matches = compileMatcher(draft);
-  const compiled = compileRules(higher);
+  const compiled = compileRules(higher, loadExceptions(db));
   let count = 0;
   for (const row of loadRows(db, "all")) {
     const facts = factsOf(row);
@@ -79,7 +81,9 @@ export function decidedHigher(
     const wantsExclude = draft.setExcluded !== null && !user.excluded;
     const won = compiled.some(
       (r) =>
-        ((wantsCategory && r.setCategoryId !== null) || (wantsExclude && r.setExcluded !== null)) && r.matches(facts),
+        ((wantsCategory && r.setCategoryId !== null) || (wantsExclude && r.setExcluded !== null)) &&
+        !r.skips.has(row.id) &&
+        r.matches(facts),
     );
     if (won) count++;
   }
