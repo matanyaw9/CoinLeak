@@ -6,6 +6,7 @@ import type { Db } from "@core/db";
 import {
   createCategory,
   deleteCategory,
+  deleteForGood,
   deleteGoneRows,
   emptyTrash,
   listAccounts,
@@ -97,6 +98,7 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "transactions:trash": ({ ids }) => trashTransactions(getDb(), ids),
     "transactions:restore": ({ ids }) => restoreTransactions(getDb(), ids),
     "transactions:emptyTrash": () => emptyTrash(getDb()),
+    "transactions:deleteForGood": ({ ids }) => deleteForGood(getDb(), ids),
     "summary:period": (range) => periodSummary(getDb(), range),
     "summary:periodFlow": (range) => periodFlow(getDb(), range),
     "summary:groupFlow": (args) => groupFlow(getDb(), args),

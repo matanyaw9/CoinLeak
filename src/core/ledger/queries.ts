@@ -464,25 +464,42 @@ export function restoreTransactions(db: Db, ids: number[], now = new Date()): { 
 }
 
 /**
- * Deletes every trashed row for good. A bank line that still points at one
- * (a card bill decided by hand) lets go of it first. Each row leaves a
- * tombstone (its dedup key and copy number) so a later sync never adds it
- * back (spec 14).
+ * Deletes trashed rows for good: the ones in `ids`, or every one when `ids`
+ * is null. A bank line that still points at one (a card bill decided by
+ * hand) lets go of it first. Each row leaves a tombstone (its dedup key and
+ * copy number) so a later sync never adds it back (spec 14).
  */
-export function emptyTrash(db: Db, now = new Date()): { deleted: number } {
+function deleteTrashed(db: Db, ids: number[] | null, now: Date): { deleted: number } {
+  const trashed = ids === null ? "trashed_at IS NOT NULL" : "trashed_at IS NOT NULL AND id IN (SELECT value FROM json_each(?))";
+  const args = ids === null ? [] : [JSON.stringify(ids)];
   return transaction(db, () => {
     db.prepare(
       `INSERT OR IGNORE INTO trash_tombstones (account_id, dedup_hash, dedup_seq, emptied_at)
-       SELECT account_id, dedup_hash, dedup_seq, ? FROM transactions WHERE trashed_at IS NOT NULL`,
-    ).run(now.toISOString());
+       SELECT account_id, dedup_hash, dedup_seq, ? FROM transactions WHERE ${trashed}`,
+    ).run(now.toISOString(), ...args);
     db.prepare(
       `UPDATE transactions SET card_bill_txn_id = NULL
-       WHERE card_bill_txn_id IN (SELECT id FROM transactions WHERE trashed_at IS NOT NULL)`,
-    ).run();
-    const deleted = Number(db.prepare("DELETE FROM transactions WHERE trashed_at IS NOT NULL").run().changes);
+       WHERE card_bill_txn_id IN (SELECT id FROM transactions WHERE ${trashed})`,
+    ).run(...args);
+    const deleted = Number(db.prepare(`DELETE FROM transactions WHERE ${trashed}`).run(...args).changes);
     if (deleted > 0) applyCardBills(db);
     return { deleted };
   });
+}
+
+/** "Empty trash": deletes every trashed row for good. The window asks first. */
+export function emptyTrash(db: Db, now = new Date()): { deleted: number } {
+  return deleteTrashed(db, null, now);
+}
+
+/**
+ * Spec 36: deletes only the given trashed rows for good, the same way as
+ * `emptyTrash`. Ids of rows that are not in Trash are skipped.
+ */
+export function deleteForGood(db: Db, ids: number[], now = new Date()): { deleted: number } {
+  assertIds(ids);
+  if (ids.length === 0) return { deleted: 0 };
+  return deleteTrashed(db, ids, now);
 }
 
 // ---- Summaries ----

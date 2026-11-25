@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAGE_KEYS, SHORTCUTS, dialogEnter, keyFor, keyLabel, letterOf, shortcutFor, type KeyContext, type KeyPress } from "./shortcuts";
+import { PAGE_KEYS, SHORTCUTS, dialogEnter, isMenuKey, keyFor, keyLabel, letterOf, shortcutFor, type KeyContext, type KeyPress } from "./shortcuts";
 
 const press = (key: string, extra: Partial<KeyPress> = {}): KeyPress => ({
   key,
@@ -84,6 +84,64 @@ describe("keys on the window", () => {
     const ids = SHORTCUTS.map((k) => k.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("the window listens for each key once", () => {
+    const listened = SHORTCUTS.filter((k) => k.key && !k.listed && k.group !== "dialogs").map((k) => `${k.mod ? "mod+" : ""}${k.key}`);
+    expect(new Set(listened).size).toBe(listened.length);
+  });
+});
+
+// Spec 36: Delete and I on the selected or focused rows, and the keys lists handle themselves.
+describe("keys on rows", () => {
+  it("Delete moves rows to Trash; Backspace does too, on a Mac only", () => {
+    expect(shortcutFor(press("Delete"), pc)).toBe("deleteRows");
+    expect(shortcutFor(press("Delete"), mac)).toBe("deleteRows");
+    expect(shortcutFor(press("Backspace"), mac)).toBe("deleteRows");
+    expect(shortcutFor(press("Backspace"), pc)).toBeNull();
+  });
+
+  it("I toggles Ignore, on a Hebrew layout too", () => {
+    expect(shortcutFor(press("i"), pc)).toBe("ignoreRows");
+    expect(shortcutFor(press("I"), pc)).toBe("ignoreRows");
+    expect(shortcutFor(press("ן", { code: "KeyI" }), pc)).toBe("ignoreRows");
+  });
+
+  it("Delete and I wait while typing, with a dialog or menu open, and on a held key", () => {
+    for (const key of ["Delete", "i"]) {
+      expect(shortcutFor(press(key), { ...pc, typing: true })).toBeNull();
+      expect(shortcutFor(press(key), { ...pc, overlay: true })).toBeNull();
+      expect(shortcutFor(press(key, { repeat: true }), pc)).toBeNull();
+    }
+    expect(shortcutFor(press("Backspace"), { ...mac, typing: true })).toBeNull();
+    expect(shortcutFor(press("Backspace", { repeat: true }), mac)).toBeNull();
+  });
+
+  it("Delete and I with Ctrl, Cmd, Alt or Shift are something else", () => {
+    for (const mod of ["ctrlKey", "metaKey", "altKey", "shiftKey"] as const) {
+      expect(shortcutFor(press("Delete", { [mod]: true }), pc)).toBeNull();
+      expect(shortcutFor(press("i", { [mod]: true }), pc)).toBeNull();
+      expect(shortcutFor(press("Backspace", { [mod]: true }), mac)).toBeNull();
+    }
+  });
+
+  it("leaves the keys a list handles itself to that list", () => {
+    for (const key of ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End", " ", "Tab", "ContextMenu"]) {
+      expect(shortcutFor(press(key), pc)).toBeNull();
+      expect(shortcutFor(press(key, { shiftKey: true }), pc)).toBeNull();
+    }
+    expect(shortcutFor(press("F10", { shiftKey: true }), pc)).toBeNull();
+  });
+
+  it("lists every row key, with the same Delete for Trash", () => {
+    const listed = SHORTCUTS.filter((k) => k.listed).map((k) => k.id);
+    expect(listed).toEqual(["listMove", "listJump", "listTab", "rowToggle", "rowExtend", "rowMenu", "deleteForGood"]);
+    expect(keyFor("deleteRows", false)).toBe("Delete");
+    expect(keyFor("deleteForGood", true)).toBe("Delete");
+    expect(keyFor("ignoreRows", false)).toBe("I");
+    expect(keyFor("rowToggle", false)).toBe("Space");
+    expect(keyFor("rowExtend", false)).toBe("Shift+↑ ↓");
+    expect(keyFor("listJump", true)).toBe("Home / End");
+  });
 });
 
 describe("Enter in a dialog", () => {
@@ -144,5 +202,21 @@ describe("key labels", () => {
     expect(keyFor("dialogSubmit", false)).toBe("Ctrl+Enter");
     expect(keyFor("toggleClick", true)).toBe("Cmd+click");
     expect(keyLabel({ id: "rangeClick", group: "transactions", click: "shift" }, false)).toBe("Shift+click");
+  });
+});
+
+describe("the row menu from the keyboard (spec 36)", () => {
+  it("opens with the menu key or Shift+F10", () => {
+    expect(isMenuKey(press("ContextMenu"))).toBe(true);
+    expect(isMenuKey(press("ContextMenu", { shiftKey: true }))).toBe(true);
+    expect(isMenuKey(press("F10", { shiftKey: true }))).toBe(true);
+  });
+
+  it("not with F10 alone, or with Ctrl, Cmd or Alt", () => {
+    expect(isMenuKey(press("F10"))).toBe(false);
+    expect(isMenuKey(press("F10", { shiftKey: true, ctrlKey: true }))).toBe(false);
+    expect(isMenuKey(press("ContextMenu", { altKey: true }))).toBe(false);
+    expect(isMenuKey(press("ContextMenu", { metaKey: true }))).toBe(false);
+    expect(isMenuKey(press("Enter"))).toBe(false);
   });
 });

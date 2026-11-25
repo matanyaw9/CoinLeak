@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "../db";
 import { NOW, accountId, bank, card, categoryId, charge, countRows, idOf, idsOf, newDb, snapshot, stored, txn } from "../testing/ledger";
+import { recomputeCardBills } from "./card-bills";
 import { ingest } from "./ingest";
 import {
+  deleteForGood,
   emptyTrash,
   listCategories,
   listTransactions,
@@ -603,6 +605,72 @@ describe("trash (spec 11)", () => {
     expect(() => trashTransactions(db, [0])).toThrow();
     expect(() => restoreTransactions(db, ["1" as unknown as number])).toThrow();
     expect(trashTransactions(db, [])).toEqual({ updated: 0 });
+  });
+});
+
+describe("delete for good (spec 36)", () => {
+  const LATER = new Date("2026-04-01T10:00:00Z");
+
+  it("deletes only the given trashed rows and skips rows that are not in Trash", () => {
+    const db = handBuiltLedger();
+    const total = countRows(db);
+    const [atm, coffee, gift, rent] = ["כספומט", "קפה הפינה", "מתנה לחבר", "שכר דירה"].map((d) => idOf(db, d)) as [number, number, number, number];
+    trashTransactions(db, [atm, coffee, gift], LATER);
+    const kept = snapshot(db).filter((r) => r.id !== atm && r.id !== coffee);
+
+    expect(deleteForGood(db, [atm, coffee, rent, 99999], LATER)).toEqual({ deleted: 2 });
+    expect(countRows(db)).toBe(total - 2);
+    expect(snapshot(db)).toEqual(kept);
+    // The gift stays in Trash, and the rent row was never trashed.
+    expect(listTransactions(db, { flows: ["trashed"] }).map((t) => t.id)).toEqual([gift]);
+    expect(stored(db, rent).trashed_at).toBeNull();
+    expect(deleteForGood(db, [atm], LATER)).toEqual({ deleted: 0 });
+  });
+
+  it("leaves tombstones, so the same download does not bring the rows back", () => {
+    const download = () =>
+      bank([
+        txn({ date: "2026-03-01", amount: -4000, description: "מכולת" }),
+        txn({ date: "2026-03-01", amount: -4000, description: "מכולת" }),
+        txn({ date: "2026-03-02", amount: -9000, description: "דלק" }),
+      ]);
+    const db = newDb();
+    ingest(db, [download()], { now: NOW });
+    const [first, second] = idsOf(db, "מכולת") as [number, number];
+    const fuel = idOf(db, "דלק");
+    trashTransactions(db, [second, fuel], LATER);
+    expect(deleteForGood(db, [second], LATER)).toEqual({ deleted: 1 });
+    const kept = snapshot(db);
+
+    expect(ingest(db, [download()], { now: LATER })).toMatchObject({ newRows: 0, updatedRows: 0 });
+    expect(snapshot(db)).toEqual(kept);
+    expect(idsOf(db, "מכולת")).toEqual([first]);
+    expect(stored(db, fuel).trashed_at).toBe(LATER.toISOString());
+  });
+
+  it("lets go of a card bill decided by hand, and card bills are matched again", () => {
+    const db = newDb();
+    ingest(db, [card("4321", [charge("2026-03-03", -4500, "מאפייה", "2026-03-04")])], { now: NOW });
+    ingest(db, [bank([txn({ date: "2026-03-04", amount: -4500, description: "חיוב לכרטיס ויזה 4321" })])], { now: NOW });
+    const bill = idOf(db, "חיוב לכרטיס ויזה 4321");
+    const bakery = idOf(db, "מאפייה");
+    db.prepare("UPDATE transactions SET card_bill_txn_id = ? WHERE id = ?").run(bakery, bill);
+    trashTransactions(db, [bakery], LATER);
+    db.prepare("UPDATE transactions SET card_bill_txn_id = ? WHERE id = ?").run(bakery, bill);
+
+    expect(deleteForGood(db, [bakery], LATER)).toEqual({ deleted: 1 });
+    expect(stored(db, bill).card_bill_txn_id).toBeNull();
+    // Matching again from scratch changes nothing: delete for good already did.
+    const after = snapshot(db);
+    recomputeCardBills(db);
+    expect(snapshot(db)).toEqual(after);
+  });
+
+  it("refuses bad ids and does nothing for none", () => {
+    const db = handBuiltLedger();
+    expect(() => deleteForGood(db, [0])).toThrow("BAD_REQUEST");
+    expect(() => deleteForGood(db, ["1" as unknown as number])).toThrow("BAD_REQUEST");
+    expect(deleteForGood(db, [])).toEqual({ deleted: 0 });
   });
 });
 

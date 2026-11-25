@@ -1145,6 +1145,30 @@ export const s = {
     otherIn: (name: string) => `Other in ${name}`,
     flowUp: (name: string) => `Back to ${name}`,
   },
+
+  // spec 36
+  listKeys: {
+    groups: { lists: "In lists", rows: "Transactions and Trash", trash: "Trash" } as Record<string, string>,
+    does: {
+      listMove: "Move within a list or a grid",
+      listJump: "First or last in the list",
+      listTab: "On to the next list or box",
+      rowToggle: "Select or clear this row",
+      rowExtend: "Also select the row above or below",
+      deleteRows: "Move to Trash (the selection, or this row)",
+      ignoreRows: "Ignore, or count again",
+      rowMenu: "Open the row's menu",
+      deleteForGood: "Delete for good (asks first)",
+    } as Record<string, string>,
+  },
+  trashSelect: {
+    selectAll: (n: number) => `Select all ${plural(n, "transaction", "transactions")} in trash`,
+    deleteSelected: (n: number) => `Delete ${n} for good`,
+    keep: (n: number) => (n === 1 ? "Keep it" : "Keep them"),
+    deleteTitle: (n: number) => (n === 1 ? "Delete this transaction for good?" : `Delete these ${n} transactions for good?`),
+    deleteBody: (n: number) =>
+      `This deletes ${plural(n, "transaction", "transactions")} for good. A later sync will not bring ${n === 1 ? "it" : "them"} back. The rest of the trash stays.`,
+  },
 };
 
 export type Strings = typeof s;

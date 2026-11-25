@@ -3,7 +3,6 @@
 // pencil next to it opens the picker. No category: the picker button.
 // Spec 33: a row paid back for a purchase names the purchase on hover.
 
-import { useEffect, useRef, useState } from "react";
 import { ChevronDown, HandCoins, Pencil, WandSparkles } from "lucide-react";
 import type { Category, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
@@ -11,14 +10,11 @@ import { cn } from "@/lib/utils";
 import { formatDayShort, ils } from "@/lib/format";
 import { colorOf, type CategoryIndex } from "@/lib/categories";
 import { useRules } from "@/lib/hooks";
-import { useShot } from "@/lib/shot";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
 import { CategoryPicker } from "./category-picker";
 import { categoryOrigin, originText } from "./origin";
-import { useRowDialog } from "./row-menu";
 import { isolated } from "./paid-back-dialog";
-import { paidBackEntry } from "./row-menu-entries";
 
 export function CategoryCell({
   row,
@@ -38,7 +34,6 @@ export function CategoryCell({
 }) {
   const rules = useRules();
   const { openEditor } = useRuleEditor();
-  const { hint: shotHint, ref: shotRef } = usePaidBackShot(row);
   const picker = (children: React.ReactNode, className: string, label?: string) => (
     <CategoryPicker
       index={index}
@@ -65,9 +60,9 @@ export function CategoryCell({
   const origin = categoryOrigin(row, rules.data);
   const rule = origin.kind === "rule" ? origin.rule : null;
   const paidBack = row.paidBackFor;
-  const showHint = hintOpen || shotHint;
+  const showHint = hintOpen ?? false;
   return (
-    <div ref={shotRef} className="flex min-w-0 items-center">
+    <div className="flex min-w-0 items-center">
       <Tooltip key={String(showHint)} defaultOpen={showHint}>
         <TooltipTrigger
           render={
@@ -118,40 +113,4 @@ export function CategoryCell({
       )}
     </div>
   );
-}
-
-/** Set once a row took the screenshot below, so only the first row shown does. */
-let paidBackShotTaken = false;
-
-/**
- * Screenshot aid (dev start route only, see lib/shot.ts): `?shot=paid-back`
- * opens the Paid back dialog on the first money-in row shown, and
- * `?shot=paid-back-hint` shows the first linked row's hover card. Returns
- * the hover card's state, and a ref that scrolls the row into view for it.
- */
-function usePaidBackShot(row: Row): { hint: boolean; ref: React.RefObject<HTMLDivElement | null> } {
-  const shot = useShot();
-  const openDialog = useRowDialog();
-  const [hint, setHint] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (shot !== "paid-back" && shot !== "paid-back-hint") return;
-    const id = setTimeout(() => {
-      if (paidBackShotTaken) return;
-      const entry = paidBackEntry(row);
-      if (shot === "paid-back" && entry?.key === "paidBack" && entry.dialog && openDialog) {
-        paidBackShotTaken = true;
-        openDialog(entry.dialog);
-      }
-      if (shot === "paid-back-hint" && row.paidBackFor) {
-        paidBackShotTaken = true;
-        ref.current?.scrollIntoView({ block: "center" });
-        setHint(true);
-      }
-    }, 400);
-    return () => clearTimeout(id);
-    // Once per load: refreshed rows must not repeat it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shot]);
-  return { hint, ref };
 }

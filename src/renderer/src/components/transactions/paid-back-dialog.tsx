@@ -1,6 +1,7 @@
 // Paid back for a purchase (spec 33, F65): pick the purchase a money-in row
 // pays back, from a searchable list core sends, or undo the link. Keyboard:
-// type to search, arrow keys move, Enter picks, Esc closes.
+// type to search, arrow keys move, Enter picks, Esc closes. Spec 36: the
+// page opens these dialogs, and Enter waits until the list matches the text.
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -18,21 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/misc";
 import { Money } from "@/components/common/money";
 import { AccountChip, CategoryBubble } from "@/components/common/chips";
-import type { EntryDialog } from "./row-menu";
+import { nextIndex } from "@/lib/roving";
 
 /** A bank text kept in one piece inside an English sentence, whatever its direction. */
 export const isolated = (text: string) => `\u2068${text.trim()}\u2069`;
 
 /** The row menu's "Paid back for a purchase..." dialog for `row`. */
-export const paidBackDialog =
-  (row: TransactionRow): EntryDialog =>
-  (close) => <PaidBackDialog row={row} onClose={close} />;
-
-/** The row menu's "Not paid back" question for a linked `row`. */
-export const notPaidBackDialog =
-  (row: TransactionRow): EntryDialog =>
-  (close) => <NotPaidBackDialog row={row} onClose={close} />;
-
 export function PaidBackDialog({ row, onClose }: { row: TransactionRow; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -77,12 +69,18 @@ function Picker({ row, onDone }: { row: TransactionRow; onDone: () => void }) {
     }
   };
 
+  // Enter picks only what the list shows for the text typed: while the search
+  // waits or loads, the list is still the one for the earlier text.
+  const caughtUp = query === text.trim() && !candidates.isPlaceholderData;
+
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown") setHighlight(Math.min(active + 1, rows.length - 1));
-    else if (e.key === "ArrowUp") setHighlight(Math.max(active - 1, 0));
-    else if (e.key === "Enter") void pick(rows[active]);
-    else return;
-    // The keys are the list's; the page around the row must not act on them too.
+    // Home and End stay the text box's; focus stays there while the arrows move.
+    const to = e.key === "ArrowDown" || e.key === "ArrowUp" ? nextIndex(e.key, active, rows.length) : null;
+    if (to !== null) setHighlight(to);
+    else if (e.key === "Enter") {
+      if (caughtUp) void pick(rows[active]);
+    } else return;
+    // The keys are the list's; the dialog around it must not act on them too.
     e.preventDefault();
     e.stopPropagation();
   };
@@ -183,6 +181,7 @@ function Picker({ row, onDone }: { row: TransactionRow; onDone: () => void }) {
 
 const optionId = (i: number) => `paid-back-option-${i}`;
 
+/** The row menu's "Not paid back" question for a linked `row`. */
 export function NotPaidBackDialog({ row, onClose }: { row: TransactionRow; onClose: () => void }) {
   const clear = useClearPaidBack();
   const purchase = row.paidBackFor;

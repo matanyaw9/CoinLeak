@@ -1,6 +1,7 @@
 // Keyboard shortcuts (spec 31, F66): the one table of keys, and plain
 // functions that decide what a key press means. use-shortcuts.ts listens,
 // keyboard-help.tsx lists this same table, so the two never drift.
+// Spec 36: Delete and I on rows, and the keys of lists (lib/roving.ts).
 
 import { isFindKey, type KeyLike } from "@/components/transactions/find";
 
@@ -14,20 +15,30 @@ export type ShortcutId =
   | "settings"
   | "help"
   | "find"
+  | "listMove"
+  | "listJump"
+  | "listTab"
   | "selectAll"
   | "clearSelection"
   | "rangeClick"
   | "toggleClick"
+  | "rowToggle"
+  | "rowExtend"
+  | "deleteRows"
+  | "ignoreRows"
+  | "rowMenu"
+  | "deleteForGood"
   | "dialogOk"
   | "dialogSubmit"
   | "dialogCancel";
 
-export type ShortcutGroup = "anywhere" | "transactions" | "dialogs";
+/** Where a key works. `rows`: the rows of Transactions and of Trash. */
+export type ShortcutGroup = "anywhere" | "lists" | "rows" | "transactions" | "trash" | "dialogs";
 
 export interface Shortcut {
   id: ShortcutId;
   group: ShortcutGroup;
-  /** A lower-case letter, "?", "Escape" or "Enter". */
+  /** A lower-case letter, "?", "Escape", "Enter" or "Delete". */
   key?: string;
   /** Held with Ctrl (Cmd on a Mac). */
   mod?: boolean;
@@ -35,6 +46,13 @@ export interface Shortcut {
   click?: "shift" | "mod";
   /** The page a letter opens. */
   to?: string;
+  /**
+   * Listed only: the window does not listen for it. A list or row handles
+   * the key itself (arrows, Space), or another entry already listens for it.
+   */
+  listed?: true;
+  /** How a listed key looks, when it is more than one key: "Home / End". */
+  label?: string;
 }
 
 export const SHORTCUTS: readonly Shortcut[] = [
@@ -47,10 +65,20 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "settings", group: "anywhere", key: "s", to: "/settings" },
   { id: "help", group: "anywhere", key: "?" },
   { id: "find", group: "anywhere", key: "f", mod: true },
-  { id: "selectAll", group: "transactions", key: "a", mod: true },
-  { id: "clearSelection", group: "transactions", key: "Escape" },
-  { id: "rangeClick", group: "transactions", click: "shift" },
-  { id: "toggleClick", group: "transactions", click: "mod" },
+  { id: "listMove", group: "lists", listed: true, label: "↑ ↓ ← →" },
+  { id: "listJump", group: "lists", listed: true, label: "Home / End" },
+  { id: "listTab", group: "lists", listed: true, label: "Tab" },
+  { id: "selectAll", group: "rows", key: "a", mod: true },
+  { id: "clearSelection", group: "rows", key: "Escape" },
+  { id: "rangeClick", group: "rows", click: "shift" },
+  { id: "toggleClick", group: "rows", click: "mod" },
+  { id: "rowToggle", group: "rows", listed: true, label: "Space" },
+  { id: "rowExtend", group: "rows", listed: true, label: "Shift+↑ ↓" },
+  { id: "deleteRows", group: "transactions", key: "Delete" },
+  { id: "ignoreRows", group: "transactions", key: "i" },
+  { id: "rowMenu", group: "transactions", listed: true, label: "Menu / Shift+F10" },
+  // On Trash the window hears Delete as `deleteRows`, and that page asks to delete for good.
+  { id: "deleteForGood", group: "trash", key: "Delete", listed: true },
   { id: "dialogOk", group: "dialogs", key: "Enter" },
   { id: "dialogSubmit", group: "dialogs", key: "Enter", mod: true },
   { id: "dialogCancel", group: "dialogs", key: "Escape" },
@@ -94,8 +122,13 @@ function matches(k: Shortcut, e: KeyPress, mac: boolean): boolean {
   if (e.ctrlKey || e.metaKey) return false;
   if (k.key === "?") return e.key === "?" || (e.code === "Slash" && e.shiftKey);
   if (k.key === "Escape") return e.key === "Escape" && !e.shiftKey;
+  // A Mac's "delete" key is Backspace; elsewhere Backspace stays Back.
+  if (k.key === "Delete") return !e.shiftKey && (e.key === "Delete" || (mac && e.key === "Backspace"));
   return !e.shiftKey && letterOf(e) === k.key;
 }
+
+/** The keys the window listens for: not the dialogs' own, nor keys only listed. */
+const LISTENED = SHORTCUTS.filter((k) => k.group !== "dialogs" && !k.listed && k.key !== undefined);
 
 /**
  * What a key press on the window means, or null. Ctrl+F works as before
@@ -105,7 +138,7 @@ function matches(k: Shortcut, e: KeyPress, mac: boolean): boolean {
 export function shortcutFor(e: KeyPress, ctx: KeyContext): ShortcutId | null {
   if (isFindKey(e, ctx.mac)) return "find";
   if (ctx.typing || ctx.overlay || e.repeat || e.isComposing) return null;
-  const k = SHORTCUTS.find((k) => k.group !== "dialogs" && k.key !== undefined && matches(k, e, ctx.mac));
+  const k = LISTENED.find((k) => matches(k, e, ctx.mac));
   return k?.id ?? null;
 }
 
@@ -144,9 +177,10 @@ export function dialogEnter(e: KeyPress, focus: DialogFocus, mac: boolean, destr
   return e.repeat ? "block" : "ok";
 }
 
-/** How a key looks in the list and on badges: "H", "?", "Ctrl+A", "Cmd+Enter". */
+/** How a key looks in the list and on badges: "H", "?", "Ctrl+A", "Cmd+Enter", "Delete". */
 export function keyLabel(k: Shortcut, mac: boolean): string {
   const mod = mac ? "Cmd" : "Ctrl";
+  if (k.label) return k.label;
   if (k.click) return `${k.click === "shift" ? "Shift" : mod}+click`;
   const key = k.key === "Escape" ? "Esc" : k.key && k.key.length === 1 ? k.key.toUpperCase() : (k.key ?? "");
   return k.mod ? `${mod}+${key}` : key;
@@ -156,4 +190,10 @@ export function keyLabel(k: Shortcut, mac: boolean): string {
 export function keyFor(id: ShortcutId, mac: boolean): string {
   const k = SHORTCUTS.find((k) => k.id === id);
   return k ? keyLabel(k, mac) : "";
+}
+
+/** Spec 36: the menu key, or Shift+F10, opens the focused row's menu. */
+export function isMenuKey(e: KeyPress): boolean {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  return e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey);
 }

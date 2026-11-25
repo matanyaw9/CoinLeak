@@ -3,7 +3,8 @@
 // 20, F46): the box above the list and each day's box stand for a set of
 // rows. Checked when all are selected, mixed when some are, and a click
 // selects them all, or clears them when all were. Spec 31: Ctrl+click and
-// Shift+click on the row itself, and Ctrl+A.
+// Shift+click on the row itself, and Ctrl+A. Spec 36: Shift+arrows, and the
+// rows a key acts on. Trash selects with these same rules.
 
 /**
  * The selection after clicking the box of row `id`. With `range`
@@ -51,6 +52,34 @@ export function rowClickKind(e: { shiftKey: boolean; ctrlKey: boolean; metaKey: 
   if (e.altKey) return null;
   if (e.shiftKey) return "range";
   return (mac ? e.metaKey : e.ctrlKey) ? "toggle" : null;
+}
+
+/** The rows listed from `a` to `b`, either way round. */
+function span(order: readonly number[], a: number, b: number): readonly number[] {
+  const from = order.indexOf(a);
+  const to = order.indexOf(b);
+  return order.slice(Math.min(from, to), Math.max(from, to) + 1);
+}
+
+/**
+ * Shift+Down or Shift+Up (spec 36): focus moved from row `from` to row `to`.
+ * Every row from the anchor (the last row clicked) to `to` is selected, so
+ * going back toward the anchor clears the row left behind. With no anchor
+ * listed, the range starts at `from`. The anchor stays where it is.
+ */
+export function extendTo(order: readonly number[], pick: RowPick, from: number, to: number): RowPick {
+  if (!order.includes(from) || !order.includes(to)) return pick;
+  const anchor = pick.anchor !== null && order.includes(pick.anchor) ? pick.anchor : from;
+  const next = new Set(pick.selected);
+  for (const id of span(order, anchor, from)) next.delete(id);
+  for (const id of span(order, anchor, to)) next.add(id);
+  return { selected: next, anchor };
+}
+
+/** Spec 36: what Delete or I acts on: the selected rows, or else the row focus is on. */
+export function keyTargets<T extends { id: number }>(rows: readonly T[], selected: ReadonlySet<number>, focused: number | null): T[] {
+  if (selected.size > 0) return rows.filter((r) => selected.has(r.id));
+  return rows.filter((r) => r.id === focused);
 }
 
 /** Ctrl+A: every one of `ids` selected, the same rows the box above the list selects. */

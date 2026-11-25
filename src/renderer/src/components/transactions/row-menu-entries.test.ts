@@ -15,6 +15,7 @@ function actions(): RowMenuActions {
     addKnownPlace: vi.fn(),
     openNote: vi.fn(),
     editCash: vi.fn(),
+    openPaidBack: vi.fn(),
     setIgnored: vi.fn(),
     trash: vi.fn(),
     clearSelection: vi.fn(),
@@ -31,9 +32,9 @@ describe("row menu entries", () => {
     const menu = rowMenu(one, [one], index, act);
     expect(menu.heading).toBeUndefined();
     expect(keys(menu)).toEqual(["rule", "known", "note", "ignore", "trash"]);
-    entry(menu, "known")?.onSelect?.();
+    entry(menu, "known")?.onSelect();
     expect(act.addKnownPlace).toHaveBeenCalledWith(" Shop ", groceries);
-    entry(menu, "ignore")?.onSelect?.();
+    entry(menu, "ignore")?.onSelect();
     expect(act.setIgnored).toHaveBeenCalledWith([one], true, undefined);
   });
 
@@ -42,7 +43,7 @@ describe("row menu entries", () => {
     const act = actions();
     const menu = rowMenu(cash, [cash], index, act);
     expect(keys(menu)).toEqual(["rule", "note", "edit", "ignore", "trash"]);
-    entry(menu, "edit")?.onSelect?.();
+    entry(menu, "edit")?.onSelect();
     expect(act.editCash).toHaveBeenCalledWith(cash);
   });
 
@@ -52,9 +53,9 @@ describe("row menu entries", () => {
     const menu = rowMenu(targets[0] as TransactionRow, targets, index, act);
     expect(menu.heading).toBe(s.rowMenu.forSelection(2));
     expect(keys(menu)).toEqual(["rule", "ignore", "trash"]);
-    entry(menu, "ignore")?.onSelect?.();
+    entry(menu, "ignore")?.onSelect();
     expect(act.setIgnored).toHaveBeenCalledWith(targets, true, act.clearSelection);
-    entry(menu, "trash")?.onSelect?.();
+    entry(menu, "trash")?.onSelect();
     expect(act.trash).toHaveBeenCalledWith(targets, act.clearSelection);
   });
 
@@ -63,30 +64,34 @@ describe("row menu entries", () => {
     const act = actions();
     const menu = rowMenu(ignored, [ignored], index, act);
     expect(entry(menu, "ignore")?.label).toBe(s.rowMenu.countAgain);
-    entry(menu, "ignore")?.onSelect?.();
+    entry(menu, "ignore")?.onSelect();
     expect(act.setIgnored).toHaveBeenCalledWith([ignored], false, undefined);
   });
 });
 
 // Spec 33: money in can be marked as paid back for a purchase, and unmarked.
 describe("paid back entries", () => {
-  it("money in offers it, opening the dialog rather than acting at once", () => {
+  // Spec 36: the page opens the dialog, as it does the note box.
+  it("money in offers it, and the page opens its dialog for that row", () => {
     const moneyIn = row(1, { amount: 5000, flow: "income", status: "completed" });
-    const menu = rowMenu(moneyIn, [moneyIn], index, actions());
+    const act = actions();
+    const menu = rowMenu(moneyIn, [moneyIn], index, act);
     expect(keys(menu)).toEqual(["rule", "note", "paidBack", "ignore", "trash"]);
     const paidBack = entry(menu, "paidBack");
     expect(paidBack?.label).toBe(s.paidBack.menu);
-    expect(paidBack?.onSelect).toBeUndefined();
-    expect(paidBack?.dialog).toBeTypeOf("function");
+    paidBack?.onSelect();
+    expect(act.openPaidBack).toHaveBeenCalledWith(moneyIn);
   });
 
-  it("a linked row offers Not paid back instead", () => {
+  it("a linked row offers Not paid back instead, through the same page action", () => {
     const link = { id: 9, description: "Pizza", date: "2026-03-01", amount: -10000 };
     const linked = row(1, { amount: 5000, flow: "refund", categoryId: 2, paidBackFor: link });
-    const menu = rowMenu(linked, [linked], index, actions());
+    const act = actions();
+    const menu = rowMenu(linked, [linked], index, act);
     expect(keys(menu)).toEqual(["rule", "known", "note", "notPaidBack", "ignore", "trash"]);
     expect(entry(menu, "notPaidBack")?.label).toBe(s.paidBack.clear);
-    expect(entry(menu, "notPaidBack")?.dialog).toBeTypeOf("function");
+    entry(menu, "notPaidBack")?.onSelect();
+    expect(act.openPaidBack).toHaveBeenCalledWith(linked);
   });
 
   it("not for money out, card bills, gone rows or a selection", () => {

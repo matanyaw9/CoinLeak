@@ -3,7 +3,6 @@
 // Core decides; a refusal shows its friendly text in place, never a raw error.
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Check } from "lucide-react";
 import { toast } from "sonner";
 import type { Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
@@ -15,6 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Label } from "@/components/common/card";
 import { CategoryBubble } from "@/components/common/chips";
 import { KINDS, kindLabel, problemText, useCategoryActions } from "./category-actions";
+import { ColorGrid } from "./color-grid";
+import { EmojiGrid } from "./emoji-grid";
 import { TreeChoice } from "./tree-choice";
 
 /** Soft colors in the same family as the seeded categories. */
@@ -135,42 +136,12 @@ export function CategoryEditor({
               aria-label={s.catEdit.emoji}
               className="w-16 text-center text-lg"
             />
-            {/* F74: big enough to tell apart and to hit, eight to a row. */}
-            <div className="mt-3 grid grid-cols-8 gap-1.5">
-              {EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => setEmoji(e)}
-                  aria-pressed={emoji === e}
-                  className={cn(
-                    "flex aspect-square min-h-11 items-center justify-center rounded-xl text-[2rem] leading-none outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover",
-                    emoji === e && "bg-accent ring-2 ring-primary/50",
-                  )}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
+            {/* Spec 36: one Tab stop, arrow keys move, Enter or Space picks. */}
+            <EmojiGrid emojis={EMOJIS} value={emoji} onChange={setEmoji} />
           </Field>
 
           <Field label={s.catEdit.color}>
-            <div role="radiogroup" aria-label={s.catEdit.color} className="flex flex-wrap gap-2">
-              {SWATCHES.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  role="radio"
-                  aria-checked={color?.toUpperCase() === c}
-                  aria-label={c}
-                  onClick={() => setColor(c)}
-                  className="flex size-7 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  style={{ backgroundColor: c }}
-                >
-                  {color?.toUpperCase() === c && <Check className="size-3.5 text-white" strokeWidth={3} />}
-                </button>
-              ))}
-            </div>
+            <ColorGrid colors={SWATCHES} value={color} onChange={setColor} />
           </Field>
 
           {request.mode === "new" && request.meta && (

@@ -7,7 +7,7 @@ export { groupFlow, periodFlow } from "./money-flow";
 export { israelToday, periodCurves, periodSummary, periodTrend, periodTrendWithAverage, thisMonth } from "./period";
 export { monthlyNet } from "./net";
 export { deleteGoneRows } from "./pending";
-export { emptyTrash, restoreTransactions, trashTransactions } from "./queries";
+export { deleteForGood, emptyTrash, restoreTransactions, trashTransactions } from "./queries";
 export {
   listAccounts,
   listCategories,

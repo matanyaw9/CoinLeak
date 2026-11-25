@@ -2,7 +2,7 @@
 // its category's known places (spec 13), a note and editing a cash row (spec
 // 20), paid back for a purchase (spec 33), ignore or count again, and
 // trash. On a row that is part of the selection, the menu acts on the whole
-// selection.
+// selection. Entries that need a dialog ask the page to open it.
 
 import { Eye, EyeOff, HandCoins, ListPlus, Pencil, StickyNote, Trash2, Unlink, WandSparkles } from "lucide-react";
 import type { Category, TransactionRow } from "@shared/types";
@@ -10,7 +10,6 @@ import { s } from "@/strings";
 import type { CategoryIndex } from "@/lib/categories";
 import { allIgnored } from "@/lib/review-rows";
 import type { MenuEntry, RowMenuModel } from "./row-menu";
-import { notPaidBackDialog, paidBackDialog } from "./paid-back-dialog";
 
 /** What the entries do; the page wires them to its dialogs and calls. */
 export interface RowMenuActions {
@@ -18,6 +17,8 @@ export interface RowMenuActions {
   addKnownPlace(description: string, category: Category): void;
   openNote(id: number): void;
   editCash(row: TransactionRow): void;
+  /** Spec 33: the Paid back dialog, or Not paid back for a row already linked. */
+  openPaidBack(row: TransactionRow): void;
   setIgnored(targets: TransactionRow[], excluded: boolean, after?: () => void): void;
   trash(targets: TransactionRow[], after: () => void): void;
   clearSelection(): void;
@@ -48,7 +49,7 @@ export function rowMenu(row: TransactionRow, targets: TransactionRow[], index: C
   if (!many) {
     entries.push({ key: "note", label: row.note ? s.note.edit : s.note.add, icon: StickyNote, onSelect: () => act.openNote(row.id) });
     if (row.source === "manual") entries.push({ key: "edit", label: s.cash.edit, icon: Pencil, onSelect: () => act.editCash(row) });
-    const paidBack = paidBackEntry(row);
+    const paidBack = paidBackEntry(row, act);
     if (paidBack) entries.push(paidBack);
   }
   entries.push(
@@ -72,14 +73,15 @@ export function rowMenu(row: TransactionRow, targets: TransactionRow[], index: C
   return { heading: many ? s.rowMenu.forSelection(targets.length) : undefined, entries };
 }
 
-/**
- * Spec 33: money in can pay back a purchase; once linked, the menu offers to
- * undo it instead. Not for card bills, gone rows or trashed rows.
- */
-export function paidBackEntry(row: TransactionRow): MenuEntry | null {
-  if (row.paidBackFor) {
-    return { key: "notPaidBack", label: s.paidBack.clear, hint: s.paidBack.clearHint, icon: Unlink, dialog: notPaidBackDialog(row) };
-  }
-  if (row.amount <= 0 || row.flow === "internal" || row.flow === "trashed" || row.status === "gone") return null;
-  return { key: "paidBack", label: s.paidBack.menu, hint: s.paidBack.menuHint, icon: HandCoins, dialog: paidBackDialog(row) };
+/** Spec 33: money in that can be marked as paying back a purchase. Not card bills, gone or trashed rows. */
+export function canPayBack(row: TransactionRow): boolean {
+  return !row.paidBackFor && row.amount > 0 && row.flow !== "internal" && row.flow !== "trashed" && row.status !== "gone";
+}
+
+/** Spec 33: money in can pay back a purchase; once linked, the menu offers to undo it instead. */
+function paidBackEntry(row: TransactionRow, act: RowMenuActions): MenuEntry | null {
+  const open = () => act.openPaidBack(row);
+  if (row.paidBackFor) return { key: "notPaidBack", label: s.paidBack.clear, hint: s.paidBack.clearHint, icon: Unlink, onSelect: open };
+  if (!canPayBack(row)) return null;
+  return { key: "paidBack", label: s.paidBack.menu, hint: s.paidBack.menuHint, icon: HandCoins, onSelect: open };
 }
