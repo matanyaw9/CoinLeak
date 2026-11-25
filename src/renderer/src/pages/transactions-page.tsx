@@ -369,43 +369,43 @@ export function TransactionsPage() {
           </div>
         ) : (
           <>
-          <span {...guard("before")} />
-          <div ref={list} className={cn("pb-2 transition-opacity", tx.isPlaceholderData && "opacity-60")}>
-            {groups.map((g) => (
-              <Fragment key={g.date}>
-                {byDay && <DayHeader group={g} selected={selected} onToggle={selection.toggleMany} />}
-                {g.rows.map((row) => (
-                  <TransactionRow
-                    key={row.id}
-                    row={row}
-                    account={accountById.get(row.accountId)}
-                    index={index}
-                    selected={selected.has(row.id)}
-                    selecting={selected.size > 0}
-                    onToggle={selection.toggle}
-                    onCategory={onRowCategory}
-                    menu={() => menuFor(row)}
-                    menuOpen={shot.menuRow === row.id}
-                    hintOpen={shot.hintRow === row.id || paidBackHint === row.id}
-                    showDate={!byDay}
-                    onFilterCategory={(id) => setView(onlyCategory(view, id))}
-                    noteOpen={noteRow === row.id}
-                    onNoteOpenChange={(open) => setNoteRow(open ? row.id : null)}
-                    review={{
-                      reviewing: review,
-                      kept: kept.has(row.id),
-                      busy: actions.busy(row),
-                      onAnswer: actions.answer,
-                      onDelete: actions.remove,
-                      onKeep: actions.keep,
-                    }}
-                    roving={item(position.get(row.id) ?? 0)}
-                  />
-                ))}
-              </Fragment>
-            ))}
-          </div>
-          <span {...guard("after")} />
+            <span {...guard("before")} />
+            <div ref={list} className={cn("pb-2 transition-opacity", tx.isPlaceholderData && "opacity-60")}>
+              {groups.map((g) => (
+                <Fragment key={g.date}>
+                  {byDay && <DayHeader group={g} selected={selected} onToggle={selection.toggleMany} />}
+                  {g.rows.map((row) => (
+                    <TransactionRow
+                      key={row.id}
+                      row={row}
+                      account={accountById.get(row.accountId)}
+                      index={index}
+                      selected={selected.has(row.id)}
+                      selecting={selected.size > 0}
+                      onToggle={selection.toggle}
+                      onCategory={onRowCategory}
+                      menu={() => menuFor(row)}
+                      menuOpen={shot.menuRow === row.id}
+                      hintOpen={shot.hintRow === row.id || paidBackHint === row.id}
+                      showDate={!byDay}
+                      onFilterCategory={(id) => setView(onlyCategory(view, id))}
+                      noteOpen={noteRow === row.id}
+                      onNoteOpenChange={(open) => setNoteRow(open ? row.id : null)}
+                      review={{
+                        reviewing: review,
+                        kept: kept.has(row.id),
+                        busy: actions.busy(row),
+                        onAnswer: actions.answer,
+                        onDelete: actions.remove,
+                        onKeep: actions.keep,
+                      }}
+                      roving={item(position.get(row.id) ?? 0)}
+                    />
+                  ))}
+                </Fragment>
+              ))}
+            </div>
+            <span {...guard("after")} />
           </>
         )}
       </div>

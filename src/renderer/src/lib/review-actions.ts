@@ -1,7 +1,8 @@
 // Review actions for components: run the call, refresh what shows money,
 // and toast the outcome with Undo where one exists. Also remembers which
 // gone rows the user chose to keep, for as long as the window is open.
-// Row menu and Trash actions (spec 11) live in `useRowActions`.
+// Row menu and Trash actions (spec 11) live in `useRowActions`; spec 36 adds
+// deleting chosen trashed rows for good.
 
 import { useSyncExternalStore } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -132,6 +133,14 @@ export function useRowActions() {
     onSettled: refresh,
   });
 
+  // spec 36: only the chosen trashed rows. No Undo: the window asked first.
+  const forGood = useMutation({
+    mutationFn: (ids: number[]) => call("transactions:deleteForGood", { ids }),
+    onSuccess: ({ deleted }) => toast.success(s.trash.emptied(deleted)),
+    onError: failed,
+    onSettled: refresh,
+  });
+
   return {
     trash: (rows: TransactionRow[], after?: () => void) =>
       run.mutate(
@@ -146,7 +155,8 @@ export function useRowActions() {
         { onSuccess: after },
       ),
     emptyTrash: (after?: () => void) => empty.mutate(undefined, { onSuccess: after }),
-    busy: run.isPending || empty.isPending,
+    deleteForGood: (ids: number[], after?: () => void) => forGood.mutate(ids, { onSuccess: after }),
+    busy: run.isPending || empty.isPending || forGood.isPending,
   };
 }
 

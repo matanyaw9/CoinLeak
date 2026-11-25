@@ -1167,6 +1167,7 @@ export const s = {
   trashSelect: {
     selectAll: (n: number) => `Select all ${plural(n, "transaction", "transactions")} in trash`,
     deleteSelected: (n: number) => `Delete ${n} for good`,
+    keep: (n: number) => (n === 1 ? "Keep it" : "Keep them"),
     deleteTitle: (n: number) => (n === 1 ? "Delete this transaction for good?" : `Delete these ${n} transactions for good?`),
     deleteBody: (n: number) =>
       `This deletes ${plural(n, "transaction", "transactions")} for good. A later sync will not bring ${n === 1 ? "it" : "them"} back. The rest of the trash stays.`,
