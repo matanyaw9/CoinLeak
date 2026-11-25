@@ -793,15 +793,6 @@ export const s = {
     flowShareOfGroup: (name: string) => `of ${name}`,
   },
 
-  // spec 18
-  essential: {
-    label: "Routine or treat",
-    hint: "Treats are where a month can be cut",
-    essential: "Routine",
-    extra: "Treat",
-    badge: "Treat",
-    badgeTitle: "A treat: where a month can be cut",
-  },
   syncLive: {
     working: (provider: string) => `Syncing ${provider}`,
     keepOpen: "Keep the bank window open. CoinLeak is downloading; this can take a minute or two.",
@@ -852,21 +843,6 @@ export const s = {
     soFar: (income: string, spent: string, saved: string | null) =>
       `Came in ${income} · spent ${spent}${saved ? ` · moved to savings ${saved}` : ""}, this month so far.`,
     hint: "Income minus spending minus money moved to savings, this calendar month, whatever period Home shows. Card bills are counted once. Days left include today.",
-  },
-  essentials: {
-    label: "Which spending",
-    all: "All",
-    essential: "Routine",
-    extra: "Treats",
-    /** After the amount in the hero: "You've spent ₪X on routine spending so far this month." */
-    on: { essential: "on routine spending", extra: "on treats" },
-    untagged: (amount: string) => `${amount} of spending is neither routine nor a treat, so it shows only under All.`,
-    untaggedLink: "See uncategorized rows",
-    splitView: "Routine or treat",
-    groupView: "By category",
-    viewLabel: "Split the bars",
-    untaggedName: "Neither",
-    splitHint: "Click a part to show only that spending",
   },
 
   // spec 20

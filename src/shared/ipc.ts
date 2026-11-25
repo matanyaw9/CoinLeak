@@ -17,7 +17,6 @@ import type {
   CategoryInput,
   CategoryPatch,
   DateRange,
-  EssentialFilter,
   ExclusionState,
   GroupFlow,
   PeriodCurve,
@@ -78,24 +77,22 @@ export interface IpcContract {
   "transactions:emptyTrash": { args: undefined; result: { deleted: number } };
   "accounts:setCardMode": { args: { accountId: number; mode: CardMode }; result: null };
   // ---- Summaries for any range of days (spec 16) ----
-  /** With `essential`, every spending number is essentials or extras only (spec 22). */
-  "summary:period": { args: DateRange & EssentialFilter; result: PeriodSummary };
+  "summary:period": { args: DateRange; result: PeriodSummary };
   /** Spending above income shows as `beyond_income`, never as savings. */
   "summary:periodFlow": { args: DateRange; result: PeriodFlow };
-  /** One spending group opened up, for the Sankey drill-down. */
+  /** One spending category opened up one level (spec 34), for the Sankey drill-down. */
   "summary:groupFlow": { args: DateRange & { categoryId: number }; result: GroupFlow };
   /**
    * The calendar months the range covers (at least 3, never past this month).
-   * `essential: null` is spending that is neither essential nor extra.
    * With `categoryIds`, `byCategory` has one entry per id in that order, each
-   * with its subcategories (null: uncategorized), and `spending` is their sum.
+   * with everything under it (null: uncategorized), and `spending` is their sum.
    * `average` is the average month over the full months shown (spec 26).
    */
   "summary:periodTrend": {
-    args: DateRange & EssentialFilter & { categoryIds?: (number | null)[] };
+    args: DateRange & { categoryIds?: (number | null)[] };
     result: PeriodTrend;
   };
-  "summary:periodCurves": { args: DateRange & EssentialFilter & { categoryIds: (number | null)[] }; result: PeriodCurve[] };
+  "summary:periodCurves": { args: DateRange & { categoryIds: (number | null)[] }; result: PeriodCurve[] };
   /** Money left this calendar month (Israel time) and per day until its end (spec 22). */
   "summary:thisMonth": { args: undefined; result: ThisMonth };
   /**

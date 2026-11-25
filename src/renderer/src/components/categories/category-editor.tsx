@@ -1,7 +1,6 @@
 // The category editor dialog: name, emoji, color, the category it sits inside
-// (up to three levels, spec 34; or the kind, for a new group), essential or
-// extra, and Delete. Core decides; a refusal shows its friendly text in place,
-// never a raw error.
+// (up to three levels, spec 34; or the kind, for a new group), and Delete.
+// Core decides; a refusal shows its friendly text in place, never a raw error.
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
@@ -54,15 +53,12 @@ export function CategoryEditor({
   const [color, setColor] = useState(editing?.color ?? SWATCHES[0] ?? null);
   const [kind, setKind] = useState<CategoryKind>(editing?.kind ?? (request.mode === "new" ? request.kind : "expense"));
   const [parentId, setParentId] = useState<number | null>(editing ? editing.parentId : request.mode === "new" ? request.parentId : null);
-  const [essential, setEssential] = useState(editing?.essential ?? true);
   const [problem, setProblem] = useState<string | null>(null);
 
   const isGroup = editing ? editing.parentId === null : request.mode === "new" && request.meta;
   const hasChildren = editing ? categories.some((c) => c.parentId === editing.id) : false;
   // A new group picks its kind instead of a parent.
   const showParent = !(request.mode === "new" && request.meta);
-  // Essential or extra is only for spending categories inside a group (spec 18).
-  const showEssential = kind === "expense" && showParent && parentId !== null;
   // spec 34: same-kind categories at level 1 or 2, never itself or its own, only where its branch still fits.
   const index = useMemo(() => indexCategories(categories), [categories]);
   const parents = parentChoices(index, kind, editing);
@@ -93,12 +89,11 @@ export function CategoryEditor({
         emoji: trimmedEmoji,
         color,
         ...(showParent && parentId !== editing.parentId ? { parentId } : {}),
-        ...(showEssential ? { essential } : {}),
       };
       actions.update.mutate({ id: editing.id, patch }, { onSuccess: done });
     } else {
       const input = { name, kind, parentId: showParent ? parentId : null, emoji: trimmedEmoji, color };
-      actions.create.mutate(showEssential ? { ...input, essential } : input, { onSuccess: done });
+      actions.create.mutate(input, { onSuccess: done });
     }
   };
 
@@ -201,19 +196,6 @@ export function CategoryEditor({
                   label={s.nested.parent}
                 />
               )}
-            </Field>
-          )}
-
-          {showEssential && (
-            <Field label={s.essential.label} hint={s.essential.hint}>
-              <Choices
-                value={essential ? "essential" : "extra"}
-                options={[
-                  { value: "essential", label: s.essential.essential },
-                  { value: "extra", label: s.essential.extra },
-                ]}
-                onChange={(v) => setEssential(v === "essential")}
-              />
             </Field>
           )}
 

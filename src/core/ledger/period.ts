@@ -1,5 +1,5 @@
-// Summaries for any range of days (spec 16): totals, categories, the spending
-// series and the period before, optionally essentials or extras only (spec 22),
+// Summaries for any range of days (spec 16): totals, categories (rolled up
+// through three levels, spec 34), the spending series and the period before,
 // and this month's money left. Month summaries are these over a month's
 // days, so both always agree. Days are `YYYY-MM-DD`, both ends included.
 
@@ -8,8 +8,6 @@ import type {
   Agorot,
   AverageCurve,
   DateRange,
-  EssentialFilter,
-  EssentialSplit,
   IsoDate,
   IsoMonth,
   PeriodCurve,
@@ -114,29 +112,10 @@ type Match = number | null | undefined;
 const UNDER_CATEGORY_SQL =
   "(ledger.category_id = ? OR ledger.category_parent_id = ? OR ledger.category_grandparent_id = ?)";
 
-/**
- * Which spending by the essential tag (spec 22): true essential, false extra,
- * null neither (uncategorized, or a category without a tag), undefined all.
- * A row takes the tag of its own category; only subcategories carry one.
- */
-export type Tag = boolean | null | undefined;
-
-function whereSql(match: Match, tag: Tag = undefined): { sql: string; params: SQLInputValue[] } {
-  let sql = "";
-  const params: SQLInputValue[] = [];
-  if (match === null) sql += " AND ledger.category_id IS NULL";
-  if (typeof match === "number") {
-    sql += ` AND ${UNDER_CATEGORY_SQL}`;
-    params.push(match, match, match);
-  }
-  if (tag === null) {
-    sql += " AND (ledger.category_id IS NULL OR ledger.category_id IN (SELECT id FROM categories WHERE essential IS NULL))";
-  }
-  if (typeof tag === "boolean") {
-    sql += " AND ledger.category_id IN (SELECT id FROM categories WHERE essential = ?)";
-    params.push(tag ? 1 : 0);
-  }
-  return { sql, params };
+function whereSql(match: Match): { sql: string; params: SQLInputValue[] } {
+  if (match === null) return { sql: " AND ledger.category_id IS NULL", params: [] };
+  if (typeof match === "number") return { sql: ` AND ${UNDER_CATEGORY_SQL}`, params: [match, match, match] };
+  return { sql: "", params: [] };
 }
 
 export interface Totals {
@@ -159,30 +138,10 @@ export function totals(db: Db, from: IsoDate, until: IsoDate): Totals {
     .get(from, until) as unknown as Totals;
 }
 
-/** Spending after refunds with one essential tag. */
-export function taggedSpending(db: Db, from: IsoDate, until: IsoDate, tag: Tag): Agorot {
-  const w = whereSql(undefined, tag);
-  const row = db
-    .prepare(
-      `${WITH_LEDGER} SELECT COALESCE(-SUM(ledger.amount), 0) AS spent FROM ledger
-       WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}${w.sql}`,
-    )
-    .get(from, until, ...w.params) as { spent: Agorot };
-  return row.spent;
-}
-
-export function essentialSplit(db: Db, from: IsoDate, until: IsoDate): EssentialSplit {
-  return {
-    essential: taggedSpending(db, from, until, true),
-    extra: taggedSpending(db, from, until, false),
-    untagged: taggedSpending(db, from, until, null),
-  };
-}
-
 type CategoryAmount = { categoryId: number | null; amount: Agorot; count: number };
 
-export function spendingByCategory(db: Db, from: IsoDate, until: IsoDate, match?: Match, tag?: Tag): CategoryAmount[] {
-  const w = whereSql(match, tag);
+export function spendingByCategory(db: Db, from: IsoDate, until: IsoDate, match?: Match): CategoryAmount[] {
+  const w = whereSql(match);
   return db
     .prepare(
       `${WITH_LEDGER} SELECT ledger.category_id AS categoryId, -SUM(ledger.amount) AS spent, COUNT(*) AS count
@@ -196,18 +155,17 @@ export function spendingByCategory(db: Db, from: IsoDate, until: IsoDate, match?
 }
 
 /** Spending rolled up to top-level categories (null: uncategorized). */
-export function spendingByParent(db: Db, from: IsoDate, until: IsoDate, tag?: Tag): CategoryAmount[] {
-  const w = whereSql(undefined, tag);
+export function spendingByParent(db: Db, from: IsoDate, until: IsoDate): CategoryAmount[] {
   return db
     .prepare(
       `${WITH_LEDGER} SELECT ledger.category_root_id AS categoryId,
          -SUM(ledger.amount) AS spent, COUNT(*) AS count
        FROM ledger
-       WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}${w.sql}
+       WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}
        GROUP BY 1
        ORDER BY spent DESC, categoryId IS NULL, categoryId`,
     )
-    .all(from, until, ...w.params)
+    .all(from, until)
     .map((r) => ({ categoryId: r.categoryId as number | null, amount: r.spent as number, count: r.count as number }));
 }
 
@@ -216,13 +174,12 @@ export function spendingByParent(db: Db, from: IsoDate, until: IsoDate, tag?: Ta
  * for its own category, its parent and its grandparent. Uncategorized rows
  * are left out.
  */
-export function spendingUnder(db: Db, from: IsoDate, until: IsoDate, tag?: Tag): PeriodSummary["spendingUnder"] {
-  const w = whereSql(undefined, tag);
+export function spendingUnder(db: Db, from: IsoDate, until: IsoDate): PeriodSummary["spendingUnder"] {
   return db
     .prepare(
       `${WITH_LEDGER}, spent AS (
          SELECT ledger.category_id, ledger.category_parent_id, ledger.category_grandparent_id, ledger.amount FROM ledger
-         WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}${w.sql}
+         WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}
        )
        SELECT id AS categoryId, -SUM(amount) AS spent, COUNT(*) AS count FROM (
                    SELECT category_id AS id, amount FROM spent
@@ -233,7 +190,7 @@ export function spendingUnder(db: Db, from: IsoDate, until: IsoDate, tag?: Tag):
        GROUP BY id
        ORDER BY spent DESC, id`,
     )
-    .all(from, until, ...w.params)
+    .all(from, until)
     .map((r) => ({ categoryId: r.categoryId as number, amount: r.spent as number, count: r.count as number }));
 }
 
@@ -242,8 +199,8 @@ export function spendingUnder(db: Db, from: IsoDate, until: IsoDate, tag?: Tag):
  * children, each with everything under it, plus the category's own rows
  * under the category's own id. Charts drill down with this.
  */
-export function spendingByChild(db: Db, from: IsoDate, until: IsoDate, categoryId: number, tag?: Tag): CategoryAmount[] {
-  const w = whereSql(categoryId, tag);
+export function spendingByChild(db: Db, from: IsoDate, until: IsoDate, categoryId: number): CategoryAmount[] {
+  const w = whereSql(categoryId);
   return db
     .prepare(
       `${WITH_LEDGER} SELECT
@@ -263,8 +220,8 @@ export function spendingByChild(db: Db, from: IsoDate, until: IsoDate, categoryI
 }
 
 /** Spending per day with any spending, oldest first. */
-function spentByDate(db: Db, range: DateRange, match: Match, tag: Tag): { date: IsoDate; spent: Agorot }[] {
-  const w = whereSql(match, tag);
+function spentByDate(db: Db, range: DateRange, match: Match): { date: IsoDate; spent: Agorot }[] {
+  const w = whereSql(match);
   return db
     .prepare(
       `${WITH_LEDGER} SELECT ledger.date AS date, -SUM(ledger.amount) AS spent FROM ledger
@@ -287,32 +244,24 @@ function cumulative(days: { date: IsoDate; spent: Agorot }[], buckets: DateRange
   return points;
 }
 
-function seriesOf(db: Db, range: DateRange, bucket: SeriesBucket, match: Match, tag: Tag, today?: IsoDate) {
-  const days = spentByDate(db, range, match, tag);
+function seriesOf(db: Db, range: DateRange, bucket: SeriesBucket, match: Match, today?: IsoDate) {
+  const days = spentByDate(db, range, match);
   return { days, series: cumulative(days, bucketsOf(range, bucket), today) };
-}
-
-/** The optional `essential` arg of the period channels. */
-function tagOf(args: EssentialFilter): Tag {
-  check(args.essential === undefined || args.essential === null || typeof args.essential === "boolean");
-  return args.essential;
 }
 
 // ---- What the window asks for ----
 
-/** With `essential`, every spending number is that tag's only; income, transfers and review stay whole. */
-export function periodSummary(db: Db, args: DateRange & EssentialFilter, opts: { now?: Date } = {}): PeriodSummary {
+export function periodSummary(db: Db, args: DateRange, opts: { now?: Date } = {}): PeriodSummary {
   assertRange(args);
-  const tag = tagOf(args);
   const range = { from: args.from, to: args.to };
   const today = israelToday(opts.now ?? new Date());
   const until = shiftDay(range.to, 1);
   const t = totals(db, range.from, until);
   const bucket = bucketFor(range);
-  const { series } = seriesOf(db, range, bucket, undefined, tag, today);
+  const { series } = seriesOf(db, range, bucket, undefined, today);
 
   const before = previousRange(range);
-  const prev = seriesOf(db, before, bucket, undefined, tag);
+  const prev = seriesOf(db, before, bucket, undefined);
   const prevSpending = prev.series.at(-1)?.amount ?? 0;
   const inProgress = range.from <= today && today <= range.to;
   // By the same point: as many days into the previous period as today is into this one.
@@ -323,26 +272,23 @@ export function periodSummary(db: Db, args: DateRange & EssentialFilter, opts: {
       ? prevSpending
       : 0;
 
-  const spending = tag === undefined ? t.spending : taggedSpending(db, range.from, until, tag);
-
   return {
     from: range.from,
     to: range.to,
     income: t.income,
-    spending,
+    spending: t.spending,
     transfers: t.transfers,
     needsReview: t.needsReview,
-    byCategory: spendingByCategory(db, range.from, until, undefined, tag),
-    byParent: spendingByParent(db, range.from, until, tag),
-    spendingUnder: spendingUnder(db, range.from, until, tag),
+    byCategory: spendingByCategory(db, range.from, until),
+    byParent: spendingByParent(db, range.from, until),
+    spendingUnder: spendingUnder(db, range.from, until),
     bucket,
     series,
     inProgress,
     previous: { ...before, spending: prevSpending, sameTime, series: prev.series },
-    untagged: taggedSpending(db, range.from, until, null),
     left: t.income - t.spending - t.transfers,
-    comparison: compareSpending(spending, sameTime),
-    average: monthAverageCurve(db, range, undefined, tag, opts.now),
+    comparison: compareSpending(t.spending, sameTime),
+    average: monthAverageCurve(db, range, undefined, opts.now),
   };
 }
 
@@ -353,23 +299,16 @@ export function compareSpending(spending: Agorot, base: Agorot): SpendingCompari
 }
 
 /** A month's spending by top-level category, without the row counts. */
-function parentsOf(db: Db, from: IsoDate, until: IsoDate, tag: Tag): TrendPoint["byParent"] {
-  return spendingByParent(db, from, until, tag).map(({ categoryId, amount }) => ({ categoryId, amount }));
+function parentsOf(db: Db, from: IsoDate, until: IsoDate): TrendPoint["byParent"] {
+  return spendingByParent(db, from, until).map(({ categoryId, amount }) => ({ categoryId, amount }));
 }
 
-/** One month of the trend: spending by category, all of it or one tag's. */
-export function trendPoint(db: Db, month: IsoMonth, tag: Tag = undefined): TrendPoint {
+/** One month of the trend: spending by category. */
+export function trendPoint(db: Db, month: IsoMonth): TrendPoint {
   const { from, until } = monthBounds(month);
   const t = totals(db, from, until);
-  const byCategory = spendingByCategory(db, from, until, undefined, tag).map(({ categoryId, amount }) => ({ categoryId, amount }));
-  const spending = tag === undefined ? t.spending : taggedSpending(db, from, until, tag);
-  return { month, income: t.income, spending, byCategory, byParent: parentsOf(db, from, until, tag) };
-}
-
-/** All of a month's spending, by category and split by tag, for Home's bars. */
-function splitTrendPoint(db: Db, month: IsoMonth): TrendPoint {
-  const { from, until } = monthBounds(month);
-  return { ...trendPoint(db, month), split: essentialSplit(db, from, until) };
+  const byCategory = spendingByCategory(db, from, until).map(({ categoryId, amount }) => ({ categoryId, amount }));
+  return { month, income: t.income, spending: t.spending, byCategory, byParent: parentsOf(db, from, until) };
 }
 
 /**
@@ -378,30 +317,27 @@ function splitTrendPoint(db: Db, month: IsoMonth): TrendPoint {
  * `parts` one level down: by direct child, plus the category's own rows.
  * `spending` is their sum, so the ids should not overlap.
  */
-function chosenTrendPoint(db: Db, month: IsoMonth, categoryIds: (number | null)[], tag: Tag): TrendPoint {
+function chosenTrendPoint(db: Db, month: IsoMonth, categoryIds: (number | null)[]): TrendPoint {
   const { from, until } = monthBounds(month);
   const t = totals(db, from, until);
   const parts: TrendPoint["parts"] = [];
   const byCategory = categoryIds.map((categoryId) => {
     const rows =
-      categoryId === null
-        ? spendingByCategory(db, from, until, null, tag)
-        : spendingByChild(db, from, until, categoryId, tag);
+      categoryId === null ? spendingByCategory(db, from, until, null) : spendingByChild(db, from, until, categoryId);
     for (const r of rows) parts.push({ categoryId: r.categoryId, amount: r.amount });
     return { categoryId, amount: rows.reduce((sum, r) => sum + r.amount, 0) };
   });
   const spending = byCategory.reduce((sum, c) => sum + c.amount, 0);
-  return { month, income: t.income, spending, byCategory, byParent: parentsOf(db, from, until, tag), parts };
+  return { month, income: t.income, spending, byCategory, byParent: parentsOf(db, from, until), parts };
 }
 
 /** The months the range covers, never past this month, padded back to at least three. */
 export function periodTrend(
   db: Db,
-  args: DateRange & EssentialFilter & { categoryIds?: (number | null)[] },
+  args: DateRange & { categoryIds?: (number | null)[] },
   opts: { now?: Date } = {},
 ): TrendPoint[] {
   assertRange(args);
-  const tag = tagOf(args);
   const { categoryIds } = args;
   if (categoryIds !== undefined) {
     check(Array.isArray(categoryIds) && categoryIds.length <= MAX_CURVES);
@@ -415,19 +351,16 @@ export function periodTrend(
   const index = (m: IsoMonth) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7));
   const count = Math.max(MIN_TREND_MONTHS, index(last) - index(first) + 1);
   const months = Array.from({ length: count }, (_, i) => addMonths(last, i - count + 1));
-  return months.map((m) =>
-    categoryIds ? chosenTrendPoint(db, m, categoryIds, tag) : tag === undefined ? splitTrendPoint(db, m) : trendPoint(db, m, tag),
-  );
+  return months.map((m) => (categoryIds ? chosenTrendPoint(db, m, categoryIds) : trendPoint(db, m)));
 }
 
 /** Cumulative spending per bucket for each category, this period (to today) and the one before (full). */
 export function periodCurves(
   db: Db,
-  args: DateRange & EssentialFilter & { categoryIds: (number | null)[] },
+  args: DateRange & { categoryIds: (number | null)[] },
   opts: { now?: Date } = {},
 ): PeriodCurve[] {
   assertRange(args);
-  const tag = tagOf(args);
   const { categoryIds } = args;
   check(Array.isArray(categoryIds) && categoryIds.length <= MAX_CURVES);
   check(categoryIds.every((id) => id === null || isId(id)));
@@ -438,16 +371,16 @@ export function periodCurves(
   return categoryIds.map((categoryId) => ({
     categoryId,
     bucket,
-    series: seriesOf(db, range, bucket, categoryId, tag, today).series,
-    previous: seriesOf(db, before, bucket, categoryId, tag).series,
-    average: monthAverageCurve(db, range, categoryId, tag, opts.now),
+    series: seriesOf(db, range, bucket, categoryId, today).series,
+    previous: seriesOf(db, before, bucket, categoryId).series,
+    average: monthAverageCurve(db, range, categoryId, opts.now),
   }));
 }
 
-/** The bars with the average month over their full months (spec 26), with the same filter and categories. */
+/** The bars with the average month over their full months (spec 26), with the same categories. */
 export function periodTrendWithAverage(
   db: Db,
-  args: DateRange & EssentialFilter & { categoryIds?: (number | null)[] },
+  args: DateRange & { categoryIds?: (number | null)[] },
   opts: { now?: Date } = {},
 ): PeriodTrend {
   const points = periodTrend(db, args, opts);
@@ -462,12 +395,12 @@ export function periodTrendWithAverage(
  * months of the bars' 12-month window. Null for other ranges, or with fewer
  * than 2 such months.
  */
-function monthAverageCurve(db: Db, range: DateRange, match: Match, tag: Tag, now: Date | undefined): AverageCurve | null {
+function monthAverageCurve(db: Db, range: DateRange, match: Match, now: Date | undefined): AverageCurve | null {
   if (wholeMonths(range) !== 1) return null;
   const thisMonth = israelMonth(now ?? new Date());
   const months = averageMonths(monthWindow(range.from.slice(0, 7), thisMonth), thisMonth, firstMonth(db));
   if (months.length === 0) return null;
-  return averageCurve(spentByDate(db, rangeOfMonths(months), match, tag), months, bucketsOf(range, "day"));
+  return averageCurve(spentByDate(db, rangeOfMonths(months), match), months, bucketsOf(range, "day"));
 }
 
 /**

@@ -196,56 +196,19 @@ describe("updateCategory", () => {
   });
 });
 
-describe("essential or extra (spec 18)", () => {
-  const flag = (db: Db, name: string) => listCategories(db).find((c) => c.name === name)?.essential;
+describe("the old Routine / Treats column (spec 34, F72)", () => {
+  const column = (db: Db, id: number) =>
+    (db.prepare("SELECT essential FROM categories WHERE id = ?").get(id) as { essential: number | null }).essential;
 
-  it("switching essential and extra persists, and touches nothing else", () => {
+  it("keeps its values through edits and moves, gives new categories NULL, and is not sent to the window", () => {
     const db = newDb();
-    const id = categoryId(db, "Groceries");
-    const before = listCategories(db).find((c) => c.id === id);
-    expect(updateCategory(db, id, { essential: false })).toMatchObject({ ok: true, category: { essential: false } });
-    expect(flag(db, "Groceries")).toBe(false);
-    expect(listCategories(db).find((c) => c.id === id)).toEqual({ ...before, essential: false });
-    expect(updateCategory(db, id, { essential: true }).ok).toBe(true);
-    expect(flag(db, "Groceries")).toBe(true);
-    // A rename alone keeps the flag.
-    updateCategory(db, categoryId(db, "Bars"), { name: "Pubs" });
-    expect(flag(db, "Pubs")).toBe(false);
-  });
-
-  it("new spending subcategories are essential unless the user says extra", () => {
-    const db = newDb();
-    const food = categoryId(db, "Food");
-    expect(createCategory(db, input({ name: "Bakery", parentId: food })).ok && flag(db, "Bakery")).toBe(true);
-    expect(createCategory(db, input({ name: "Sweets", parentId: food, essential: false })).ok && flag(db, "Sweets")).toBe(false);
-    expect(createCategory(db, input({ name: "Garden" })).ok && flag(db, "Garden")).toBeNull();
-  });
-
-  it("income, transfer and group categories have no switch", () => {
-    const db = newDb();
-    expect(flag(db, "Salary")).toBeNull();
-    expect(flag(db, "Savings")).toBeNull();
-    expect(flag(db, "Food")).toBeNull();
-    badRequest(() => updateCategory(db, categoryId(db, "Salary"), { essential: true }));
-    badRequest(() => updateCategory(db, categoryId(db, "Savings"), { essential: false }));
-    badRequest(() => updateCategory(db, categoryId(db, "Food"), { essential: false }));
-    badRequest(() => createCategory(db, input({ name: "Rent in", kind: "income", essential: true })));
-    badRequest(() => updateCategory(db, categoryId(db, "Groceries"), { essential: "no" as unknown as boolean }));
-  });
-
-  it("moving out of a group clears the flag, moving in sets it essential", () => {
-    const db = newDb();
-    const id = categoryId(db, "Shopping");
-    expect(updateCategory(db, id, { parentId: null })).toMatchObject({ ok: true, category: { essential: null } });
-    expect(updateCategory(db, id, { parentId: categoryId(db, "Lifestyle") })).toMatchObject({
-      ok: true,
-      category: { essential: true },
-    });
     const bars = categoryId(db, "Bars");
-    expect(updateCategory(db, bars, { parentId: categoryId(db, "Lifestyle") })).toMatchObject({
-      ok: true,
-      category: { essential: false },
-    });
+    expect(column(db, bars)).toBe(0);
+    updateCategory(db, bars, { name: "Pubs", parentId: categoryId(db, "Lifestyle") });
+    updateCategory(db, bars, { parentId: null });
+    expect(column(db, bars)).toBe(0);
+    expect(column(db, created(db, { name: "Bakery", parentId: categoryId(db, "Food") }))).toBeNull();
+    expect(listCategories(db).some((c) => "essential" in c)).toBe(false);
   });
 });
 

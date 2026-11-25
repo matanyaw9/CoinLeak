@@ -22,10 +22,6 @@ const SPECS: { [K in SettingKey]: SettingSpec<K> } = {
     fallback: "max",
     valid: (v): v is AppSettings["syncFrom"] => v === "max" || isSyncStartDay(v),
   },
-  homeSpendingFilter: {
-    fallback: "all",
-    valid: (v): v is AppSettings["homeSpendingFilter"] => v === "all" || v === "essential" || v === "extra",
-  },
   homeCurveCompare: {
     fallback: "previous",
     valid: (v): v is AppSettings["homeCurveCompare"] => v === "previous" || v === "average",

@@ -93,7 +93,6 @@ export function CategoryLine({
               <span dir="auto" className="truncate text-[15px] font-medium">
                 <Highlight text={category.name} query={query} />
               </span>
-              {category.essential === false && <ExtraBadge />}
             </div>
             <div className="text-xs text-muted-foreground">
               {over ? s.catEdit.dropHere : stat ? s.common.transactions(stat.count) : s.categories.noSpend}
@@ -117,18 +116,6 @@ export function CategoryLine({
       </div>
       {places && <PlacesLine places={places} query={query} deep={deep} />}
     </div>
-  );
-}
-
-/** spec 18: a small tag on extra spending, where a month can be cut. */
-function ExtraBadge() {
-  return (
-    <span
-      title={s.essential.badgeTitle}
-      className="shrink-0 rounded-full border border-border px-1.5 py-px text-[10px] font-medium tracking-wide text-muted-foreground uppercase"
-    >
-      {s.essential.badge}
-    </span>
   );
 }
 
