@@ -11,8 +11,6 @@ Nothing open.
 
 - `components/categories/tree-choice.tsx` has its own small `arrowFocus`
   (spec 34, built in parallel with spec 36): move it onto `lib/roving.ts`.
-- Categories page: a category's amount includes everything under it, but
-  "N transactions" counts only its own rows. Say which, or count both.
 - A budget can sit inside another budget's category (both count the same
   rows). The Demo avoids it; decide whether the window should warn.
 - A category's own rows open Transactions for the whole category: there
