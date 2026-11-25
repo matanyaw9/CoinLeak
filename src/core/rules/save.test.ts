@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { Db } from "../db";
 import { ingest } from "../ledger/ingest";
+import { createCategory } from "../ledger/categories";
 import { trashTransactions, updateTransactions } from "../ledger/queries";
 import { NOW, bank, categoryId, idOf, newDb, snapshot, txn } from "../testing/ledger";
 import { multiRule, ruleFields, ruleInput } from "../testing/rules";
@@ -98,6 +99,20 @@ describe("saveRule", () => {
       rule_id: saved.rule.id,
     });
     expect([restaurant, idOf(db, "Landwer TLV")].map((id) => ruleFields(db, id))).toEqual(untouched);
+  });
+
+  // Nested categories (spec 34) with F45: a finer hand-sort inside the rule's own category agrees with it.
+  it("never offers or takes back up a row the user sorted into a subcategory of the rule's category", () => {
+    const db = cafes();
+    const made = createCategory(db, { name: "Espresso bars", kind: "expense", parentId: categoryId(db, "Coffee & Cafes"), emoji: null, color: null });
+    if (!made.ok) throw new Error(made.problem);
+    const landwer = idOf(db, "Landwer TLV");
+    updateTransactions(db, [landwer], { categoryId: made.category.id });
+
+    expect(previewRule(db, cafeRule(db)).handSet.map((t) => t.description)).toEqual(["לנדוור"]);
+    saveRule(db, { id: null, rule: cafeRule(db), alsoChange: [landwer, idOf(db, "לנדוור")] });
+    expect(ruleFields(db, landwer)).toMatchObject({ category_id: made.category.id, category_source: "user" });
+    expect(ruleFields(db, idOf(db, "לנדוור"))).toMatchObject({ category_id: categoryId(db, "Coffee & Cafes") });
   });
 
   it("does not take over hand-sorted rows when the rule is off or sets no category", () => {

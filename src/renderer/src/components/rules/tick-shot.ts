@@ -4,11 +4,11 @@
 // screenshot shows unticked rows. The app itself never sets it.
 
 import { useEffect } from "react";
+import { hashParam } from "@/lib/shot";
 
 /** The editor sits outside the router, so this reads the hash route itself. */
 function untickEvery(): number {
-  const query = window.location.hash.split("?")[1] ?? "";
-  return Number(new URLSearchParams(query).get("untick") ?? 0);
+  return Number(hashParam("untick") ?? 0);
 }
 
 export function useUntickShot(shown: number[], untick: (ids: number[]) => void): void {

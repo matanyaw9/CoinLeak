@@ -9,3 +9,14 @@ export function useShot(): string | null {
   const [params] = useSearchParams();
   return params.get("shot");
 }
+
+/**
+ * A start-route parameter read from the hash itself, for parts that also
+ * render outside the router: the rule editor and the category picker in it.
+ * A router hook there crashes the window.
+ */
+export function hashParam(name: string): string | null {
+  if (typeof window === "undefined") return null;
+  const query = window.location.hash.split("?")[1] ?? "";
+  return new URLSearchParams(query).get(name);
+}

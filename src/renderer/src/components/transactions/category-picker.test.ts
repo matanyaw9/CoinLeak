@@ -1,10 +1,12 @@
 // The category picker's list (spec 34): the three-level tree by kind while
 // browsing, every level a choice; full paths while searching.
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Category, CategoryKind } from "@shared/types";
 import { indexCategories } from "@/lib/categories";
-import { pickerItems } from "./category-picker";
+import { CategoryPicker, pickerItems } from "./category-picker";
 
 const cat = (id: number, name: string, parentId: number | null = null, kind: CategoryKind = "expense"): Category => ({
   id,
@@ -59,5 +61,14 @@ describe("category picker list", () => {
     ]);
     expect(lines("expense", "  SHOP ")).toHaveLength(4);
     expect(lines("expense", "nothing like this")).toEqual([]);
+  });
+});
+
+// The rule editor renders outside the router (App.tsx), and its category
+// field is this picker: a router hook in it blanked every rule editor.
+describe("the picker outside the router", () => {
+  it("renders without a router around it", () => {
+    const picker = createElement(CategoryPicker, { index, onSelect: () => undefined, children: "Pick" });
+    expect(renderToStaticMarkup(picker)).toContain("Pick");
   });
 });
