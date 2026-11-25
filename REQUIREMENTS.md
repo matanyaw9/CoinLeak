@@ -137,6 +137,13 @@ and are marked.
 
 Timeouts and the user closing the browser end the sync with a fixed error.
 
+**Quick and full (spec 32, F82).** A provider's first sync is full: as far
+back as the `syncFrom` setting and the bank allow. After that, Sync is
+quick: it asks from the oldest last save among the provider's syncing
+accounts minus 60 days, never before `syncFrom`. "Download everything
+again" runs a full one. Only pending rows inside what was asked for can
+become gone.
+
 ### Dedup
 
 Banks report overlapping date ranges, and two identical coffees on the same

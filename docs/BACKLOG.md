@@ -7,7 +7,39 @@ into specs when planning a wave. Must-fix items block the first real use.
 
 Nothing open.
 
+## From the wave 13 review (2026-11-25)
+
+Full review: `docs/reviews/2026-11-25-wave13-review.md`.
+
+- **Paid back dialog: open it from the page.** It adds a second dialog
+  mechanism (`EntryDialog`, a `RowDialog` context, a dead slot in
+  `RowMenuButton`) and lives inside the row. Give it to `RowMenuActions`
+  like the note dialog. Moved into spec 36 (wave 14).
+- **Paid back dialog: Enter right after typing** picks from the old list.
+  Ignore Enter until the search caught up. Moved into spec 36 (wave 14).
+- **Owner question:** when a purchase's category changes, should its
+  pay-backs follow? Today they keep the old category. In HANDOFF.
+- Nice to have: move `isMac` and `isFindKey` from
+  `components/transactions/find.ts` into `lib/shortcuts.ts`; take the
+  screenshot-only hook out of every row's `category-cell.tsx` (with finding
+  6 of the 2026-11-08 review); hide "Paid back for a purchase..." on an
+  ignored row; mark a dialog's OK explicitly instead of "the last solid
+  button" (`ui/dialog.tsx`) and test it; spec 32 said card-worded lines use
+  `readCardLine`'s numbers, the code uses standalone 4-digit runs (stricter,
+  safe; note it or match it).
+
 ## Done
+
+- (Review 2026-11-25, must fix 1) A new category on a paid-back row, by
+  hand or by a saved rule, ends the link, so "Not paid back" can no longer
+  empty a category the user chose. Same category keeps it.
+- (Review 2026-11-25, must fix 2) Quick sync counts from the oldest last
+  save among the provider's syncing accounts, so a card added back after a
+  gap, or a download that saved no accounts, no longer skips months. Cost:
+  an account the bank stopped reporting keeps that date old, so syncs go
+  further back until it is removed from syncing.
+- (Review 2026-11-25, should fix 3) `REQUIREMENTS.md` section 5 describes
+  quick sync.
 
 - (Spec 14) "Empty trash" keeps tombstones; a sync never re-adds emptied rows.
 
