@@ -36,6 +36,17 @@ export const usePeriodCurves = (range: DateRange, categoryIds: (number | null)[]
   });
 };
 
+/** spec 38: the chosen categories added up into one curve; nothing chosen asks nothing. */
+export const usePeriodCurveSum = (range: DateRange, categoryIds: (number | null)[]) => {
+  const args = { ...range, categoryIds };
+  return useQuery({
+    queryKey: queryKey("summary:periodCurveSum", args),
+    queryFn: () => call("summary:periodCurveSum", args),
+    enabled: categoryIds.length > 0,
+    placeholderData: (p) => p,
+  });
+};
+
 /** spec 30: income minus spending per month, for the months the month-by-month bars show. */
 export const useMonthlyNet = (range: DateRange) =>
   useQuery({ queryKey: queryKey("summary:monthlyNet", range), queryFn: () => call("summary:monthlyNet", range), placeholderData: (p) => p });

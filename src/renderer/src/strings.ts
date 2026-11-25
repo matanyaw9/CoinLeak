@@ -413,10 +413,6 @@ export const s = {
 
   curves: {
     title: "Spending by category through the month",
-    modeLabel: "Show",
-    modeOne: "One category",
-    modeTop: "Top categories",
-    pick: "Category",
     empty: "No spending in this category to draw yet.",
     emptyTop: "No spending to draw yet.",
     hint: "Click a point to see these transactions",
@@ -762,12 +758,11 @@ export const s = {
     trendTitle: "Month by month",
     trendAll: "All spending",
     trendPick: "Choose categories",
-    trendCount: (n: number) => `${n} categories`,
     trendBack: "All spending",
     trendBackHint: "Back to all spending",
-    trendFilterHint: "Click a bar to see that month's transactions",
+    trendFilterHint: "Click a color to look inside it, or to see that month's transactions",
     trendPickHint: "Click a color or name to see only that category",
-    trendUntickHint: "Click to take it out",
+    trendRangeHint: "Click to see its transactions over all these months",
     trendEmptyOne: "No spending in these categories in these months.",
     flowBeyond: "Spent beyond income",
     flowFromSavings: "Back from savings",
@@ -1006,14 +1001,9 @@ export const s = {
     byDay: (day: number) => `Average month by day ${day}`,
   },
   curvePick: {
-    viewLabel: "Categories",
     top: "Top 5",
-    choose: "Choose",
-    showTop: "Show top 5",
     pick: "Choose categories",
-    chosen: (n: number) => (n === 1 ? "1 category" : `${n} categories`),
-    limit: (max: number) => `Up to ${max} categories at once`,
-    empty: "Choose categories to draw their curves.",
+    empty: "No spending in the chosen categories to draw yet.",
   },
 
   // spec 30
@@ -1168,6 +1158,30 @@ export const s = {
     deleteTitle: (n: number) => (n === 1 ? "Delete this transaction for good?" : `Delete these ${n} transactions for good?`),
     deleteBody: (n: number) =>
       `This deletes ${plural(n, "transaction", "transactions")} for good. A later sync will not bring ${n === 1 ? "it" : "them"} back. The rest of the trash stays.`,
+  },
+
+  // spec 38
+  chooser: {
+    search: "Search categories",
+    noMatch: "No category matches",
+    apply: "Apply",
+    count: (n: number) => `${n} categories`,
+    limit: (max: number) => `Up to ${max} categories at once`,
+    included: (name: string) => `Counted in ${name}`,
+    keys: "Space ticks, Enter applies",
+    /** "Groceries", "Groceries and Coffee", "Groceries, Coffee and Fuel", "Groceries and 4 more". */
+    names: (names: string[]) =>
+      names.length <= 1
+        ? (names[0] ?? "")
+        : names.length <= 3
+          ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+          : `${names[0]} and ${names.length - 1} more`,
+  },
+  trendClick: {
+    drill: (name: string) => `Click to look inside ${name}`,
+    month: (month: string) => `Click to see the ${month} transactions`,
+    barsLabel: "Months. Left and Right pick a month, Enter opens its transactions.",
+    legendLabel: "Categories in the chart",
   },
 };
 

@@ -5,7 +5,7 @@
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
-import type { IsoMonth } from "@shared/types";
+import type { DateRange, IsoMonth } from "@shared/types";
 import { s } from "@/strings";
 import { useCategories, useFirstRun } from "@/lib/hooks";
 import { usePeriod } from "@/lib/month-context";
@@ -33,10 +33,16 @@ export function sliceLink(slice: Slice): string {
   return `/transactions?category=${slice.categoryId ?? "none"}`;
 }
 
+/** spec 38: the Transactions link for these categories, each with everything under it; none is all spending. */
+export function spendingLink(categories: (number | null)[]): string {
+  if (categories.length === 0) return "/transactions?flow=spending";
+  return `/transactions?category=${categories.map((id) => id ?? "none").join(",")}`;
+}
+
 const minMonth = (a: IsoMonth, b: IsoMonth): IsoMonth => (a < b ? a : b);
 
 export function HomePage() {
-  const { choice, range, today, showMonth } = usePeriod();
+  const { choice, range, today, showMonth, setChoice } = usePeriod();
   const navigate = useNavigate();
   const shot = useShot();
   const summary = usePeriodSummary(range);
@@ -50,9 +56,14 @@ export function HomePage() {
   const budgetMonth = choice.kind === "month" ? choice.month : minMonth(range.to.slice(0, 7), today.slice(0, 7));
   useOverspentShot(shot, left.data);
 
-  const open = (slice: Slice, m?: IsoMonth) => {
-    if (m) showMonth(m);
-    void navigate(sliceLink(slice));
+  const open = (slice: Slice) => void navigate(sliceLink(slice));
+  /** spec 38: chosen categories in this period (the curves card). */
+  const openCategories = (categories: (number | null)[]) => void navigate(spendingLink(categories));
+  /** spec 38: the bars' categories in one month, or over a range of days (shown as a custom period). */
+  const openWhen = (categories: (number | null)[], when: IsoMonth | DateRange) => {
+    if (typeof when === "string") showMonth(when);
+    else setChoice({ ...choice, kind: "custom", custom: when });
+    void navigate(spendingLink(categories));
   };
   /** One month's transactions, all of them (the Saved or overspent bars). */
   const openMonth = (m: IsoMonth) => {
@@ -123,7 +134,7 @@ export function HomePage() {
                 words={words}
                 summary={summary.data}
                 index={index}
-                onOpen={(x) => open(x)}
+                onOpen={openCategories}
               />
             ) : (
               <CardSkeleton label={s.curves.title} height={300} />
@@ -131,7 +142,7 @@ export function HomePage() {
           </div>
           <div className="col-span-12">
             {categories.data ? (
-              <TrendCard range={range} index={index} onOpen={open} />
+              <TrendCard range={range} index={index} onOpen={openWhen} />
             ) : (
               <CardSkeleton label={s.periodHome.trendTitle} height={280} />
             )}

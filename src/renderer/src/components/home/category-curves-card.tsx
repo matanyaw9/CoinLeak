@@ -1,35 +1,39 @@
-// How spending builds up through the period per category: the top five, or
-// categories the owner chooses (F61), with a toggling legend. For a month the
-// dashed comparison is last month (one category drawn) or each category's
-// average month (spec 26). Core draws the curves (summary:periodCurves,
-// stopping at today); this card only lays them out on the period's axis.
+// How spending builds up through the period by category: the top five, one
+// line each with a legend that hides and shows them (F61), or the categories
+// the owner chooses added up into one line (spec 38, F79). The dashed
+// comparison is the period before (one line drawn) or, for a month, the
+// average month (spec 26). Core draws the curves (summary:periodCurves and
+// summary:periodCurveSum, stopping at today); this card only lays them out.
 
 import { useEffect, useRef, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { HomeCurveCompare, PeriodCurve, PeriodSummary } from "@shared/types";
+import { Tag } from "lucide-react";
+import type { AverageCurve, HomeCurveCompare, PeriodSummary, SeriesPoint } from "@shared/types";
 import { s } from "@/strings";
 import { useShot } from "@/lib/shot";
 import { cn } from "@/lib/utils";
 import { categorySlice, parentSlices, type CategoryIndex, type Slice } from "@/lib/categories";
 import type { PeriodChoice } from "@/lib/month";
 import { usePeriod } from "@/lib/month-context";
+import { useRoving } from "@/lib/roving";
 import { Card, CardHeader } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
-import { Segmented } from "@/components/common/segmented";
 import { chartAnimation, ChartTooltip, type TooltipRow } from "@/components/charts/chart-tooltip";
-import { CurveCategoryPicker } from "./curve-category-picker";
-import { liveChoice, toggleChosen, type CurveChoice } from "./curve-selection";
-import { shotCompare, useCurveCategories, useCurveCompare, usePeriodCurves } from "./period-data";
+import { CategoryChooser, type ChooserDemo } from "./category-chooser";
+import { chooserItems, nameOf } from "./chooser";
+import { liveChoice, sumName, type CurveChoice } from "./curve-selection";
+import { shotCompare, useCurveCategories, useCurveCompare, usePeriodCurveSum, usePeriodCurves } from "./period-data";
 import { axisOf } from "./period-axis";
 import { CompareSwitch } from "./spending-curve-card";
 import type { PeriodWords } from "./period-words";
 
-type View = "top" | "choose";
 type Row = { i: number; title: string } & Record<string, number | string | undefined>;
+/** What one drawn line needs: a single category's curve or the chosen ones added up. */
+type Curve = { series: SeriesPoint[]; previous: SeriesPoint[]; average?: AverageCurve | null };
 
 const TOP = 5;
 const PREV_COLOR = "var(--muted-foreground)";
-/** The row key of a category's average curve. */
+/** The row key of a line's average curve. */
 const avgKey = (key: string) => `avg:${key}`;
 
 export function CategoryCurvesCard({
@@ -43,7 +47,8 @@ export function CategoryCurvesCard({
   words: PeriodWords;
   summary: PeriodSummary;
   index: CategoryIndex;
-  onOpen: (slice: Slice) => void;
+  /** Transactions in this period for these categories. */
+  onOpen: (categories: (number | null)[]) => void;
 }) {
   const { range } = usePeriod();
   const shot = useShot();
@@ -55,37 +60,40 @@ export function CategoryCurvesCard({
   }, [shot]);
   const top = parentSlices(index, summary.byParent).slice(0, TOP);
 
-  const [saved, setSaved] = useCurveCategories(shot === "curves-chosen" ? demoChoice(index, top) : undefined);
+  const [saved, setSaved] = useCurveCategories(shot === "curves-chosen" || shot === "curves-sum" ? demoChoice(index, top) : undefined);
   const chosen = liveChoice(saved, index);
-  // "Choose" with nothing ticked yet still shows the picker, not the top 5.
-  const [choosing, setChoosing] = useState(false);
-  const view: View = chosen.length > 0 || choosing ? "choose" : "top";
-  const onView = (v: View) => {
-    setChoosing(v === "choose");
-    if (v === "top" && chosen.length > 0) setSaved([]);
-  };
-  const toggle = (id: number | null) => {
-    setChoosing(true);
-    setSaved(toggleChosen(chosen, id));
-  };
+  // Chosen categories are one line, added up; nothing chosen is the top 5.
+  const summed = chosen.length > 0;
 
   const [savedCompare, setCompare] = useCurveCompare(shotCompare(shot));
   const isMonth = choice.kind === "month";
   const compare: HomeCurveCompare = isMonth ? savedCompare : "previous";
 
-  const series = view === "top" ? top : chosen.map((id) => categorySlice(index, id));
-  const curves = usePeriodCurves(range, series.map((x) => x.categoryId ?? null));
+  const sumLine: Slice = {
+    key: "sum",
+    categoryId: undefined,
+    name: sumName(chosen, index),
+    emoji: null,
+    color: chosen.length === 1 ? categorySlice(index, chosen[0] ?? null).color : "var(--primary)",
+    amount: 0,
+  };
+  const series = summed ? [sumLine] : top;
+  const tops = usePeriodCurves(range, summed ? [] : top.map((x) => x.categoryId ?? null));
+  const sum = usePeriodCurveSum(range, chosen);
+  const byId = new Map((tops.data ?? []).map((c) => [c.categoryId, c]));
+  const curveOf = (x: Slice): Curve | undefined => (summed ? sum.data : byId.get(x.categoryId ?? null));
+  const loaded = summed ? sum.data !== undefined : tops.data !== undefined;
+  const openLine = (x: Slice) => onOpen(summed ? chosen : [x.categoryId ?? null]);
+
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   // F60: the category under the pointer (a line or a legend name) stands out.
   const [lit, setLit] = useState<string | null>(null);
-  const byId = new Map((curves.data ?? []).map((c) => [c.categoryId, c]));
-  const curveOf = (x: Slice): PeriodCurve | undefined => byId.get(x.categoryId ?? null);
 
-  // Last month's line only when one category is drawn, as before; the average for each.
+  // Last month's line only when one line is drawn, as before; the average for each.
   const one = series.length === 1 ? series[0] : undefined;
   const showPrevious = compare === "previous" && one !== undefined;
   const showAverage = compare === "average";
-  const noAverage = curves.data !== undefined && series.length > 0 && series.every((x) => !curveOf(x)?.average);
+  const noAverage = loaded && series.length > 0 && series.every((x) => !curveOf(x)?.average);
 
   const axis = axisOf(summary, summary.bucket);
   const data: Row[] = axis.points.map((p, i) => {
@@ -99,10 +107,10 @@ export function CategoryCurvesCard({
     return row;
   });
 
-  const lastOf = (c: PeriodCurve | undefined) =>
+  const lastOf = (c: Curve | undefined) =>
     Math.max(c?.series.at(-1)?.amount ?? 0, showPrevious ? (c?.previous.at(-1)?.amount ?? 0) : 0, showAverage ? (c?.average?.series.at(-1)?.amount ?? 0) : 0);
   // While the curves load, keep the chart's place rather than flash "nothing to draw".
-  const hasData = curves.data === undefined ? series.length > 0 : series.some((x) => lastOf(curveOf(x)) > 0);
+  const hasData = !loaded ? series.length > 0 : series.some((x) => lastOf(curveOf(x)) > 0);
   const toggleHidden = (key: string) =>
     setHidden((h) => {
       const next = new Set(h);
@@ -110,13 +118,18 @@ export function CategoryCurvesCard({
       else next.add(key);
       return next;
     });
-  const shown = series.filter((x) => !hidden.has(x.key));
+  const shown = series.filter((x) => summed || !hidden.has(x.key));
+  // The top 5's names are one Tab stop; Left and Right move along them.
+  const { list: legendList, item: legendItem } = useRoving(
+    series.map((x) => x.key),
+    { columns: series.length },
+  );
 
   const dot = (slice: Slice, color: string) => (p: { cx?: number; cy?: number; index?: number }) =>
     p.cx == null || p.cy == null ? (
       <g key={p.index} />
     ) : (
-      <g key={p.index} className="cursor-pointer" onClick={() => onOpen(slice)}>
+      <g key={p.index} className="cursor-pointer" onClick={() => openLine(slice)}>
         <circle cx={p.cx} cy={p.cy} r={12} fill="transparent" />
         <circle cx={p.cx} cy={p.cy} r={4.5} fill={color} stroke="var(--card)" strokeWidth={2} />
       </g>
@@ -138,46 +151,52 @@ export function CategoryCurvesCard({
         <CardHeader
           label={isMonth ? s.curves.title : s.periodHome.curvesTitle}
           action={
-            <Segmented<View>
-              label={s.curvePick.viewLabel}
-              value={view}
-              onChange={onView}
-              options={[
-                { value: "top", label: s.curvePick.top },
-                { value: "choose", label: s.curvePick.choose },
-              ]}
+            <CategoryChooser
+              index={index}
+              value={chosen}
+              onApply={setSaved}
+              none={s.curvePick.top}
+              icon={<Tag className="size-3.5 text-muted-foreground" />}
+              demo={shot === "curves-picker" ? demoSearch(index) : undefined}
             />
           }
         />
         {isMonth && <CompareSwitch value={compare} onChange={setCompare} noAverage={noAverage} />}
 
         <div className="mb-4 flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
-          {view === "choose" && (
-            <CurveCategoryPicker index={index} chosen={chosen} onToggle={toggle} defaultOpen={shot === "curves-picker"} />
+          {summed ? (
+            <span title={chosen.map((id) => nameOf(index, id)).join(", ")} className="flex items-center gap-1.5 px-1.5 py-1 text-foreground">
+              <span className="size-2.5 rounded-full" style={{ backgroundColor: sumLine.color }} />
+              {sumLine.name}
+            </span>
+          ) : (
+            <div ref={legendList} role="group" aria-label={s.trendClick.legendLabel} className="contents">
+              {series.map((x, i) => {
+                const off = hidden.has(x.key);
+                return (
+                  <button
+                    key={x.key}
+                    type="button"
+                    {...legendItem(i)}
+                    aria-pressed={!off}
+                    title={s.curves.legendHint}
+                    onClick={() => toggleHidden(x.key)}
+                    onMouseEnter={() => setLit(off ? null : x.key)}
+                    onMouseLeave={() => setLit(null)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-colors outline-none hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50",
+                      off && "opacity-45 line-through",
+                      !off && dim(x.key) && "opacity-55",
+                      lit === x.key && "bg-accent/60 text-foreground",
+                    )}
+                  >
+                    <span className="size-2.5 rounded-full" style={{ backgroundColor: x.color }} />
+                    {x.name}
+                  </button>
+                );
+              })}
+            </div>
           )}
-          {series.map((x) => {
-            const off = hidden.has(x.key);
-            return (
-              <button
-                key={x.key}
-                type="button"
-                aria-pressed={!off}
-                title={s.curves.legendHint}
-                onClick={() => toggleHidden(x.key)}
-                onMouseEnter={() => setLit(off ? null : x.key)}
-                onMouseLeave={() => setLit(null)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-colors hover:bg-accent/60 hover:text-foreground",
-                  off && "opacity-45 line-through",
-                  !off && dim(x.key) && "opacity-55",
-                  lit === x.key && "bg-accent/60 text-foreground",
-                )}
-              >
-                <span className="size-2.5 rounded-full" style={{ backgroundColor: x.color }} />
-                {x.name}
-              </button>
-            );
-          })}
           {series.length > 0 && (showPrevious || (showAverage && !noAverage)) && (
             <span className="flex items-center gap-1.5 px-1.5">
               <span className="w-4 border-t-2 border-dashed border-muted-foreground/70" />
@@ -187,11 +206,7 @@ export function CategoryCurvesCard({
         </div>
 
         {!hasData ? (
-          <EmptyState
-            compact
-            title={view === "choose" && series.length === 0 ? s.curvePick.empty : series.length === 1 ? s.curves.empty : s.curves.emptyTop}
-            className="flex-1"
-          />
+          <EmptyState compact title={summed ? s.curvePick.empty : series.length === 1 ? s.curves.empty : s.curves.emptyTop} className="flex-1" />
         ) : (
           <div className="-mx-2 min-h-60 flex-1">
             <ResponsiveContainer width="100%" height="100%" minHeight={240}>
@@ -273,7 +288,7 @@ export function CategoryCurvesCard({
                     className="cursor-pointer"
                     onMouseEnter={() => setLit(x.key)}
                     onMouseLeave={() => setLit(null)}
-                    onClick={() => onOpen(x)}
+                    onClick={() => openLine(x)}
                     {...chartAnimation()}
                   />
                 ))}
@@ -286,9 +301,16 @@ export function CategoryCurvesCard({
   );
 }
 
-/** Demo screenshots (`?shot=curves-chosen`): a subcategory of the biggest group and the next two groups. */
+/** Demo screenshots (`?shot=curves-chosen`, `curves-sum`): a subcategory of the biggest group and the next two groups. */
 function demoChoice(index: CategoryIndex, top: Slice[]): CurveChoice {
   const first = top[0]?.categoryId;
   const sub = typeof first === "number" ? index.children.get(first)?.[0]?.id : undefined;
   return [sub ?? first ?? null, top[1]?.categoryId ?? null, top[2]?.categoryId ?? null].filter((id, i, all) => all.indexOf(id) === i);
+}
+
+/** Demo screenshots (`?shot=curves-picker`): the chooser open on "groc" with the first three lines that hold nothing else ticked. */
+function demoSearch(index: CategoryIndex): ChooserDemo {
+  const search = "groc";
+  const leaves = chooserItems(index, search).filter((x) => x.id !== null && !index.children.get(x.id)?.length);
+  return { search, ticks: leaves.slice(0, 3).map((x) => x.id) };
 }

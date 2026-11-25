@@ -1,38 +1,33 @@
-// The category curves' chosen set: toggle, the limit, clearing, gone categories.
+// The category curves' chosen set: gone categories, the summed line's name, colors.
 
 import { describe, expect, it } from "vitest";
 import type { Category } from "@shared/types";
 import { categorySlice, indexCategories } from "@/lib/categories";
-import { atLimit, liveChoice, MAX_CHOSEN, toggleChosen } from "./curve-selection";
+import { liveChoice, sumName } from "./curve-selection";
 
 const cat = (id: number, name: string, parentId: number | null, color: string | null = null): Category =>
   ({ id, name, parentId, kind: "expense", emoji: null, color, archived: false }) as Category;
 
-// Food (1) with Groceries (2) and Restaurants (3); Home (4).
-const index = indexCategories([cat(1, "Food", null, "#111111"), cat(2, "Groceries", 1), cat(3, "Restaurants", 1, "#333333"), cat(4, "Home", null)]);
+// Food (1) with Groceries (2) and Restaurants (3); Home (4); Fuel (5); Coffee (6).
+const index = indexCategories([
+  cat(1, "Food", null, "#111111"),
+  cat(2, "Groceries", 1),
+  cat(3, "Restaurants", 1, "#333333"),
+  cat(4, "Home", null),
+  cat(5, "Fuel", null),
+  cat(6, "Coffee", null),
+]);
 
 describe("curve choice", () => {
-  it("toggles ids in the order chosen, groups, subcategories and uncategorized alike", () => {
-    let chosen = toggleChosen([], 2);
-    chosen = toggleChosen(chosen, 1);
-    chosen = toggleChosen(chosen, null);
-    expect(chosen).toEqual([2, 1, null]);
-    expect(toggleChosen(chosen, 1)).toEqual([2, null]);
-    expect(toggleChosen(toggleChosen(chosen, null), 2)).toEqual([1]);
-  });
-
-  it("stops at the limit, and removing still works there", () => {
-    const full = Array.from({ length: MAX_CHOSEN }, (_, i) => i + 1);
-    expect(atLimit(full)).toBe(true);
-    expect(atLimit(full.slice(1))).toBe(false);
-    expect(toggleChosen(full, 99)).toBe(full);
-    expect(toggleChosen(full, null)).toBe(full);
-    expect(toggleChosen(full, 5)).toHaveLength(MAX_CHOSEN - 1);
-  });
-
-  it("clearing is the empty set (the top 5), and gone categories drop out", () => {
-    expect(toggleChosen([4], 4)).toEqual([]);
+  it("gone categories drop out; uncategorized stays", () => {
     expect(liveChoice([4, 77, null, 2], index)).toEqual([4, null, 2]);
+  });
+
+  it("names the summed line: one, two, three, and past three", () => {
+    expect(sumName([2], index)).toBe("Groceries");
+    expect(sumName([2, null], index)).toBe("Groceries and Uncategorized");
+    expect(sumName([2, 6, 5], index)).toBe("Groceries, Coffee and Fuel");
+    expect(sumName([2, 6, 5, 4, 3], index)).toBe("Groceries and 4 more");
   });
 
   it("a subcategory takes its own color, else its group's", () => {
