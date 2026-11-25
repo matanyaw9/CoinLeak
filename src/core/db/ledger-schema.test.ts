@@ -21,13 +21,15 @@ describe("ledger schema (0002)", () => {
     ).toThrow();
   });
 
-  it("keeps categories to two levels of the same kind", () => {
+  it("keeps categories to three levels of the same kind (0015)", () => {
     const db = newDb();
     const groceries = categoryId(db, "Groceries");
     const food = categoryId(db, "Food");
     const insert = db.prepare("INSERT INTO categories (parent_id, name, kind) VALUES (?, ?, ?)");
-    expect(() => insert.run(groceries, "Too deep", "expense")).toThrow();
+    const weekly = Number(insert.run(groceries, "Weekly", "expense").lastInsertRowid);
+    expect(() => insert.run(weekly, "Too deep", "expense")).toThrow();
     expect(() => insert.run(food, "Wrong kind", "income")).toThrow();
+    // Food now spans three levels, so it cannot go under anything.
     expect(() => db.prepare("UPDATE categories SET parent_id = ? WHERE id = ?").run(categoryId(db, "Lifestyle"), food)).toThrow();
     expect(insert.run(food, "Bakery", "expense").changes).toBe(1);
   });

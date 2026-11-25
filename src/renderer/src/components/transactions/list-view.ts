@@ -52,7 +52,7 @@ export function groupsByDay(sort: TransactionSort): boolean {
 }
 
 export interface ListView {
-  /** As picked: a parent stands for its children too. `null` is uncategorized. */
+  /** As picked: a category stands for everything under it (spec 34). `null` is uncategorized. */
   categories: (number | null)[];
   accounts: number[];
   flows: FlowChoice[];

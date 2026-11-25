@@ -6,7 +6,7 @@ import { Check, ListFilter, X } from "lucide-react";
 import type { Account } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { colorOf, type CategoryIndex } from "@/lib/categories";
+import { colorOf, treeOf, type CategoryIndex } from "@/lib/categories";
 import { accountLabel } from "@/components/common/chips";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FLOW_CHOICES, clearFilters, toggle, type FilterChip, type FlowChoice, type ListView } from "./list-view";
@@ -81,19 +81,13 @@ export function FilterMenu({
               <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: colorOf(null) }} />
               {s.common.uncategorized}
             </Option>
-            {index.roots.map((root) => (
-              <div key={root.id}>
-                <Option on={view.categories.includes(root.id)} onClick={() => cat(root.id)}>
-                  <span className="w-4 shrink-0 text-center leading-none">{root.emoji}</span>
-                  <span className="truncate">{root.name}</span>
+            {/* spec 34: three levels; picking one means it and everything under it. */}
+            {treeOf(index).map(({ category: c, depth }) => (
+              <div key={c.id} className={depth === 2 ? "ps-5" : depth >= 3 ? "ps-10" : undefined}>
+                <Option on={view.categories.includes(c.id)} onClick={() => cat(c.id)}>
+                  {depth === 1 && <span className="w-4 shrink-0 text-center leading-none">{c.emoji}</span>}
+                  <span className="truncate">{c.name}</span>
                 </Option>
-                {(index.children.get(root.id) ?? []).map((c) => (
-                  <div key={c.id} className="ps-5">
-                    <Option on={view.categories.includes(c.id)} onClick={() => cat(c.id)}>
-                      <span className="truncate">{c.name}</span>
-                    </Option>
-                  </div>
-                ))}
               </div>
             ))}
           </Section>

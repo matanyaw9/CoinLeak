@@ -16,7 +16,6 @@ import { chartAnimation, ChartTooltip, type TooltipRow } from "@/components/char
 import type { PeriodWords } from "./period-words";
 import { axisOf } from "./period-axis";
 import { shotCompare, useCurveCompare } from "./period-data";
-import type { SpendingFilter } from "./spending-filter";
 
 interface Point {
   i: number;
@@ -60,13 +59,10 @@ export function SpendingCurveCard({
   choice,
   words,
   summary,
-  filter,
 }: {
   choice: PeriodChoice;
   words: PeriodWords;
-  /** Already essentials or extras only when Home's filter says so (spec 22). */
   summary: PeriodSummary;
-  filter: SpendingFilter;
 }) {
   const shot = useShot();
   const [saved, setCompare] = useCurveCompare(shotCompare(shot));
@@ -90,8 +86,7 @@ export function SpendingCurveCard({
     average: average?.series[i]?.amount,
   }));
   const hasData = summary.spending > 0 || prev.spending > 0 || (average?.series.at(-1)?.amount ?? 0) > 0;
-  const base = isMonth ? s.home.curveTitle : s.periodHome.curveTitle;
-  const title = filter === "all" ? base : `${base} · ${s.essentials[filter]}`;
+  const title = isMonth ? s.home.curveTitle : s.periodHome.curveTitle;
   const dashedName = compare === "average" ? s.average.averageMonth : words.before;
 
   return (

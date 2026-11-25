@@ -15,7 +15,7 @@ import type {
 import type { Db } from "../db";
 import { dayNumber, toIsoDate } from "./dates";
 import { LEDGER_SQL } from "./flow";
-import { assertRange, spendingByCategory, spendingByParent, totals } from "./period";
+import { assertRange, spendingByChild, spendingByParent, totals } from "./period";
 import { check, isId } from "./validate";
 
 interface Part {
@@ -30,7 +30,7 @@ function byTopLevel(db: Db, flow: "income" | "transfer", sign: 1 | -1, from: str
   return db
     .prepare(
       `WITH ledger AS (${LEDGER_SQL})
-       SELECT COALESCE(ledger.category_parent_id, ledger.category_id) AS categoryId, ? * SUM(ledger.amount) AS amount
+       SELECT ledger.category_root_id AS categoryId, ? * SUM(ledger.amount) AS amount
        FROM ledger WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow = ?
        GROUP BY 1 ORDER BY amount DESC, categoryId IS NULL, categoryId`,
     )
@@ -84,16 +84,18 @@ export function periodFlow(db: Db, range: DateRange): PeriodFlow {
 }
 
 /**
- * One spending group over the range: its total on the left, its categories
- * on the right (the group's own id for rows set on the group itself). A
- * category refunded beyond its spending flows in beside the total, through
- * a hub. Empty when the group spent nothing on balance.
+ * One spending category over the range, one level down (spec 34): its total
+ * on the left, its direct children on the right, each with everything under
+ * it, and the category's own id for rows set on the category itself. Works
+ * at any level, so the window drills one level at a time. A child refunded
+ * beyond its spending flows in beside the total, through a hub. Empty when
+ * the category spent nothing on balance.
  */
 export function groupFlow(db: Db, args: DateRange & { categoryId: number }): GroupFlow {
   assertRange(args);
   check(isId(args.categoryId));
   const { from, to, categoryId } = args;
-  const parts = spendingByCategory(db, from, until(to), categoryId);
+  const parts = spendingByChild(db, from, until(to), categoryId);
   const total = sum(parts.map((p) => p.amount));
   const base = { from, to, categoryId, total };
   if (total <= 0) return { ...base, nodes: [], links: [] };

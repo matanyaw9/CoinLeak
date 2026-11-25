@@ -99,7 +99,8 @@ describe("migration 0009 (essential categories)", () => {
     const db = dbWithFirstCategories();
     const order = (parent: string) =>
       (all(db, `SELECT c.name FROM categories c JOIN categories p ON p.id = c.parent_id WHERE p.name = '${parent}' ORDER BY c.sort_order`) as { name: string }[]).map((r) => r.name);
-    expect(order("Transportation")).toEqual(["Transport", "Travel", "Fuel", "Parking"]);
+    // 0015 (spec 34) adds more after these; 0009 put Fuel and Parking after the group's own.
+    expect(order("Transportation").slice(0, 4)).toEqual(["Transport", "Travel", "Fuel", "Parking"]);
     expect(order("Food").slice(-1)).toEqual(["Bars"]);
     expect(order("Lifestyle").slice(-2)).toEqual(["Vacation", "Impulsive buying"]);
   });

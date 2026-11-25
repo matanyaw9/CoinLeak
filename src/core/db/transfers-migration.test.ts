@@ -67,20 +67,21 @@ describe("migration 0006 (transfers)", () => {
     ]);
   });
 
-  it("keeps the indexes, the two-level triggers and the foreign keys", () => {
+  it("keeps the indexes, the tree triggers (three levels since 0015) and the foreign keys", () => {
     const db = databaseAt5();
     migrateKeepingFirstCategories(db);
     const names = all(db, "SELECT name FROM sqlite_schema WHERE tbl_name = 'categories' AND type <> 'table' ORDER BY name");
     expect(names).toEqual([
       { name: "categories_name" },
       { name: "categories_parent" },
-      { name: "categories_two_levels_insert" },
-      { name: "categories_two_levels_update" },
+      { name: "categories_tree_insert" },
+      { name: "categories_tree_update" },
     ]);
     const savings = (db.prepare("SELECT id FROM categories WHERE name = 'Savings'").get() as { id: number }).id;
     const food = (db.prepare("SELECT id FROM categories WHERE name = 'Food'").get() as { id: number }).id;
     const insert = db.prepare("INSERT INTO categories (parent_id, name, kind) VALUES (?, ?, ?)");
-    expect(() => insert.run(savings, "Too deep", "transfer")).toThrow();
+    const level3 = Number(insert.run(savings, "Pension", "transfer").lastInsertRowid);
+    expect(() => insert.run(level3, "Too deep", "transfer")).toThrow();
     expect(() => insert.run(food, "Wrong kind", "transfer")).toThrow();
     expect(() => insert.run(null, "Bad kind", "other")).toThrow();
     expect(() => insert.run(null, "Food", "expense")).toThrow();

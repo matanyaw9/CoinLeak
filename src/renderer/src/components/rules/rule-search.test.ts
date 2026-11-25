@@ -11,7 +11,6 @@ const groceries: Category = {
   emoji: null,
   color: null,
   archived: false,
-  essential: null,
 };
 const account = { id: 2, provider: "visaCal", name: "Everyday card", accountNumber: "4821" } as Account;
 const ctx: SentenceContext = {

@@ -17,7 +17,6 @@ const gifts: Category = {
   emoji: "🎁",
   color: "#E3A6B4",
   archived: false,
-  essential: null,
 };
 
 function row(id: number, description: string, categorySource: TransactionRow["categorySource"]): TransactionRow {

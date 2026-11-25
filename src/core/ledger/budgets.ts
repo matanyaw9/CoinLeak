@@ -29,7 +29,7 @@ export function budgetWeek(month: IsoMonth, today: IsoDate): DateRange {
 }
 
 /**
- * Spending in [from, until) for a category and its subcategories, by the
+ * Spending in [from, until) for a category and everything under it, by the
  * same rules as Home's category totals (period.ts).
  */
 function spentIn(db: Db, categoryId: number, from: IsoDate, until: IsoDate): Agorot {

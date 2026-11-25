@@ -15,23 +15,17 @@ import { formatDayLong, ils } from "@/lib/format";
 import { Card } from "@/components/common/card";
 import { Money } from "@/components/common/money";
 import { rangeLabel, type PeriodWords } from "./period-words";
-import type { SpendingFilter } from "./spending-filter";
 
 export function HeroCard({
   words,
   today,
   summary,
-  all,
-  filter,
   shortfall,
 }: {
   words: PeriodWords;
   today: IsoDate;
-  /** The headline and comparison follow Home's filter (spec 22). */
+  /** The period's numbers: headline, comparison, income, spent and left. */
   summary: PeriodSummary;
-  /** The same period unfiltered, for income, spent and left. */
-  all: PeriodSummary;
-  filter: SpendingFilter;
   /** From core's money flow: spending plus transfers beyond income. */
   shortfall: Agorot;
 }) {
@@ -75,7 +69,6 @@ export function HeroCard({
           <>
             {ongoing ? s.home.headlineSoFar : s.home.headlinePast}{" "}
             <span className="text-primary">{ils(summary.spending, { decimals: false })}</span>{" "}
-            {filter !== "all" && `${s.essentials.on[filter]} `}
             {ongoing && calendar ? s.periodHome.soFar(words.when) : s.periodHome.tail(words.when)}
           </>
         )}
@@ -113,7 +106,7 @@ export function HeroCard({
           <Money amount={summary.income} className="text-status-on-track" />
         </Kpi>
         <Kpi label={s.home.spent} hint={s.home.spentHint}>
-          <Money amount={all.spending} />
+          <Money amount={summary.spending} />
         </Kpi>
         <Kpi label={ongoing ? s.home.leftSoFar : s.home.left} hint={left < 0 ? s.home.overspent : s.home.leftHint}>
           <Money amount={left} className={left < 0 ? "text-status-over" : "text-foreground"} />

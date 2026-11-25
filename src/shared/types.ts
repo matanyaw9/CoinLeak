@@ -94,9 +94,6 @@ export interface Category {
   rowCount?: number;
   /** Rules whose action sets it (spec 15). Set by core. */
   ruleCount?: number;
-  /** Spending subcategories: true essential, false extra (spec 18). Null for
-   *  groups, income and transfer categories. Set by core. */
-  essential?: boolean | null;
 }
 
 export interface TransactionRow {
@@ -199,23 +196,12 @@ export interface TrendPoint {
   income: Agorot;
   spending: Agorot;
   byCategory: { categoryId: number | null; amount: Agorot }[];
-  /** The month's spending (with the filter) rolled up to top-level
+  /** The month's spending rolled up to top-level
    *  categories, null for uncategorized, largest first. */
   byParent: { categoryId: number | null; amount: Agorot }[];
-  /** All spending split by the categories' essential tag (spec 22). Only on
-   *  unfiltered points; the three add up to `spending`. */
-  split?: EssentialSplit;
-  /** With chosen categories: their spending by the category each row is on,
-   *  so a chosen group comes split into its subcategories. */
+  /** With chosen categories: their spending one level down (spec 34), by
+   *  direct child with everything under it, plus each category's own rows. */
   parts?: { categoryId: number | null; amount: Agorot }[];
-}
-
-/** Spending by the essential tag: untagged is uncategorized rows and rows on
- *  a category with no tag (a group itself, or an income category). */
-export interface EssentialSplit {
-  essential: Agorot;
-  extra: Agorot;
-  untagged: Agorot;
 }
 
 export interface SyncResult {
@@ -473,8 +459,6 @@ export interface CategoryInput {
   emoji: string | null;
   /** `#RRGGBB`. */
   color: string | null;
-  /** Spending subcategories only (spec 18); left out means essential. */
-  essential?: boolean;
 }
 
 /** Fields left out stay as they are. The kind never changes after creation. */
@@ -483,21 +467,22 @@ export interface CategoryPatch {
   emoji?: string | null;
   color?: string | null;
   parentId?: number | null;
-  /** Spending subcategories only (spec 18). */
-  essential?: boolean;
 }
 
 /**
  * Why core refused a category change. Fixed codes; the window turns them
- * into friendly text. The two-level and same-kind rules are the database's.
+ * into friendly text. The three-level and same-kind rules are the database's.
  */
 export type CategoryProblem =
   | "name_taken"
-  | "parent_not_top_level"
   | "parent_other_kind"
   | "has_children"
   | "in_use"
-  | "target_other_kind";
+  | "target_other_kind"
+  /** The category, with everything under it, would go below level 3 (spec 34). */
+  | "too_deep"
+  /** The new parent is the category's own subcategory (spec 34). */
+  | "parent_is_descendant";
 
 export type CategoryChange = { ok: true; category: Category } | { ok: false; problem: CategoryProblem };
 
@@ -512,16 +497,11 @@ export interface AppSettings {
   addedProviders: ProviderId[];
   /** How far back a sync downloads (spec 23). */
   syncFrom: SyncFrom;
-  /** Home's All / Essentials / Extras choice, kept per profile (spec 25). */
-  homeSpendingFilter: HomeSpendingFilter;
   /** What Home's month curves compare with, kept per profile (spec 26). */
   homeCurveCompare: HomeCurveCompare;
   /** The categories Home's category curves draw (null: uncategorized); empty is the top 5 (spec 26, F61). */
   homeCurveCategories: (number | null)[];
 }
-
-/** What Home's spending charts show: all spending, essentials or extras. */
-export type HomeSpendingFilter = "all" | "essential" | "extra";
 
 /** The dashed line on Home's month curves: last month or the average month. */
 export type HomeCurveCompare = "previous" | "average";
@@ -567,17 +547,17 @@ export interface PeriodSummary extends DateRange {
   needsReview: number;
   byCategory: { categoryId: number | null; amount: Agorot; count: number }[];
   byParent: { categoryId: number | null; amount: Agorot; count: number }[];
+  /** Each category's spending with everything under it (spec 34); no uncategorized line. */
+  spendingUnder: { categoryId: number; amount: Agorot; count: number }[];
   bucket: SeriesBucket;
   /** Cumulative spending per bucket, stopping at today's bucket. */
   series: SeriesPoint[];
   /** True when today falls inside the range. */
   inProgress: boolean;
   previous: PreviousPeriod;
-  /** Spending in the range that is neither essential nor extra, whatever the filter (spec 22). */
-  untagged: Agorot;
   /**
-   * Income minus all spending minus money moved to savings, whatever the
-   * filter; negative when spending and savings outran income.
+   * Income minus all spending minus money moved to savings; negative when
+   * spending and savings outran income.
    */
   left: Agorot;
   /** This period's spending against the period before by the same point. */
@@ -628,15 +608,6 @@ export interface SpendingComparison {
   aboutSame: boolean;
 }
 
-/**
- * Essentials or extras only (spec 22): true essential spending, false extra,
- * null neither (spec 22 follow-up). Left out means all spending. Income
- * lines never change with it.
- */
-export interface EssentialFilter {
-  essential?: boolean | null;
-}
-
 /** Money left this calendar month in Israel time, whatever period Home shows (spec 22). */
 export interface ThisMonth {
   month: IsoMonth;
@@ -657,10 +628,11 @@ export interface ThisMonth {
 export type PeriodFlow = Omit<MoneyFlow, "month"> & DateRange;
 
 /**
- * One spending group opened up: the group's total (a `group` node) on the
- * left, its categories (`spending`, the group's own id for rows set on the
- * group itself) on the right. A category refunded beyond its spending is a
- * `refund` node on the left, and then a `hub` sits in the middle.
+ * One spending category opened up one level (spec 34): its total (a `group`
+ * node) on the left, its direct children (`spending`, each with everything
+ * under it, and the category's own id for rows set on it) on the right. A
+ * child refunded beyond its spending is a `refund` node on the left, and then
+ * a `hub` sits in the middle.
  */
 export interface GroupFlow extends DateRange {
   categoryId: number;

@@ -1,13 +1,13 @@
 // Picks the categories the curves card draws (spec 26, F61): any spending
-// categories, groups or subcategories, or uncategorized, up to the limit.
-// Unlike the transaction picker, groups count; it stays open while ticking.
+// categories at any of the three levels (spec 34), or uncategorized, up to the limit.
+// It stays open while ticking; the arrow keys move between the lines.
 
 import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, Tag } from "lucide-react";
-import type { Category } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import type { CategoryIndex } from "@/lib/categories";
+import { treeOf, type CategoryIndex } from "@/lib/categories";
+import { arrowFocus } from "@/components/categories/tree-choice";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { atLimit, MAX_CHOSEN, type CurveChoice } from "./curve-selection";
 
@@ -25,7 +25,7 @@ export function CurveCategoryPicker({
   const [open, setOpen] = useState(defaultOpen);
   const full = atLimit(chosen);
 
-  const row = (key: string, id: number | null, label: string, emoji: ReactNode, indent: boolean) => {
+  const row = (key: string, id: number | null, label: string, emoji: ReactNode, depth: number) => {
     const on = chosen.includes(id);
     const blocked = full && !on;
     return (
@@ -39,7 +39,8 @@ export function CurveCategoryPicker({
         className={cn(
           "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm transition-colors",
           blocked ? "cursor-default opacity-45" : "hover:bg-accent",
-          indent && "ps-7",
+          depth === 2 && "ps-7",
+          depth >= 3 && "ps-12",
         )}
       >
         <span className="flex w-5 shrink-0 justify-center leading-none">{emoji}</span>
@@ -49,11 +50,7 @@ export function CurveCategoryPicker({
     );
   };
 
-  const roots = index.roots.filter((r) => r.kind === "expense");
-  const rowsOf = (r: Category) => [
-    row(String(r.id), r.id, r.name, r.emoji, false),
-    ...(index.children.get(r.id) ?? []).map((c) => row(String(c.id), c.id, c.name, c.emoji, true)),
-  ];
+  const rows = treeOf(index, "expense").map(({ category: c, depth }) => row(String(c.id), c.id, c.name, c.emoji, depth));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -67,10 +64,10 @@ export function CurveCategoryPicker({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-0">
         {full && <div className="border-b border-border px-3.5 py-2 text-xs text-muted-foreground">{s.curvePick.limit(MAX_CHOSEN)}</div>}
-        <div className="max-h-80 overflow-y-auto p-1.5">
-          {roots.flatMap(rowsOf)}
+        <div className="max-h-80 overflow-y-auto p-1.5" onKeyDown={arrowFocus}>
+          {rows}
           <div className="mt-1 border-t border-border pt-1">
-            {row("none", null, s.common.uncategorized, <Tag className="size-3.5 text-muted-foreground" />, false)}
+            {row("none", null, s.common.uncategorized, <Tag className="size-3.5 text-muted-foreground" />, 1)}
           </div>
         </div>
       </PopoverContent>

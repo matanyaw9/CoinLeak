@@ -221,7 +221,6 @@ export const s = {
 
   categories: {
     title: "Categories",
-    intro: "Your categories, two levels deep. Amounts are for",
     spending: "Spending",
     income: "Income",
     noSpend: "Nothing yet",
@@ -537,7 +536,6 @@ export const s = {
     color: "Color",
     kind: "Kind",
     kinds: { expense: "Spending", income: "Income", transfer: "Savings & investments" } as Record<string, string>,
-    group: "Group",
     noGroup: "None (top level)",
     save: "Save",
     create: "Create",
@@ -556,7 +554,6 @@ export const s = {
     dropHere: "Drop here",
     dropTop: "Drop here to make it a group of its own",
     moveTitle: (name: string) => `Move ${name}`,
-    moveIntro: "Pick the group it belongs to. Its transactions and rules come along.",
     moveTop: "Top level, a group of its own",
     current: "Current",
     deleteTitle: (name: string) => `Delete ${name}?`,
@@ -568,7 +565,6 @@ export const s = {
     deleteAndMove: "Move and delete",
     problem: {
       name_taken: "That name is already used here. Pick another one.",
-      parent_not_top_level: "Categories go only two levels deep. Pick a group, not a category inside one.",
       parent_other_kind: "A group holds one kind only. Spending, income and savings categories cannot mix.",
       has_children: "This group still holds categories. Move them out first.",
       in_use: "Transactions or rules still use this category. Move them first.",
@@ -782,15 +778,6 @@ export const s = {
     flowShareOfGroup: (name: string) => `of ${name}`,
   },
 
-  // spec 18
-  essential: {
-    label: "Routine or treat",
-    hint: "Treats are where a month can be cut",
-    essential: "Routine",
-    extra: "Treat",
-    badge: "Treat",
-    badgeTitle: "A treat: where a month can be cut",
-  },
   syncLive: {
     working: (provider: string) => `Syncing ${provider}`,
     keepOpen: "Keep the bank window open. CoinLeak is downloading; this can take a minute or two.",
@@ -841,21 +828,6 @@ export const s = {
     soFar: (income: string, spent: string, saved: string | null) =>
       `Came in ${income} · spent ${spent}${saved ? ` · moved to savings ${saved}` : ""}, this month so far.`,
     hint: "Income minus spending minus money moved to savings, this calendar month, whatever period Home shows. Card bills are counted once. Days left include today.",
-  },
-  essentials: {
-    label: "Which spending",
-    all: "All",
-    essential: "Routine",
-    extra: "Treats",
-    /** After the amount in the hero: "You've spent ₪X on routine spending so far this month." */
-    on: { essential: "on routine spending", extra: "on treats" },
-    untagged: (amount: string) => `${amount} of spending is neither routine nor a treat, so it shows only under All.`,
-    untaggedLink: "See uncategorized rows",
-    splitView: "Routine or treat",
-    groupView: "By category",
-    viewLabel: "Split the bars",
-    untaggedName: "Neither",
-    splitHint: "Click a part to show only that spending",
   },
 
   // spec 20
@@ -1152,6 +1124,26 @@ export const s = {
         : `${n.toLocaleString("en-IL")} ticked transactions are ones you categorized by hand. Saving moves them to this rule's category.`,
     hint: "Unticked rows keep their category, and this rule leaves them alone from now on.",
     more: (n: number) => `Plus ${plural(n, "older match", "older matches")}, not listed here.`,
+  },
+
+  // spec 34
+  nested: {
+    intro: "Your categories, up to three levels deep. Amounts include everything inside and are for",
+    parent: "Inside",
+    parentHint: "Categories go up to three levels deep",
+    noRoom: "It holds categories three levels deep, so it stays at the top level.",
+    addIn: (name: string) => `Add a category inside ${name}`,
+    moveIntro: "Pick where it goes. Everything inside it comes along, with its transactions and rules.",
+    moveNowhere: "Nothing else has room for it: with what it holds it would go past three levels.",
+    hasChildren: "This category still holds others. Move them out first.",
+    problem: {
+      too_deep: "Categories go three levels deep at most. Pick a place higher up.",
+      parent_is_descendant: "A category cannot go inside itself or one of its own.",
+      parent_other_kind: "Spending, income and savings categories cannot mix.",
+      has_children: "This category still holds others. Move them out first.",
+    } as Record<string, string>,
+    otherIn: (name: string) => `Other in ${name}`,
+    flowUp: (name: string) => `Back to ${name}`,
   },
 };
 

@@ -22,7 +22,6 @@ import { liveChoice, toggleChosen, type CurveChoice } from "./curve-selection";
 import { shotCompare, useCurveCategories, useCurveCompare, usePeriodCurves } from "./period-data";
 import { axisOf } from "./period-axis";
 import { CompareSwitch } from "./spending-curve-card";
-import type { SpendingFilter } from "./spending-filter";
 import type { PeriodWords } from "./period-words";
 
 type View = "top" | "choose";
@@ -37,15 +36,12 @@ export function CategoryCurvesCard({
   choice,
   words,
   summary,
-  filter,
   index,
   onOpen,
 }: {
   choice: PeriodChoice;
   words: PeriodWords;
-  /** Already essentials or extras only when Home says so; the curves follow (spec 22). */
   summary: PeriodSummary;
-  filter: SpendingFilter;
   index: CategoryIndex;
   onOpen: (slice: Slice) => void;
 }) {
@@ -78,7 +74,7 @@ export function CategoryCurvesCard({
   const compare: HomeCurveCompare = isMonth ? savedCompare : "previous";
 
   const series = view === "top" ? top : chosen.map((id) => categorySlice(index, id));
-  const curves = usePeriodCurves(range, series.map((x) => x.categoryId ?? null), filter);
+  const curves = usePeriodCurves(range, series.map((x) => x.categoryId ?? null));
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   // F60: the category under the pointer (a line or a legend name) stands out.
   const [lit, setLit] = useState<string | null>(null);

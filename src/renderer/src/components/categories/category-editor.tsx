@@ -1,19 +1,21 @@
-// The category editor dialog: name, emoji, color, the group it sits in (or
-// the kind, for a new group), essential or extra, and Delete. Core decides; a refusal shows its
-// friendly text in place, never a raw error.
+// The category editor dialog: name, emoji, color, the category it sits inside
+// (up to three levels, spec 34; or the kind, for a new group), and Delete.
+// Core decides; a refusal shows its friendly text in place, never a raw error.
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 import type { Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
+import { indexCategories, parentChoices } from "@/lib/categories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/misc";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/common/card";
 import { CategoryBubble } from "@/components/common/chips";
 import { KINDS, kindLabel, problemText, useCategoryActions } from "./category-actions";
+import { TreeChoice } from "./tree-choice";
 
 /** Soft colors in the same family as the seeded categories. */
 export const SWATCHES = [
@@ -51,16 +53,17 @@ export function CategoryEditor({
   const [color, setColor] = useState(editing?.color ?? SWATCHES[0] ?? null);
   const [kind, setKind] = useState<CategoryKind>(editing?.kind ?? (request.mode === "new" ? request.kind : "expense"));
   const [parentId, setParentId] = useState<number | null>(editing ? editing.parentId : request.mode === "new" ? request.parentId : null);
-  const [essential, setEssential] = useState(editing?.essential ?? true);
   const [problem, setProblem] = useState<string | null>(null);
 
   const isGroup = editing ? editing.parentId === null : request.mode === "new" && request.meta;
   const hasChildren = editing ? categories.some((c) => c.parentId === editing.id) : false;
-  // A group with categories in it stays a group; a new group picks its kind instead of a parent.
-  const showParent = !(request.mode === "new" && request.meta) && !hasChildren;
-  // Essential or extra is only for spending categories inside a group (spec 18).
-  const showEssential = kind === "expense" && showParent && parentId !== null;
-  const groups = categories.filter((c) => c.parentId === null && c.kind === kind && c.id !== editing?.id);
+  // A new group picks its kind instead of a parent.
+  const showParent = !(request.mode === "new" && request.meta);
+  // spec 34: same-kind categories at level 1 or 2, never itself or its own, only where its branch still fits.
+  const index = useMemo(() => indexCategories(categories), [categories]);
+  const parents = parentChoices(index, kind, editing);
+  // A branch three levels deep can only be top level.
+  const noRoom = parents.length === 0 && parentId === null && hasChildren;
   const busy = actions.create.isPending || actions.update.isPending;
   const title = editing
     ? isGroup && hasChildren
@@ -86,12 +89,11 @@ export function CategoryEditor({
         emoji: trimmedEmoji,
         color,
         ...(showParent && parentId !== editing.parentId ? { parentId } : {}),
-        ...(showEssential ? { essential } : {}),
       };
       actions.update.mutate({ id: editing.id, patch }, { onSuccess: done });
     } else {
       const input = { name, kind, parentId: showParent ? parentId : null, emoji: trimmedEmoji, color };
-      actions.create.mutate(showEssential ? { ...input, essential } : input, { onSuccess: done });
+      actions.create.mutate(input, { onSuccess: done });
     }
   };
 
@@ -182,28 +184,18 @@ export function CategoryEditor({
           )}
 
           {showParent && (
-            <Field label={s.catEdit.group}>
-              <Choices
-                value={parentId}
-                options={[
-                  { value: null, label: s.catEdit.noGroup },
-                  ...groups.map((g) => ({ value: g.id, label: `${g.emoji ?? ""} ${g.name}`.trim() })),
-                ]}
-                onChange={setParentId}
-              />
-            </Field>
-          )}
-
-          {showEssential && (
-            <Field label={s.essential.label} hint={s.essential.hint}>
-              <Choices
-                value={essential ? "essential" : "extra"}
-                options={[
-                  { value: "essential", label: s.essential.essential },
-                  { value: "extra", label: s.essential.extra },
-                ]}
-                onChange={(v) => setEssential(v === "essential")}
-              />
+            <Field label={s.nested.parent} hint={s.nested.parentHint}>
+              {noRoom ? (
+                <p className="text-sm text-muted-foreground">{s.nested.noRoom}</p>
+              ) : (
+                <TreeChoice
+                  value={parentId}
+                  entries={parents}
+                  none={s.catEdit.noGroup}
+                  onChange={setParentId}
+                  label={s.nested.parent}
+                />
+              )}
             </Field>
           )}
 

@@ -197,10 +197,11 @@ describe("on the Demo profile", () => {
       const status = budgetStatus(db, { month, today });
       expect(status.lines).toHaveLength(ids.length);
       for (const line of status.lines) {
-        const own = summary.byCategory.find((c) => c.categoryId === line.categoryId)?.amount ?? 0;
+        // Every category's Home total includes everything under it (spec 34); a group's is also its byParent.
+        const under = summary.spendingUnder.find((c) => c.categoryId === line.categoryId)?.amount ?? 0;
         const parent = summary.byParent.find((c) => c.categoryId === line.categoryId)?.amount;
-        // A group's Home total is byParent (it and its subcategories); a subcategory's is its own.
-        expect(line.spentMonth).toBe(parent ?? own);
+        expect(line.spentMonth).toBe(under);
+        if (parent !== undefined) expect(line.spentMonth).toBe(parent);
       }
       expect(status.lines.some((l) => l.spentMonth > 0)).toBe(true);
     }

@@ -73,6 +73,15 @@ describe("list view", () => {
     });
   });
 
+  it("picking a category means it and everything under it, three levels down (spec 34)", () => {
+    const deep = indexCategories([cat(1, "Food"), cat(2, "Groceries", 1), cat(5, "Weekly shop", 2), cat(3, "Coffee", 1)]);
+    const filter = (q: string) => toFilter(view(q), deep, { ...month, showBills: false }).categoryIds;
+    expect(filter("category=1")).toEqual([1, 2, 5, 3]);
+    expect(filter("category=2")).toEqual([2, 5]);
+    expect(filter("category=5")).toEqual([5]);
+    expect(filter("category=2,5")).toEqual([2, 5]);
+  });
+
   it("shows card bills when toggled or asked for as a kind", () => {
     expect(toFilter(view(""), index, { ...month, showBills: true }).hideInternal).toBeUndefined();
     expect(toFilter(view("flow=card_bills"), index, { ...month, showBills: false })).toMatchObject({ flows: ["internal"] });

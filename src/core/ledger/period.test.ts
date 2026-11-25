@@ -154,9 +154,7 @@ describe("periodSummary", () => {
       const curves = periodCurves(db, { ...range, categoryIds: [food] }, opts);
       expect(curves[0]?.series.at(-1)?.amount ?? 0).toBe(m.byParent.find((x) => x.categoryId === food)?.amount ?? 0);
 
-      const { split, ...point } = periodTrend(db, range, opts).at(-1) ?? {};
-      expect(point).toEqual(trend(db, 4, opts).find((t) => t.month === month));
-      expect(split).toBeDefined();
+      expect(periodTrend(db, range, opts).at(-1)).toEqual(trend(db, 4, opts).find((t) => t.month === month));
     }
   });
 
@@ -385,16 +383,11 @@ describe("periodTrend", () => {
   });
 });
 
-// ---- Spec 22: essentials and extras, money left this month ----
+// ---- Spec 22: money left this month ----
 
 /**
  * The ledger above plus three March rows: one uncategorized, one set on the
- * Food group itself (no tag), and a move to savings (a transfer).
- *
- *            essential    extra   untagged
- *   Dec        300,000    5,000          0
- *   Feb        456,000    9,000          0
- *   Mar          3,000    2,500      3,500
+ * Food group itself, and a move to savings (a transfer).
  */
 function taggedLedger(): Db {
   const db = ledger();
@@ -413,113 +406,6 @@ function taggedLedger(): Db {
   updateTransactions(db, [idOf(db, "הפקדה מרץ")], { categoryId: categoryId(db, "Savings") });
   return db;
 }
-
-describe("essentials and extras (spec 22)", () => {
-  let db: Db;
-  beforeAll(() => {
-    db = taggedLedger();
-  });
-  const ranges: DateRange[] = [
-    ...MONTHS.map(monthRange),
-    { from: "2026-03-14", to: "2026-03-20" },
-    { from: "2025-12-20", to: "2026-01-10" },
-    { from: "2025-04-01", to: "2026-03-31" },
-  ];
-
-  it("splits March by the category's tag; groups and uncategorized are neither", () => {
-    const march = monthRange("2026-03");
-    const all = periodSummary(db, march, opts);
-    expect(all).toMatchObject({ income: 1000000, spending: 9000, transfers: 100000, untagged: 3500 });
-    expect(periodSummary(db, { ...march, essential: true }, opts)).toMatchObject({
-      income: 1000000,
-      spending: 3000,
-      transfers: 100000,
-      untagged: 3500,
-    });
-    expect(periodSummary(db, { ...march, essential: false }, opts).spending).toBe(2500);
-    expect(periodSummary(db, { ...monthRange("2026-02"), essential: true }, opts).spending).toBe(456000);
-    expect(periodSummary(db, { ...monthRange("2025-12"), essential: false }, opts).spending).toBe(5000);
-  });
-
-  it("essentials plus extras plus untagged is all spending, for every number of the summary", () => {
-    const sum = (xs: { amount: number }[]) => xs.reduce((a, x) => a + x.amount, 0);
-    for (const range of ranges) {
-      const all = periodSummary(db, range, opts);
-      const ess = periodSummary(db, { ...range, essential: true }, opts);
-      const ext = periodSummary(db, { ...range, essential: false }, opts);
-      expect(ess.spending + ext.spending + all.untagged).toBe(all.spending);
-      expect(sum(ess.byCategory) + sum(ext.byCategory) + all.untagged).toBe(all.spending);
-      expect(sum(ess.byParent) + sum(ext.byParent) + all.untagged).toBe(all.spending);
-      expect((ess.series.at(-1)?.amount ?? 0) + (ext.series.at(-1)?.amount ?? 0) + all.untagged).toBe(
-        all.series.at(-1)?.amount ?? 0,
-      );
-      expect(ess.previous.spending + ext.previous.spending).toBeLessThanOrEqual(all.previous.spending);
-      expect(ess.previous.sameTime + ext.previous.sameTime).toBeLessThanOrEqual(all.previous.sameTime);
-      // Income, transfers and the review count never change with the filter.
-      for (const x of [ess, ext]) {
-        expect([x.income, x.transfers, x.needsReview, x.untagged, x.bucket]).toEqual([
-          all.income,
-          all.transfers,
-          all.needsReview,
-          all.untagged,
-          all.bucket,
-        ]);
-      }
-    }
-  });
-
-  it("the trend: all spending comes split by tag; a filter keeps one tag", () => {
-    const range = { from: "2025-12-01", to: "2026-03-31" };
-    const all = periodTrend(db, range, opts);
-    const ess = periodTrend(db, { ...range, essential: true }, opts);
-    const ext = periodTrend(db, { ...range, essential: false }, opts);
-    expect(all.map((p) => p.split)).toEqual([
-      { essential: 300000, extra: 5000, untagged: 0 },
-      { essential: 0, extra: 0, untagged: 0 },
-      { essential: 456000, extra: 9000, untagged: 0 },
-      { essential: 3000, extra: 2500, untagged: 3500 },
-    ]);
-    all.forEach((p, i) => {
-      const split = p.split ?? { essential: NaN, extra: NaN, untagged: NaN };
-      expect(split.essential + split.extra + split.untagged).toBe(p.spending);
-      expect(ess[i]).toMatchObject({ month: p.month, income: p.income, spending: split.essential });
-      expect(ext[i]).toMatchObject({ month: p.month, income: p.income, spending: split.extra });
-      expect(ess[i]?.split).toBeUndefined();
-    });
-    // Chosen categories and a tag: Food's extras are the restaurants and coffee only.
-    const food = categoryId(db, "Food");
-    const foodExtras = periodTrend(db, { ...range, essential: false, categoryIds: [food] }, opts);
-    expect(foodExtras.map((p) => p.spending)).toEqual([5000, 0, 9000, 2500]);
-    const foodEssentials = periodTrend(db, { ...range, essential: true, categoryIds: [food] }, opts);
-    expect(foodEssentials.map((p) => p.spending)).toEqual([0, 0, 6000, 3000]);
-  });
-
-  it("category curves keep one tag; Food's own untagged row shows only under all", () => {
-    const food = categoryId(db, "Food");
-    const march = { ...monthRange("2026-03"), categoryIds: [food] };
-    const last = (essential?: boolean) =>
-      periodCurves(db, essential === undefined ? march : { ...march, essential }, opts)[0]?.series.at(-1)?.amount;
-    expect([last(), last(true), last(false)]).toEqual([7000, 3000, 2500]);
-    const [curve] = periodCurves(db, { ...march, essential: true }, opts);
-    expect(curve?.previous.at(-1)?.amount).toBe(6000);
-  });
-
-  it("the trend under neither: each month is that month's untagged split", () => {
-    const range = { from: "2025-12-01", to: "2026-03-31" };
-    const all = periodTrend(db, range, opts);
-    const neither = periodTrend(db, { ...range, essential: null }, opts);
-    expect(neither.map((p) => p.spending)).toEqual(all.map((p) => p.split?.untagged));
-    const sum = (xs: { amount: number }[]) => xs.reduce((a, x) => a + x.amount, 0);
-    for (const p of neither) expect(sum(p.byParent)).toBe(p.spending);
-  });
-
-  it("refuses a malformed filter", () => {
-    const bad = { ...monthRange("2026-03"), essential: "yes" as unknown as boolean };
-    expect(() => periodSummary(db, bad)).toThrow("BAD_REQUEST");
-    expect(() => periodTrend(db, bad)).toThrow("BAD_REQUEST");
-    expect(() => periodCurves(db, { ...bad, categoryIds: [] })).toThrow("BAD_REQUEST");
-  });
-});
 
 describe("money left this month (spec 22)", () => {
   let db: Db;
@@ -641,15 +527,10 @@ describe("money math the window used to do (spec 25)", () => {
     { from: "2025-12-20", to: "2026-01-10" },
     { from: "2025-04-01", to: "2026-03-31" },
   ];
-  const tags = [undefined, true, false];
-
-  it("left is the hero's income minus spending minus savings, whatever the filter", () => {
+  it("left is the hero's income minus spending minus savings", () => {
     for (const range of ranges) {
-      const all = periodSummary(db, range, opts);
-      for (const essential of tags) {
-        const p = periodSummary(db, { ...range, essential }, opts);
-        expect(p.left, JSON.stringify(range)).toBe(windowLeft(all));
-      }
+      const p = periodSummary(db, range, opts);
+      expect(p.left, JSON.stringify(range)).toBe(windowLeft(p));
     }
     expect(periodSummary(db, monthRange("2026-02"), opts).left).toBe(400000 - 465000);
   });
@@ -657,13 +538,11 @@ describe("money math the window used to do (spec 25)", () => {
   it("the comparison is the hero's: base, change and about the same", () => {
     let seen = 0;
     for (const range of ranges) {
-      for (const essential of tags) {
-        const p = periodSummary(db, { ...range, essential }, opts);
-        const base = p.previous.sameTime;
-        const diff = p.spending - base;
-        expect(p.comparison).toEqual({ base, change: diff, aboutSame: Math.abs(diff) < base * 0.02 });
-        if (base > 0) seen++;
-      }
+      const p = periodSummary(db, range, opts);
+      const base = p.previous.sameTime;
+      const diff = p.spending - base;
+      expect(p.comparison).toEqual({ base, change: diff, aboutSame: Math.abs(diff) < base * 0.02 });
+      if (base > 0) seen++;
     }
     expect(seen).toBeGreaterThan(0);
     expect(compareSpending(10100, 10000)).toEqual({ base: 10000, change: 100, aboutSame: true });
@@ -673,12 +552,10 @@ describe("money math the window used to do (spec 25)", () => {
 
   it("each trend month's byParent is the trend card's roll-up of byCategory", () => {
     const range = { from: "2025-12-01", to: "2026-03-31" };
-    for (const essential of tags) {
-      for (const point of periodTrend(db, { ...range, essential }, opts)) {
-        const core = new Map(point.byParent.filter((p) => p.amount > 0).map((p) => [p.categoryId, p.amount]));
-        expect(core, point.month).toEqual(windowGroups(db, point.byCategory));
-        expect(point.byParent.reduce((a, p) => a + p.amount, 0)).toBe(point.spending);
-      }
+    for (const point of periodTrend(db, range, opts)) {
+      const core = new Map(point.byParent.filter((p) => p.amount > 0).map((p) => [p.categoryId, p.amount]));
+      expect(core, point.month).toEqual(windowGroups(db, point.byCategory));
+      expect(point.byParent.reduce((a, p) => a + p.amount, 0)).toBe(point.spending);
     }
   });
 
@@ -734,14 +611,9 @@ describe("the average month on the bars (spec 26)", () => {
     expect(periodTrendWithAverage(db, { ...year, categoryIds: [groceries, restaurants] }, APRIL).average?.amount).toBe(5125);
   });
 
-  it("follows the filter: essentials, extras and neither add up to all", () => {
+  it("averages all spending over the full months", () => {
     const db = taggedLedger();
-    const amount = (essential?: boolean | null) =>
-      periodTrendWithAverage(db, essential === undefined ? year : { ...year, essential }, APRIL).average?.amount;
-    expect(amount(true)).toBe((300000 + 0 + 456000 + 3000) / 4);
-    expect(amount(false)).toBe((5000 + 0 + 9000 + 2500) / 4);
-    expect(amount(null)).toBe(3500 / 4);
-    expect(amount()).toBe((305000 + 0 + 465000 + 9000) / 4);
+    expect(periodTrendWithAverage(db, year, APRIL).average?.amount).toBe((305000 + 0 + 465000 + 9000) / 4);
   });
 
   /** One spending row on the 10th of each month in the list. */

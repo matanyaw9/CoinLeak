@@ -88,6 +88,25 @@ function databaseBefore13(): DatabaseSync {
   return db;
 }
 
+/**
+ * Runs the migrations not run yet, through 0014. The layout below is what
+ * 0013 left; 0015 (spec 34) adds level 3 defaults it does not show.
+ */
+function migrateThrough14(db: DatabaseSync): void {
+  const done = new Set((all(db, "SELECT version FROM schema_migrations") as { version: number }[]).map((r) => r.version));
+  for (const m of MIGRATIONS.filter((x) => x.version <= 14 && !done.has(x.version))) {
+    db.exec(m.sql);
+    db.prepare("INSERT INTO schema_migrations (version, applied_at) VALUES (?, '')").run(m.version);
+  }
+}
+
+/** A new database with every migration through 0014. */
+function databaseThrough14(): DatabaseSync {
+  const db = databaseBefore13();
+  migrateThrough14(db);
+  return db;
+}
+
 const idOf = (db: DatabaseSync, name: string, parent?: string): number => {
   const rows = (all(db, WITH_PARENT) as Row[]).filter((r) => r.name === name && (parent === undefined || r.parent === parent));
   if (rows.length !== 1) throw new Error(`expected one ${name}, found ${rows.length}`);
@@ -121,7 +140,7 @@ function userShaped(): DatabaseSync {
 
 describe("migration 0013 (routine and treat categories)", () => {
   it("on a fresh database gives exactly the new layout", () => {
-    const db = openDatabase(":memory:");
+    const db = databaseThrough14();
     expect(layout(db)).toEqual(FRESH_LAYOUT);
     // Groups keep no routine or treat flag.
     for (const r of all(db, WITH_PARENT) as Row[]) if (r.parent_id === null) expect(r.essential, r.name).toBeNull();
@@ -191,7 +210,7 @@ describe("migration 0013 (routine and treat categories)", () => {
   it("runs after a migration that adds a column to categories (spec 27's 0012)", () => {
     const db = databaseBefore13();
     db.exec("ALTER TABLE categories ADD COLUMN extra_from_0012 INTEGER");
-    migrate(db);
+    migrateThrough14(db);
     expect(layout(db)).toEqual(FRESH_LAYOUT);
   });
 

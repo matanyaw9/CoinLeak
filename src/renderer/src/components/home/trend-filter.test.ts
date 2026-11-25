@@ -27,4 +27,13 @@ describe("trend ticks", () => {
     expect(toggleTick([1, 4], 2, index)).toEqual([4, 2]);
     expect(toggleTick([2], 3, index)).toEqual([2, 3]);
   });
+
+  it("three levels: a tick unticks everything under it and above it (spec 34)", () => {
+    // Food (1) › Groceries (2) › Weekly shop (5).
+    const deep = indexCategories([cat(1, "Food", null), cat(2, "Groceries", 1), cat(5, "Weekly shop", 2), cat(3, "Restaurants", 1)]);
+    expect(toggleTick([5, 3], 1, deep)).toEqual([1]);
+    expect(toggleTick([1], 5, deep)).toEqual([5]);
+    expect(toggleTick([2, 3], 5, deep)).toEqual([3, 5]);
+    expect(toggleTick([5], 2, deep)).toEqual([2]);
+  });
 });

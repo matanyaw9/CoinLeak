@@ -72,6 +72,14 @@ describe("seedDemo", () => {
     expect(listAccounts(db).filter((a) => a.syncEnabled === false)).toHaveLength(1);
   });
 
+  it("has rows on level 3 categories, and rows left on their level 2 parent (spec 34)", () => {
+    const db = seeded();
+    const cats = listCategories(db);
+    const id = (name: string) => cats.find((c) => c.name === name)?.id;
+    const count = (name: string) => listTransactions(db, {}).filter((r) => r.categoryId === id(name)).length;
+    for (const name of ["Weekly shop", "Top-up", "Bus", "Groceries"]) expect(count(name), name).toBeGreaterThan(0);
+  });
+
   it("has one bank account whose balance adds up and one with a small gap (spec 24)", () => {
     const db = seeded();
     const checks = balanceChecks(db).filter((c) => c.status !== "unknown");

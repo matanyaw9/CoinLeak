@@ -1,14 +1,15 @@
 // "Where the money went": the period as a Sankey, from core's balanced nodes
 // and links (specs 14 and 16). Income on the left, categories, savings and
 // what was left on the right; spending beyond income is its own warning node.
-// Clicking a group opens it (its categories, with Back); clicking a category
-// opens its transactions.
+// Clicking a category that holds others opens it one level down (spec 34,
+// down to level 3, with Back one level up); its own rows show as "Other in
+// <name>". Clicking any other category opens its transactions.
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import type { GroupFlow, MoneyFlowNode, PeriodFlow } from "@shared/types";
 import { s } from "@/strings";
-import { colorOf, OTHER_COLOR, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
+import { colorOf, OTHER_COLOR, pathOf, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
 import { usePeriod } from "@/lib/month-context";
 import { useShot } from "@/lib/shot";
 import { Card, CardHeader } from "@/components/common/card";
@@ -22,13 +23,17 @@ const LEFT_COLOR = "var(--status-on-track)";
 /** The same warning color as the hero's "more than you earned". */
 export const BEYOND_COLOR = "var(--status-over)";
 
-function describe(index: CategoryIndex, nodes: MoneyFlowNode[], groupName?: string): FlowItem[] {
+/** `opened` is the category shown one level down, when there is one. */
+function describe(index: CategoryIndex, nodes: MoneyFlowNode[], opened?: { id: number; name: string }): FlowItem[] {
+  const groupName = opened?.name;
   const mixed = nodes.some((n) => n.kind === "refund" || n.kind === "from_savings" || n.kind === "beyond_income");
   return nodes.map((node) => {
     const c = node.categoryId == null ? null : (index.byId.get(node.categoryId) ?? null);
     const parent = c?.parentId != null ? index.byId.get(c.parentId) : undefined;
     const color = c ? (c.color ?? (parent ? colorOf(parent) : colorOf(c))) : UNCATEGORIZED_COLOR;
-    const label = c ? `${c.emoji ? `${c.emoji} ` : ""}${c.name}` : null;
+    // On the right of an opened category, its own rows are "Other in <name>".
+    const own = opened !== undefined && node.kind === "spending" && node.categoryId === opened.id;
+    const label = c ? `${c.emoji ? `${c.emoji} ` : ""}${own ? s.nested.otherIn(c.name) : c.name}` : null;
     const slice = (name: string): Slice => ({
       key: node.categoryId == null ? "none" : String(node.categoryId),
       categoryId: node.categoryId,
@@ -50,7 +55,7 @@ function describe(index: CategoryIndex, nodes: MoneyFlowNode[], groupName?: stri
       case "transfer":
       case "group": {
         const name = label ?? s.common.uncategorized;
-        const drill = node.kind === "spending" && !groupName && c != null && (index.children.get(c.id)?.length ?? 0) > 0;
+        const drill = node.kind === "spending" && !own && c != null && (index.children.get(c.id)?.length ?? 0) > 0;
         return { node, name, color, slice: slice(name), drill };
       }
       case "from_savings":
@@ -76,11 +81,9 @@ export function MoneyFlowCard({
 }) {
   const { range } = usePeriod();
   const shot = useShot();
-  const [group, setGroup] = useState<number | null>(() => {
-    if (shot !== "flow-group") return null;
-    const first = flow.nodes.find((n) => n.kind === "spending" && n.categoryId != null && index.children.has(n.categoryId));
-    return first?.categoryId ?? null;
-  });
+  // The categories opened, top level first (spec 34): Back goes up one.
+  const [path, setPath] = useState<number[]>(() => demoPath(shot, flow, index));
+  const group = path.at(-1) ?? null;
   const opened = useGroupFlow(range, group);
   const box = useRef<HTMLDivElement>(null);
   // Demo screenshots: `?shot=flow...` and `?shot=overspent-flow` scroll here.
@@ -92,10 +95,11 @@ export function MoneyFlowCard({
   const [seen, setSeen] = useState(rangeKey);
   if (seen !== rangeKey) {
     setSeen(rangeKey);
-    if (shot !== "flow-group") setGroup(null);
+    if (!shot?.startsWith("flow-")) setPath([]);
   }
 
   const groupCat = group != null ? index.byId.get(group) : undefined;
+  const upCat = path.length > 1 ? index.byId.get(path.at(-2) as number) : undefined;
   const empty = flow.nodes.length === 0;
 
   return (
@@ -104,15 +108,21 @@ export function MoneyFlowCard({
         {group != null && groupCat ? (
           <>
             <CardHeader
-              label={s.periodHome.flowGroupTitle(groupCat.name)}
+              label={s.periodHome.flowGroupTitle(pathOf(index, groupCat))}
               action={
-                <Button variant="outline" className="h-8 rounded-xl px-3" onClick={() => setGroup(null)}>
+                <Button variant="outline" className="h-8 rounded-xl px-3" onClick={() => setPath(path.slice(0, -1))}>
                   <ArrowLeft />
-                  {s.periodHome.flowBack}
+                  {upCat ? s.nested.flowUp(upCat.name) : s.periodHome.flowBack}
                 </Button>
               }
             />
-            <GroupBody flow={opened.data} index={index} name={groupCat.name} onOpen={onOpen} />
+            <GroupBody
+              flow={opened.data}
+              index={index}
+              opened={{ id: groupCat.id, name: groupCat.name }}
+              onOpen={onOpen}
+              onDrill={(id) => setPath([...path, id])}
+            />
           </>
         ) : (
           <>
@@ -126,7 +136,7 @@ export function MoneyFlowCard({
                 share={{ of: flow.income, label: flow.income > 0 ? s.flow.shareOfIncome : s.periodHome.noIncome }}
                 hoverFirst={shot === "flow-hover"}
                 onPick={(item) => {
-                  if (item.drill && item.node.categoryId != null) setGroup(item.node.categoryId);
+                  if (item.drill && item.node.categoryId != null) setPath([item.node.categoryId]);
                   else if (item.slice) onOpen(item.slice);
                 }}
               />
@@ -141,22 +151,48 @@ export function MoneyFlowCard({
 function GroupBody({
   flow,
   index,
-  name,
+  opened,
   onOpen,
+  onDrill,
 }: {
   flow: GroupFlow | undefined;
   index: CategoryIndex;
-  name: string;
+  opened: { id: number; name: string };
   onOpen: (slice: Slice) => void;
+  /** Opens a category one level further down. */
+  onDrill: (id: number) => void;
 }) {
   if (!flow) return <div className="h-[360px]" />;
   if (flow.nodes.length === 0) return <EmptyState compact title={s.periodHome.flowGroupEmpty} />;
   return (
     <FlowSankey
-      items={describe(index, flow.nodes, name)}
+      items={describe(index, flow.nodes, opened)}
       links={flow.links}
-      share={{ of: flow.total, label: s.periodHome.flowShareOfGroup(name) }}
-      onPick={(item) => item.slice && onOpen(item.slice)}
+      share={{ of: flow.total, label: s.periodHome.flowShareOfGroup(opened.name) }}
+      onPick={(item) => {
+        if (item.drill && item.node.categoryId != null) onDrill(item.node.categoryId);
+        else if (item.slice) onOpen(item.slice);
+      }}
     />
   );
+}
+
+/**
+ * Demo screenshots: `?shot=flow-group` opens the first spending category that
+ * holds others; `?shot=flow-deep` goes on into its first child that holds
+ * others too (level 3 on the right).
+ */
+function demoPath(shot: string | null, flow: PeriodFlow, index: CategoryIndex): number[] {
+  if (shot !== "flow-group" && shot !== "flow-deep") return [];
+  const holds = (id: number) => (index.children.get(id)?.length ?? 0) > 0;
+  const tops = flow.nodes.filter((n) => n.kind === "spending" && n.categoryId != null).map((n) => n.categoryId as number);
+  if (shot === "flow-group") {
+    const first = tops.find(holds);
+    return first === undefined ? [] : [first];
+  }
+  for (const top of tops) {
+    const child = (index.children.get(top) ?? []).find((c) => holds(c.id));
+    if (child) return [top, child.id];
+  }
+  return [];
 }

@@ -21,7 +21,7 @@ import {
   updateTransactions,
 } from "../ledger";
 import { addMonths, dayNumber, daysOfMonth, monthBounds, toIsoDate } from "../ledger/dates";
-import { israelToday, spendingByCategory } from "../ledger/period";
+import { israelToday, spendingUnder } from "../ledger/period";
 import { createRule } from "../rules";
 import { ACCOUNTS, CARD_SPENDS, RULES, type DemoAccount, type DemoRule } from "./shops";
 
@@ -86,6 +86,18 @@ export function seedDemo(db: Db, today: Date): void {
   const bits = byText("העברה ב-BIT").filter((id, i) => i > 0);
   if (bits.length > 0) updateTransactions(db, bits, { categoryId: categoryId(db, "Gifts & Donations") }, now);
   updateTransactions(db, byText("מרפאת שיניים"), { categoryId: categoryId(db, "Health") }, now);
+  // spec 34: rows on level 3 categories. Big supermarket trips are the weekly
+  // shop, AM:PM is a top-up, Rav-Kav loads are the bus; the rest stay on Groceries.
+  const weekly = [...listTransactions(db, { search: "שופרסל" }), ...listTransactions(db, { search: "רמי לוי" })]
+    .filter((r) => r.amount <= -30_000)
+    .map((r) => r.id);
+  for (const [ids, name] of [
+    [weekly, "Weekly shop"],
+    [byText("AM:PM"), "Top-up"],
+    [byText("רב-קו"), "Bus"],
+  ] as const) {
+    if (ids.length > 0) updateTransactions(db, [...ids], { categoryId: categoryId(db, name) }, now);
+  }
   // Two small lines the user already put in Trash.
   trashTransactions(db, [...byText("עמלת פעולה בערוץ ישיר"), ...byText("החזר עמלה")], now);
   const old = listAccounts(db).filter((a) => a.accountNumber === ACCOUNTS.old.accountNumber);
@@ -115,18 +127,22 @@ function addBudgets(db: Db, today: IsoDate): void {
   const { from, until } = monthBounds(today.slice(0, 7));
   // Rent and bills are fixed amounts, a poor show for a budget.
   const bills = categoryId(db, "Home & Bills");
+  // Level 2 only (spec 34): none sits inside another, so no budget holds a bigger one.
+  const all = listCategories(db);
+  const topLevel = new Set(all.filter((c) => c.parentId === null).map((c) => c.id));
   const subcategories = new Set(
-    listCategories(db)
-      .filter((c) => c.kind === "expense" && c.parentId !== null && c.parentId !== bills)
+    all
+      .filter((c) => c.kind === "expense" && c.parentId !== null && topLevel.has(c.parentId) && c.parentId !== bills)
       .map((c) => c.id),
   );
-  const [over, near, under] = spendingByCategory(db, from, until).filter(
-    (r) => r.categoryId !== null && subcategories.has(r.categoryId) && r.amount > 0,
+  // Budgets count everything under a category (spec 34), so pick by the same totals.
+  const [over, near, under] = spendingUnder(db, from, until).filter(
+    (r) => subcategories.has(r.categoryId) && r.amount > 0,
   );
   const tens = (agorot: number, round: (x: number) => number): Agorot => Math.max(1, round(agorot / 1000)) * 1000;
-  if (over) setBudget(db, over.categoryId as number, tens(over.amount * 0.85, Math.floor));
-  if (near) setBudget(db, near.categoryId as number, tens(near.amount / 0.9, Math.ceil));
-  if (under) setBudget(db, under.categoryId as number, tens(under.amount * 3, Math.ceil));
+  if (over) setBudget(db, over.categoryId, tens(over.amount * 0.85, Math.floor));
+  if (near) setBudget(db, near.categoryId, tens(near.amount / 0.9, Math.ceil));
+  if (under) setBudget(db, under.categoryId, tens(under.amount * 3, Math.ceil));
 }
 
 /** spec 33: the memo that finds the pizza a friend paid half of back. */

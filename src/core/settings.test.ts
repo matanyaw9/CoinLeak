@@ -6,7 +6,7 @@ import { SETTING_KEYS, getSetting, setSetting } from "./settings";
 
 describe("settings", () => {
   it("knows a fixed list of keys", () => {
-    expect(SETTING_KEYS).toEqual(["addedProviders", "syncFrom", "homeSpendingFilter", "homeCurveCompare", "homeCurveCategories"]);
+    expect(SETTING_KEYS).toEqual(["addedProviders", "syncFrom", "homeCurveCompare", "homeCurveCategories"]);
   });
 
   it("returns the default until set, then the saved value", () => {
@@ -70,15 +70,10 @@ describe("syncFrom (spec 23)", () => {
     expect(getSetting(db, "syncFrom")).toBe("max");
   });
 
-  it("keeps Home's spending filter: all until set, only the three choices", () => {
+  it("no longer knows Home's Routine / Treats filter (spec 34, F72)", () => {
     const db = newDb();
-    expect(getSetting(db, "homeSpendingFilter")).toBe("all");
-    setSetting(db, { key: "homeSpendingFilter", value: "extra" });
-    expect(getSetting(db, "homeSpendingFilter")).toBe("extra");
-    for (const value of ["Essential", "", null, 1, ["all"]]) {
-      expect(() => setSetting(db, { key: "homeSpendingFilter", value } as SettingEntry)).toThrow(CodedError);
-    }
-    expect(getSetting(db, "homeSpendingFilter")).toBe("extra");
+    const old = { key: "homeSpendingFilter", value: "all" } as unknown as SettingEntry;
+    expect(() => setSetting(db, old)).toThrow(CodedError);
   });
 
   it("keeps Home's curve choices (spec 26): last month and top 5 until set", () => {
