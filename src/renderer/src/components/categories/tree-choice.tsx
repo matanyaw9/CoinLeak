@@ -1,32 +1,14 @@
 // One category out of a list shown as the tree (spec 34): indented by level,
-// scrolling when long. Works as a radio group: Tab lands on the chosen line,
-// the arrow keys move and choose, Home and End jump to the ends.
+// scrolling when long. Works as a radio group on lib/roving.ts: one Tab stop
+// (the chosen line), the arrow keys move and choose, Home and End jump.
 
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRoving } from "@/lib/roving";
 import type { TreeEntry } from "@/lib/categories";
 
 const INDENT = ["", "ps-3", "ps-8", "ps-13"];
-
-/** Arrow keys (and Home, End) move the focus between the list's enabled buttons. */
-export function arrowFocus(e: KeyboardEvent<HTMLElement>): HTMLButtonElement | null {
-  const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
-  if (!keys.includes(e.key)) return null;
-  const buttons = [...e.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
-  if (buttons.length === 0) return null;
-  const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-  const next =
-    e.key === "Home"
-      ? buttons[0]
-      : e.key === "End"
-        ? buttons.at(-1)
-        : buttons[Math.min(buttons.length - 1, Math.max(0, at + (e.key === "ArrowDown" ? 1 : -1)))];
-  if (!next) return null;
-  e.preventDefault();
-  next.focus();
-  return next;
-}
 
 export function TreeChoice({
   value,
@@ -46,31 +28,38 @@ export function TreeChoice({
     ...(none !== undefined ? [{ id: null, depth: 1, emoji: null, name: none }] : []),
     ...entries.map((e) => ({ id: e.category.id, depth: e.depth, emoji: e.category.emoji, name: e.category.name })),
   ];
-  // Tab lands on the chosen line, or on the first one when none is chosen.
-  const tabStop = options.some((o) => o.id === value) ? value : options[0]?.id;
+  // Tab lands on the chosen line, or on the first one when none is chosen; moving chooses.
+  const { list, item } = useRoving(
+    options.map((o) => o.id ?? "none"),
+    {
+      start: Math.max(0, options.findIndex((o) => o.id === value)),
+      onMove: (_from, to) => {
+        const o = options[to];
+        if (o) onChange(o.id);
+      },
+    },
+  );
 
   // On open, the list (only the list, never the dialog) scrolls the chosen line into its middle.
-  const box = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    const list = box.current;
-    const chosen = list?.querySelector<HTMLElement>("[aria-checked='true']");
-    if (list && chosen) list.scrollTop = chosen.offsetTop - (list.clientHeight - chosen.offsetHeight) / 2;
+    const el = box.current;
+    const chosen = el?.querySelector<HTMLElement>("[aria-checked='true']");
+    if (el && chosen) el.scrollTop = chosen.offsetTop - (el.clientHeight - chosen.offsetHeight) / 2;
     // Once, when the list appears: later choices are made where the user is looking.
   }, []);
 
   return (
     <div
-      ref={box}
+      ref={(el) => {
+        box.current = el;
+        list(el);
+      }}
       role="radiogroup"
       aria-label={label}
-      onKeyDown={(e) => {
-        const next = arrowFocus(e);
-        const id = next?.dataset["id"];
-        if (id !== undefined) onChange(id === "" ? null : Number(id));
-      }}
       className="relative max-h-56 overflow-y-auto rounded-2xl border border-border p-1"
     >
-      {options.map((o) => {
+      {options.map((o, i) => {
         const on = o.id === value;
         return (
           <button
@@ -78,8 +67,7 @@ export function TreeChoice({
             type="button"
             role="radio"
             aria-checked={on}
-            data-id={o.id ?? ""}
-            tabIndex={o.id === tabStop ? 0 : -1}
+            {...item(i)}
             onClick={() => onChange(o.id)}
             className={cn(
               "flex w-full items-center gap-2 rounded-xl py-1.5 pe-3 text-start text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
