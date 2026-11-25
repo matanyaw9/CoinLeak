@@ -19,6 +19,13 @@ Wave 13 (specs 31, 32, 33) built by three herdr agents, merged into `dev`, and p
 - herdr: the three agent sessions are closed; tab 2 is one shell at the project root. Tab 1 still runs the owner's `npm run dev`.
 - Worktrees `.claude/worktrees/wave13-{keyboard,cardbills,paidback}` and the old wave 10 to 12 ones still exist; all their branches are merged. Remove them when convenient (`git worktree remove --force <path>`; the `node_modules` symlink makes `--force` needed).
 
+## Overnight run status (morning-lead, 2026-11-25, updated as it goes)
+- 05:20 review done: `docs/reviews/2026-11-25-wave13-review.md` (2 must fix, 3 should fix, 5 nice to have; checks green).
+- Both must-fix bugs fixed on `fix/review-wave13`, merged into `dev` (1099 tests green): a new category on a paid-back row ends the link; quick sync counts from each syncing account's own last save. Review findings logged in `docs/BACKLOG.md`; `REQUIREMENTS.md` section 5 now describes quick sync.
+- Specs 34, 35, 36 written and committed on `dev`. Old merged worktrees removed (their screenshots kept in `.claude/shots/archive/`).
+- About 06:10: three agents started in herdr tab 2 (panes split off the lead's), Opus 5.5, xhigh, auto: `wave14-categories` (spec 34), `wave14-ruleticks` (spec 35), `wave14-keys` (spec 36), worktrees `.claude/worktrees/wave14-*`. Reports go to each worktree's `.claude/shots/REPORT.md`.
+- Next: review each branch, send fixes back, merge one at a time, screenshot, update docs.
+
 ## Overnight plan (owner asked 2026-11-25 at 02:15; runs at 05:20)
 A systemd user timer (`coinleak-morning`) runs `~/.local/share/coinleak-morning/run.sh` at 05:20: it starts a fresh lead session (`morning-lead`, Opus 5.5) in herdr tab "2", sends `/review-code` for `6255ff3..dev` (saved to `docs/reviews/2026-11-25-wave13-review.md`), then the wave 14 prompt. Log: `~/.local/share/coinleak-morning/run.log`. Lead in the morning, do this:
 
@@ -34,7 +41,10 @@ A systemd user timer (`coinleak-morning`) runs `~/.local/share/coinleak-morning/
 - Updates for the friend's first version: step 1 (Settings shows the version, "Check for updates" opens GitHub Releases, the friend downloads the new installer himself, no file passing) or step 2 (the app downloads and installs after a click: new dependency `electron-updater`, the app contacts GitHub, unsigned so trust rests on the GitHub account)? The owner said "updates button from the start"; confirm which.
 - Which bank and cards does the friend use? Owner will check. Only Discount and Cal are verified live.
 - Section 8 tests (waves 10 to 12), then merge `dev` into `main`?
-- F70 default category names (Weekly shop, Top-up, Specialty food; Transport list) still to agree before wave 14.
+- F70 default category names: the overnight run uses the lead's (Groceries › Weekly shop, Top-up, Specialty food; Transportation › Transport › Bus, Train; Transportation › Taxi & rides, Tolls, Car repairs, Car insurance, Car license & test). Rename any in the app, or say which to change.
+- F71 (rule tick boxes), lead's choice in spec 35: an unticked row this rule had categorized keeps that category, now as set by you, and the rule leaves it alone from then on. The other reading is "goes back to Needs review". OK as built?
+- Paid back (review, owner question): when a purchase's category changes, should the rows that paid it back follow? Today they keep the old category.
+- Quick sync fix trade-off: an account the bank stopped reporting (for example an old card) keeps its "last synced" date old, so that bank's quick syncs reach further back each time (slower, never missing rows) until you remove the account from syncing. If a Cal sync is slow again, check the Finance accounts page for a card with an old "last synced".
 
 ## Next steps
 0. **If you are the 05:20 `morning-lead`: follow "Overnight plan" above, not the steps below.** Owner, back in the morning: read `~/.local/share/coinleak-morning/run.log`, the review in `docs/reviews/`, and this file.
