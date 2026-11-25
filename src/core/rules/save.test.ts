@@ -2,6 +2,7 @@
 // user sorted by hand change only when the save names them.
 
 import { describe, expect, it } from "vitest";
+import type { RuleCondition } from "@shared/types";
 import type { Db } from "../db";
 import { ingest } from "../ledger/ingest";
 import { createCategory } from "../ledger/categories";
@@ -188,13 +189,57 @@ describe("ticks in the editor (spec 35)", () => {
     }
   });
 
-  it("ticking it back ends the exception and the rule applies again", () => {
+  it("ticking it back only ends the exception: the row stays the user's, with its category", () => {
     const { db, id, aroma } = untickedAroma();
     saveRule(db, { id, rule: cafeRule(db), ticked: [aroma] });
     expect(exceptions(db)).toEqual([]);
-    expect(ruleFields(db, aroma)).toMatchObject({ category_id: coffee(db), category_source: "rule", rule_id: id });
-    saveRule(db, { id, rule: { ...cafeRule(db), setCategoryId: restaurants(db) } });
-    expect(ruleFields(db, aroma)).toMatchObject({ category_id: restaurants(db), category_source: "rule" });
+    expect(ruleFields(db, aroma)).toEqual({
+      category_id: coffee(db),
+      category_source: "user",
+      excluded: 0,
+      excluded_source: null,
+      rule_id: null,
+    });
+    // When the rule's category changes, the row is listed as set by hand (F45) and moves only if named.
+    const toRestaurants = { ...cafeRule(db), setCategoryId: restaurants(db) };
+    saveRule(db, { id, rule: toRestaurants });
+    expect(ruleFields(db, aroma)).toMatchObject({ category_id: coffee(db), category_source: "user" });
+    expect(previewRule(db, toRestaurants).handSet.map((t) => t.id)).toContain(aroma);
+  });
+
+  /** A condition that no longer fits Landwer TLV. */
+  const hebrewAroma = { kind: "text", field: "description", mode: "contains", values: ["ארומה"] } as const satisfies RuleCondition;
+
+  it("a row sorted by hand, unticked and ticked back, keeps its category when the rule goes or changes", () => {
+    for (const after of ["delete", "narrow"] as const) {
+      const db = cafes();
+      const landwer = idOf(db, "Landwer TLV"); // Put in Coffee & Cafes by hand.
+      const id = saveRule(db, { id: null, rule: cafeRule(db) }).rule.id;
+      saveRule(db, { id, rule: cafeRule(db), unticked: [landwer] });
+      saveRule(db, { id, rule: cafeRule(db), ticked: [landwer] });
+      expect(ruleFields(db, landwer), after).toMatchObject({ category_id: coffee(db), category_source: "user" });
+
+      if (after === "delete") deleteRule(db, id);
+      else saveRule(db, { id, rule: { ...cafeRule(db), conditions: [hebrewAroma] } });
+      expect(ruleFields(db, landwer), after).toMatchObject({ category_id: coffee(db), category_source: "user" });
+    }
+  });
+
+  it("a row ignored by hand, unticked and ticked back, stays ignored when the rule goes or changes", () => {
+    for (const after of ["delete", "narrow"] as const) {
+      const db = cafes();
+      const landwer = idOf(db, "Landwer TLV");
+      updateTransactions(db, [landwer], { excluded: true });
+      const hide = { ...cafeRule(db), setCategoryId: null, setExcluded: true };
+      const id = saveRule(db, { id: null, rule: hide }).rule.id;
+      saveRule(db, { id, rule: hide, unticked: [landwer] });
+      saveRule(db, { id, rule: hide, ticked: [landwer] });
+      expect(ruleFields(db, landwer), after).toMatchObject({ excluded: 1, excluded_source: "user" });
+
+      if (after === "delete") deleteRule(db, id);
+      else saveRule(db, { id, rule: { ...hide, conditions: [hebrewAroma] } });
+      expect(ruleFields(db, landwer), after).toMatchObject({ excluded: 1, excluded_source: "user" });
+    }
   });
 
   it("a row kept in another category comes back when ticked, as a hand-set row does (F45)", () => {

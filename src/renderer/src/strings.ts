@@ -1124,6 +1124,11 @@ export const s = {
         : `${n.toLocaleString("en-IL")} ticked transactions are ones you categorized by hand. Saving moves them to this rule's category.`,
     hint: "Unticked rows keep their category, and this rule leaves them alone from now on.",
     more: (n: number) => `Plus ${plural(n, "older match", "older matches")}, not listed here.`,
+    // Wave 14 review: rows the rule would not change show a label instead of a box.
+    alreadyHere: "Already here",
+    alreadyHereHint: "You put it in this category or one inside it, so this rule leaves it as it is.",
+    higherRule: "Higher rule",
+    higherRuleHint: "A rule higher in the list decides it, so this rule leaves it as it is.",
   },
 
   // spec 34

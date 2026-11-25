@@ -77,14 +77,15 @@ export function RuleEditor({
   const [choices, setChoices] = useState<TickChoices>(() => new Map());
   const listed = previewInput !== null && !broken ? preview.data : undefined;
   const handOver = fresh && form.enabled;
-  const tickRows = useMemo(
-    (): TickRows => ({
-      shown: listed?.sample.map((row) => row.id) ?? [],
+  const tickRows = useMemo((): TickRows => {
+    // Rows the rule would not change show no box, so they are never ticked or sent.
+    const fixed = new Set([...(listed?.alreadyHere ?? []), ...(listed?.higherRule ?? [])]);
+    return {
+      shown: listed?.sample.map((row) => row.id).filter((id) => !fixed.has(id)) ?? [],
       exceptions: listed?.exceptions ?? [],
       handSet: handOver ? (listed?.handSet.map((row) => row.id) ?? []) : [],
-    }),
-    [listed, handOver],
-  );
+    };
+  }, [listed, handOver]);
   const ticked = useMemo(() => tickedIds(tickRows, choices), [tickRows, choices]);
   useUntickShot(tickRows.shown, (ids) => setChoices(new Map(ids.map((id) => [id, false]))));
 
