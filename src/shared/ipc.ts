@@ -76,6 +76,8 @@ export interface IpcContract {
   "transactions:restore": { args: { ids: number[] }; result: { updated: number } };
   /** Deletes every trashed row for good. The window asks the user first. */
   "transactions:emptyTrash": { args: undefined; result: { deleted: number } };
+  /** Spec 36: deletes only these trashed rows for good; ids not in Trash are skipped. The window asks first. */
+  "transactions:deleteForGood": { args: { ids: number[] }; result: { deleted: number } };
   "accounts:setCardMode": { args: { accountId: number; mode: CardMode }; result: null };
   // ---- Summaries for any range of days (spec 16) ----
   /** With `essential`, every spending number is essentials or extras only (spec 22). */
@@ -214,6 +216,7 @@ export const CHANNELS = [
   "transactions:trash",
   "transactions:restore",
   "transactions:emptyTrash",
+  "transactions:deleteForGood",
   "accounts:setCardMode",
   "summary:period",
   "summary:periodFlow",
