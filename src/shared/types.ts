@@ -900,3 +900,12 @@ export type BudgetProblem =
   | { code: "under_split"; split: Agorot };
 
 export type BudgetChange = { ok: true } | { ok: false; problem: BudgetProblem };
+
+// ---- spec 39: backup, restore and CSV export (F56) ----
+
+/** A file main saved where the user chose: its name only, never the folder. */
+export interface FileSaved {
+  fileName: string;
+  /** Transactions in the file (Trash not counted). */
+  transactions: number;
+}

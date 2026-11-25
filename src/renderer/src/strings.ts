@@ -960,7 +960,7 @@ export const s = {
     goesProfile: "All transactions, categories, rules, notes and finance accounts in this profile.",
     goesAll: "Every profile, with all its transactions, categories, rules, notes and finance accounts, and the list of profiles.",
     noUndo:
-      "This cannot be undone. There is no copy anywhere else: CoinLeak never sent your data off this computer.",
+      "This cannot be undone. CoinLeak never sent your data off this computer, so the only copies are backup files you saved yourself.",
     disk:
       "SSDs and some file systems can keep old copies of deleted files where no app can reach them. Disk encryption (offered when installing Fedora, or BitLocker on Windows) is what protects against that.",
     typeWord: "DELETE",
@@ -1239,6 +1239,36 @@ export const s = {
     noBudget: "No budget",
     openLine: (name: string) => `Plan ${name}'s budget on the Budgets page`,
     cardLink: "Plan budgets",
+  },
+
+  // spec 39
+  backup: {
+    title: "Backup and export",
+    hint: "Move your data to another computer, or open your transactions in Excel.",
+    backupTitle: "Back up this profile",
+    backupBody: (name: string) =>
+      `One file with everything in ${name}: transactions, categories, rules, notes, budgets, accounts and settings.`,
+    backupButton: "Back up now",
+    restoreTitle: "Restore from backup",
+    restoreBody: "Opens a backup as a new profile, so nothing you have now changes. This is how you move to a new computer.",
+    restoreButton: "Restore from backup",
+    csvTitle: "Export transactions (CSV)",
+    csvBody: "For Excel or another spreadsheet. A CSV is not a backup: it cannot bring rules, notes or budgets back.",
+    csvButton: "Export CSV",
+    plainTitle: "The backup file is not encrypted",
+    plainBody:
+      "Anyone who opens it can read your transactions. Keep it on your own drive or a USB stick. Do not email it or put it in a shared folder.",
+    saved: (n: number) => `Backed up ${plural(n, "transaction", "transactions")}`,
+    exported: (n: number) => `Exported ${plural(n, "transaction", "transactions")}`,
+    restored: "Restored.",
+    restoredBody: "Sync once to log in to your banks on this computer.",
+    welcomeAsk: "Moving from another computer?",
+    welcomeLink: "Restore a backup",
+    failed: {
+      backup: "Failed to back up.",
+      restore: "Failed to restore the backup.",
+      csv: "Failed to export the transactions.",
+    },
   },
 };
 
