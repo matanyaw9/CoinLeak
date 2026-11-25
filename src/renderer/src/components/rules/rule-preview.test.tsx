@@ -73,6 +73,13 @@ describe("the rule preview's tick boxes", () => {
     expect(html).toContain(s.ruleTicks.hint);
   });
 
+  it("makes the rows one Tab stop (F83): the first row is in the Tab order, the others are reached by arrow keys", () => {
+    const rows = [row(3, "PAYBOX", "rule"), row(9, "העברה ב-BIT", "user"), row(14, "PAYBOX", null)];
+    const html = render(preview(rows), { ticked: new Set([3]) });
+    expect(html.match(/tabindex="0"/g)).toHaveLength(1);
+    expect(html.match(/tabindex="-1"/g)).toHaveLength(2);
+  });
+
   it("says how many more match past the list, and nothing about hand-set rows when none move", () => {
     const html = render(preview([row(3, "PAYBOX", "rule")], 12), { ticked: new Set([3]) });
     expect(html).toContain(s.ruleTicks.more(12));

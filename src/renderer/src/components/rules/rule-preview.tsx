@@ -2,13 +2,15 @@
 // the newest 500 of them, each with the category it has now, and (spec 21)
 // how many of them a higher rule decides. Spec 35: each row has a tick box,
 // ticked means "this rule changes it", with one box above to tick them all.
+// The rows are one Tab stop: Up and Down move, Space ticks (F83).
 
-import { CircleSlash, Hand, Layers, LoaderCircle, SearchCheck, TextCursorInput, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Check, CircleSlash, Hand, Layers, LoaderCircle, SearchCheck, TextCursorInput, TriangleAlert, type LucideIcon } from "lucide-react";
 import type { RulePreview as Preview, TransactionRow } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import type { CategoryIndex } from "@/lib/categories";
 import { formatDayShort } from "@/lib/format";
+import { useRoving, type RovingItem } from "@/lib/roving";
 import { Checkbox, Skeleton } from "@/components/ui/misc";
 import { Money } from "@/components/common/money";
 import { CategoryBubble } from "@/components/common/chips";
@@ -49,6 +51,7 @@ export function RulePreview({
   const listed = !waiting && !broken && data !== undefined && data.sample.length > 0;
   const shown = listed ? data.sample.map((row) => row.id) : [];
   const tickedCount = shown.filter((id) => ticks.ticked.has(id)).length;
+  const { list, item } = useRoving(shown);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="px-7 pt-7">
@@ -107,14 +110,15 @@ export function RulePreview({
             <Note icon={CircleSlash} text={p.none} />
           ) : (
             <>
-              <ul aria-label={t.listLabel} className={cn("transition-opacity", loading && "opacity-60")}>
-                {data.sample.map((row) => (
+              <ul ref={list} aria-label={t.listLabel} className={cn("transition-opacity", loading && "opacity-60")}>
+                {data.sample.map((row, i) => (
                   <SampleRow
                     key={row.id}
                     row={row}
                     index={index}
                     ticked={ticks.ticked.has(row.id)}
                     onToggle={() => ticks.onToggle(row.id)}
+                    roving={item(i)}
                   />
                 ))}
               </ul>
@@ -133,35 +137,52 @@ export function RulePreview({
   );
 }
 
+/** One row: the whole row is its tick box, so a click anywhere or Space ticks it. */
 function SampleRow({
   row,
   index,
   ticked,
   onToggle,
+  roving,
 }: {
   row: TransactionRow;
   index: CategoryIndex;
   ticked: boolean;
   onToggle: () => void;
+  roving: RovingItem;
 }) {
+  // Destructured: React's lint reads `roving.ref` as a ref and then flags the rest.
+  const { ref, tabIndex, onFocus, onBlur, onKeyDown } = roving;
   const category = row.categoryId != null ? index.byId.get(row.categoryId) : undefined;
   const moneyIn = row.amount > 0;
   const day = formatDayShort(row.date);
   return (
     <li>
-      <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-card/70">
-        <Checkbox checked={ticked} onClick={onToggle} aria-label={s.ruleTicks.row(row.description, day)} />
-        <div className={cn("flex min-w-0 flex-1 items-center gap-3 transition-opacity", !ticked && "opacity-55")}>
+      <button
+        ref={ref}
+        tabIndex={tabIndex}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        type="button"
+        role="checkbox"
+        aria-checked={ticked}
+        aria-label={s.ruleTicks.row(row.description, day)}
+        onClick={onToggle}
+        className="group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-start outline-none transition-colors hover:bg-card/70 focus-visible:bg-card/70 focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        <TickMark ticked={ticked} />
+        <span className={cn("flex min-w-0 flex-1 items-center gap-3 transition-opacity", !ticked && "opacity-55")}>
           <CategoryBubble category={category} size={30} />
-          <div className="min-w-0 flex-1">
-            <div dir="auto" className="truncate text-left text-sm font-medium">
+          <span className="block min-w-0 flex-1">
+            <span dir="auto" className="block truncate text-left text-sm font-medium">
               {row.description}
-            </div>
-            <div className="truncate text-xs text-muted-foreground">
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
               {day} · {category ? category.name : s.common.uncategorized}
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-0.5">
+            </span>
+          </span>
+          <span className="flex shrink-0 flex-col items-end gap-0.5">
             <Money
               amount={moneyIn ? row.amount : -row.amount}
               sign={moneyIn}
@@ -172,10 +193,25 @@ function SampleRow({
                 {s.ruleTicks.setByYou}
               </span>
             )}
-          </div>
-        </div>
-      </label>
+          </span>
+        </span>
+      </button>
     </li>
+  );
+}
+
+/** The box drawn inside a row, looking like the shared Checkbox; the row is the control. */
+function TickMark({ ticked }: { ticked: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors",
+        ticked ? "border-foreground bg-foreground text-background" : "border-foreground/25 bg-card group-hover:border-foreground/50",
+      )}
+    >
+      {ticked && <Check className="size-3" strokeWidth={3} />}
+    </span>
   );
 }
 
