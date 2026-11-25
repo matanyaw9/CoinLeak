@@ -214,7 +214,7 @@ migrations are never edited.
 | 8 | `20-transactions-hand`, `21-find-and-order`, `22-home-left-essentials` | Done. Daily use: select all, notes, manual transactions with a Cash wallet (F46, F48, F8); search and rule order on Categories and Rules (F47, F50); essentials vs extras on charts and money left per day on Home (F49, F51) |
 | 9 | `23-delete-and-sync-range`, `24-balance-check`, `25-cleanup` | Done. Trust and safety: delete data and sync range (F52, F53); balance check (F54); code-health cleanup |
 | 10 | to write | First public version: installer, bug report and feedback, version and update link, backup export, experimental labels, scraper update routine (F55, F27, F28, F56, F57, F1) |
-| 13 | `31-keyboard-and-sort-headers`, `32-card-bills-and-quick-sync`, `33-paid-back-and-small-fixes` | Built, owner to test. Keyboard shortcuts and sort headers (F66, F80); card bills by card number and a quick sync (F75, F82); paid back for a purchase, investment starter lists, Finance accounts, bigger emojis (F65, F76, F77, F74) |
+| 13 | `31-keyboard-and-sort-headers`, `32-card-bills-and-quick-sync`, `33-paid-back-and-small-fixes` | Done, owner tested 2026-11-25. Keyboard shortcuts and sort headers (F66, F80); card bills by card number and a quick sync (F75, F82); paid back for a purchase, investment starter lists, Finance accounts, bigger emojis (F65, F76, F77, F74) |
 | 14 | to write | Nested categories to 3 levels, better defaults, Routine / Treats removed, rule editor tick boxes (F69, F70, F72, F71) |
 | 15 | to write | Budgets page (F73); charts: click-through and the category chooser (F78, F79); backup and restore (F56) |
 | later | | Net worth, investments and loans (F67, absorbs F58; a design note first), Hebrew UI, pockets, AI helper (opt-in) |

@@ -250,3 +250,8 @@ keyboard and paid back items on the Demo profile first, then on your own.
    profile. Do any of your rows move there that should not?
 9. **Small ones.** "Finance accounts" everywhere (F77). New category:
    the emoji suggestions are big (F74).
+
+**Result, 2026-11-25:** the owner passed all nine. Quick Cal sync:
+`loginMs=27857 downloadMs=7097 saveMs=30 accounts=6 rows=88`, so the
+download takes 7 seconds and the rest is logging in. New requests from
+this test: F83 to F86 in `docs/FEATURES.md`.
