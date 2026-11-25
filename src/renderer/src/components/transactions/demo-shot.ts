@@ -7,6 +7,7 @@ import type { Category, TransactionRow } from "@shared/types";
 import type { CategoryIndex } from "@/lib/categories";
 import { groupByDay } from "@/lib/day-groups";
 import { useShot } from "@/lib/shot";
+import { openFirstPicker } from "./category-picker";
 
 /**
  * `?shot=menu` opens the "..." menu on a row, `?shot=select` selects three
@@ -14,7 +15,8 @@ import { useShot } from "@/lib/shot";
  * or `?shot=bills-on` go to last month (which has card bills) with them
  * hidden or shown. Spec 17: `?shot=hover` shows who set the category on a
  * row a rule sorted, and `?shot=hover-user` on a row sorted by hand. Spec 20:
- * `?shot=select-day`, `?shot=note` and `?shot=add-cash`.
+ * `?shot=select-day`, `?shot=note` and `?shot=add-cash`. Spec 34:
+ * `?shot=pick-<text>` opens the first row's category picker searching `<text>`.
  */
 export function useDemoShot(
   rows: TransactionRow[],
@@ -55,6 +57,8 @@ export function useDemoShot(
       const noted = rows.find((r) => r.note);
       if (shot === "note" && noted) aids.openNote(noted.id);
       if (shot === "add-cash") aids.openCash();
+      // spec 34: the first row's category picker, open with a search typed.
+      if (shot.startsWith("pick-")) openFirstPicker(shot.slice("pick-".length));
     }, 400);
     return () => clearTimeout(id);
     // Once per load: refreshed rows must not repeat it.
