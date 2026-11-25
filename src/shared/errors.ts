@@ -15,6 +15,12 @@ export const ERROR_MESSAGES = {
   SYNC_IN_PROGRESS: "A sync is already running.",
   DATABASE: "Could not read or write your data file.",
   UNKNOWN: "Something went wrong.",
+  // spec 39: backup, restore and CSV export
+  BACKUP_NOT_COINLEAK: "This is not a CoinLeak backup.",
+  BACKUP_TOO_NEW: "This backup is from a newer CoinLeak. Update the app first.",
+  BACKUP_DAMAGED: "The backup file is damaged.",
+  FILE_NOT_SAVED: "Could not save the file there. Try another folder.",
+  FILE_NOT_READ: "Could not read that file.",
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_MESSAGES;
