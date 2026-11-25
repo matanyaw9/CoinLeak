@@ -351,8 +351,14 @@ export function updateTransactions(
     if (patch.categoryId !== null) {
       check(db.prepare("SELECT 1 FROM categories WHERE id = ?").get(patch.categoryId) !== undefined);
     }
-    sets.push("category_id = ?", "category_source = 'user'");
-    params.push(patch.categoryId);
+    // A pay-back link (spec 33) explains the category it copied: a different
+    // category ends it. SET reads the row as it was before this update.
+    sets.push(
+      "category_id = ?",
+      "category_source = 'user'",
+      "paid_back_for = CASE WHEN category_id IS ? THEN paid_back_for ELSE NULL END",
+    );
+    params.push(patch.categoryId, patch.categoryId);
   }
   if (patch.note !== undefined) {
     sets.push("note = ?");
