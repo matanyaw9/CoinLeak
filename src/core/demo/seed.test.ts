@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRow } from "@shared/types";
 import { openDatabase, type Db } from "../db";
-import { balanceChecks, budgetStatus, getCashWallet, listAccounts, listCategories, listTransactions, monthSummary } from "../ledger";
+import { balanceChecks, budgetPlan, budgetStatus, getCashWallet, listAccounts, listCategories, listTransactions, monthSummary } from "../ledger";
 import { listRules } from "../rules";
 import { seedDemo } from "./seed";
 
@@ -125,12 +125,30 @@ describe("seedDemo", () => {
       seedDemo(db, today);
       const day = today.toISOString().slice(0, 10);
       const { lines } = budgetStatus(db, { month: day.slice(0, 7), today: day });
-      const shares = lines.map((l) => l.spentMonth / l.monthlyBudget).sort((a, b) => b - a);
-      expect(shares).toHaveLength(3);
-      expect(shares[0]).toBeGreaterThan(1);
-      expect(shares[1]).toBeGreaterThanOrEqual(0.8);
-      expect(shares[1]).toBeLessThanOrEqual(1);
-      expect(shares[2]).toBeLessThan(0.5);
+      const shares = lines.map((l) => l.spentMonth / l.monthlyBudget);
+      expect(shares.some((x) => x > 1)).toBe(true);
+      expect(shares.some((x) => x >= 0.8 && x <= 1)).toBe(true);
+      expect(shares.some((x) => x < 0.5)).toBe(true);
+    }
+  });
+
+  it("has a total and nested budgets that keep the rules (spec 37)", () => {
+    for (const today of [TODAY, new Date("2026-11-25T10:00:00Z"), new Date("2026-12-03T10:00:00Z")]) {
+      const db = openDatabase(":memory:");
+      seedDemo(db, today);
+      const day = today.toISOString().slice(0, 10);
+      const plan = budgetPlan(db, { month: day.slice(0, 7), today: day });
+      expect(plan.total).not.toBeNull();
+      expect(plan.split).toBeLessThanOrEqual(plan.total as number);
+      expect(plan.split).toBeGreaterThanOrEqual((plan.total as number) * 0.75);
+      const budgeted = plan.lines.filter((l) => l.budget !== null);
+      // A group with budgets inside it, and at least four budgets in all.
+      expect(budgeted.some((l) => l.depth === 1 && l.inside > 0)).toBe(true);
+      expect(budgeted.length).toBeGreaterThanOrEqual(4);
+      for (const l of budgeted) {
+        expect(l.budget).toBeGreaterThanOrEqual(l.inside);
+        if (l.room !== null) expect(l.budget).toBeLessThanOrEqual(l.room);
+      }
     }
   });
 });
