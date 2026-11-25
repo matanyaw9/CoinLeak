@@ -146,8 +146,11 @@ export function previewRule(db: Db, input: unknown): RulePreview {
   const setExcluded = typeof raw.setExcluded === "boolean" ? raw.setExcluded : null;
   check(raw.ruleId === undefined || isId(raw.ruleId));
   const rows = listTransactions(db).filter((t) => matches(prepareRow(t)));
+  const inside = setCategoryId === null ? new Set<number>() : categoryAndBelow(db, setCategoryId);
   const handSet =
-    setCategoryId === null ? [] : rows.filter((t) => t.categorySource === "user" && t.categoryId !== setCategoryId);
+    setCategoryId === null
+      ? []
+      : rows.filter((t) => t.categorySource === "user" && (t.categoryId === null || !inside.has(t.categoryId)));
   const higher = rulesAbove(db, raw.ruleId);
   const shown = rows.slice(0, PREVIEW_ROWS);
   const shownIds = shown.map((t) => t.id);
@@ -233,9 +236,25 @@ function handOver(db: Db, ruleId: number, rule: RuleInput, ids: number[]): void 
   const release = db.prepare(
     "UPDATE transactions SET category_id = NULL, category_source = 'rule', paid_back_for = NULL WHERE id = ?",
   );
+  const inside = categoryAndBelow(db, rule.setCategoryId);
   for (const r of rows) {
-    if (r.category_id !== rule.setCategoryId && matches(factsOf(r))) release.run(r.id);
+    if ((r.category_id === null || !inside.has(r.category_id)) && matches(factsOf(r))) release.run(r.id);
   }
+}
+
+/**
+ * The category and everything under it (three levels at most, spec 34). A
+ * row the user sorted into a subcategory of the rule's own category already
+ * agrees with the rule, more precisely: the rule never takes it back up.
+ */
+function categoryAndBelow(db: Db, id: number): Set<number> {
+  const rows = db
+    .prepare(
+      `SELECT id FROM categories WHERE id = ? OR parent_id = ?
+         OR parent_id IN (SELECT id FROM categories WHERE parent_id = ?)`,
+    )
+    .all(id, id, id) as { id: number }[];
+  return new Set(rows.map((r) => r.id));
 }
 
 /** What the conditions read from a stored row, and its category. */

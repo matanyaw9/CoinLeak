@@ -304,9 +304,9 @@ export interface RulePreview {
   /** Up to 500 of them, newest first: the rows the editor lists with tick boxes (spec 35). */
   sample: TransactionRow[];
   /**
-   * Matching rows the user sorted by hand into a category other than the
-   * rule's, newest first, every one of them (spec 13). Empty when the rule
-   * sets no category. The rule leaves them alone unless the save names them.
+   * Matching rows the user sorted by hand outside the rule's category and
+   * everything under it (spec 34), newest first, every one (spec 13). Empty
+   * when the rule sets no category. The rule leaves them alone unless the save names them.
    */
   handSet: TransactionRow[];
   /** spec 21: matching rows where a higher rule decides what this rule would set. */
