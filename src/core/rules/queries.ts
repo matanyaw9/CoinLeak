@@ -43,7 +43,10 @@ export interface SaveRequest {
    * An id here wins over the same id in `ticked` or `alsoChange`.
    */
   unticked?: unknown;
-  /** spec 35: rows the editor showed ticked. Any exception they had ends. */
+  /**
+   * spec 35: rows the editor showed ticked. Any exception they had ends, and
+   * that is all: a row the user set stays theirs (review of wave 14).
+   */
   ticked?: unknown;
 }
 
@@ -77,10 +80,8 @@ export function saveRule(db: Db, req: SaveRequest, now = new Date()): RuleSaved 
       check(writeRule(db, req.id, rule, at));
       id = req.id;
     }
-    const tickedBack = exceptionsAmong(db, id, ticked).filter((t) => !unticked.includes(t));
     removeExceptions(db, id, ticked);
     addExceptions(db, id, unticked);
-    giveBack(db, rule, tickedBack);
     handOver(db, id, rule, alsoChange);
     const run = runRules(db, "all", now);
     return { rule: loadRule(db, id) as Rule, applied: run.applied.get(id) ?? 0, changed: run.changed };
@@ -184,37 +185,6 @@ function keepForUser(db: Db, ruleId: number, ids: number[], at: string): void {
   const keepExcluded = db.prepare("UPDATE transactions SET excluded_source = 'user', updated_at = ? WHERE id = ?");
   for (const id of category) keepCategory.run(at, id);
   for (const id of excluded) keepExcluded.run(at, id);
-}
-
-/**
- * spec 35: rows ticked back after being the rule's exceptions. Where a row
- * kept exactly what this rule sets (as `keepForUser` left it), that field
- * goes back to the rules, so the rule applies again; nothing changes on
- * screen now. A row kept in another category goes through `handOver`.
- */
-function giveBack(db: Db, rule: RuleInput, ids: number[]): void {
-  if (ids.length === 0 || !rule.enabled) return;
-  const matches = compileMatcher(rule);
-  const rows = db
-    .prepare(
-      `SELECT id, account_id, amount, description, memo, category_id, category_source, excluded, excluded_source
-       FROM transactions WHERE trashed_at IS NULL AND id IN (SELECT value FROM json_each(?))`,
-    )
-    .all(JSON.stringify(ids)) as unknown as (MatchRow & {
-    category_source: string | null;
-    excluded: number;
-    excluded_source: string | null;
-  })[];
-  const category = db.prepare("UPDATE transactions SET category_source = 'rule' WHERE id = ?");
-  const excluded = db.prepare("UPDATE transactions SET excluded_source = 'rule' WHERE id = ?");
-  const setExcluded = rule.setExcluded === null ? null : rule.setExcluded ? 1 : 0;
-  for (const r of rows) {
-    if (!matches(factsOf(r))) continue;
-    if (rule.setCategoryId !== null && r.category_source === "user" && r.category_id === rule.setCategoryId) {
-      category.run(r.id);
-    }
-    if (r.excluded_source === "user" && r.excluded === setExcluded) excluded.run(r.id);
-  }
 }
 
 /**
