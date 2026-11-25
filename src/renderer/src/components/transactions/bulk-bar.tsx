@@ -1,5 +1,6 @@
 // Floating bar while rows are selected: how many, categorize, make a rule,
-// ignore or count again, move to trash, clear (Esc, spec 31).
+// ignore or count again, move to trash, clear (Esc, spec 31). Spec 36: the
+// tooltips name the keys, I and Delete.
 // Adapted from Spent (github.com/Shaya16/Spent), src/components/transactions/bulk-action-bar.tsx.
 
 import { Eye, EyeOff, LoaderCircle, Tags, Trash2, WandSparkles, X } from "lucide-react";
@@ -40,6 +41,7 @@ export function BulkBar({
 }) {
   // Hidden screenshot runs never advance animations, so demo shots skip it.
   const still = useShot() !== null;
+  const mac = isMac();
   return (
     <div className="pointer-events-none sticky bottom-6 z-30 mt-6 flex justify-center">
       <div
@@ -60,15 +62,19 @@ export function BulkBar({
           <WandSparkles className="size-4" />
           {s.bulk.makeRule}
         </button>
-        <button type="button" className={ACTION} onClick={onIgnore} disabled={pending}>
-          {ignored ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
-          {ignored ? s.rowMenu.countAgain : s.bulk.ignore}
-        </button>
-        <button type="button" className={ACTION} onClick={onTrash} disabled={pending}>
-          <Trash2 className="size-4" />
-          {s.bulk.trash}
-        </button>
-        <Hint label={s.transactions.clearSelection} keys={keyFor("clearSelection", isMac())}>
+        <Hint label={ignored ? s.rowMenu.countAgain : s.rowMenu.ignore} keys={keyFor("ignoreRows", mac)}>
+          <button type="button" className={ACTION} onClick={onIgnore} disabled={pending}>
+            {ignored ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+            {ignored ? s.rowMenu.countAgain : s.bulk.ignore}
+          </button>
+        </Hint>
+        <Hint label={s.rowMenu.trash} keys={keyFor("deleteRows", mac)}>
+          <button type="button" className={ACTION} onClick={onTrash} disabled={pending}>
+            <Trash2 className="size-4" />
+            {s.bulk.trash}
+          </button>
+        </Hint>
+        <Hint label={s.transactions.clearSelection} keys={keyFor("clearSelection", mac)}>
           <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label={s.transactions.clearSelection} onClick={onClear}>
             <X />
           </Button>

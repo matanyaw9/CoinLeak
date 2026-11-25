@@ -7,6 +7,8 @@
 // in the URL, a click on a row's category filters to it, and Ctrl+F.
 // Spec 20: select all (top and per day), notes, and cash rows typed by hand.
 // Spec 31: Ctrl+A and Esc, and the column headers that sort the list.
+// Spec 36: the rows are one Tab stop with arrow keys, Delete and I act on
+// the selection or the focused row, and the Paid back dialogs open here.
 // The pieces live in components/transactions; this page wires them together.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -50,12 +52,14 @@ import { chipsFor, clearFilters, groupsByDay, onlyCategory, readView, toFilter, 
 import { isMac, onFind, takeFindRequest } from "@/components/transactions/find";
 import { keyFor } from "@/lib/shortcuts";
 import { useShortcuts } from "@/lib/use-shortcuts";
+import { useRoving } from "@/lib/roving";
 import { Hint } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
-import { checkState } from "@/components/transactions/selection";
-import { useSelection } from "@/components/transactions/use-selection";
+import { checkState, keyTargets } from "@/components/transactions/selection";
+import { focusedRowId, useSelection } from "@/components/transactions/use-selection";
 import { DayHeader, SelectBox } from "@/components/transactions/day-header";
-import { rowMenu, type RowMenuActions } from "@/components/transactions/row-menu-entries";
+import { canPayBack, rowMenu, type RowMenuActions } from "@/components/transactions/row-menu-entries";
+import { NotPaidBackDialog, PaidBackDialog } from "@/components/transactions/paid-back-dialog";
 import { offerRule } from "@/components/transactions/rule-offer";
 import { useDemoShot } from "@/components/transactions/demo-shot";
 import { ManualDialog } from "@/components/transactions/manual-dialog";
@@ -131,10 +135,31 @@ export function TransactionsPage() {
   const allState = checkState(allIds, selected);
   const mac = isMac();
 
+  // spec 36: the rows are one Tab stop; arrow keys move, Shift+arrows extend the selection.
+  const { list, item, guard } = useRoving(allIds, {
+    onMove: (from, to, e) => {
+      const a = allIds[from];
+      const b = allIds[to];
+      if (e.shiftKey && a !== undefined && b !== undefined) selection.extend(a, b);
+    },
+  });
+  const position = useMemo(() => new Map(allIds.map((id, i) => [id, i])), [allIds]);
+
   // spec 31: Ctrl+A selects the rows the top box would; Esc clears them.
+  // spec 36: Delete moves to Trash and I toggles Ignore, on the selection or
+  // else the focused row. I keeps the selection, so a second I undoes it.
+  const keyRows = () => keyTargets(rows, selected, focusedRowId());
+  const trashRows = (targets: Row[]) => {
+    if (targets.length > 0) rowActions.trash(targets, selection.clear);
+  };
+  const toggleIgnored = (targets: Row[]) => {
+    if (targets.length > 0) rowActions.setIgnored(targets, !allIgnored(targets));
+  };
   useShortcuts({
     selectAll: rows.length > 0 ? () => selection.selectAll(allIds) : undefined,
     clearSelection: selected.size > 0 ? selection.clear : undefined,
+    deleteRows: rows.length > 0 ? () => trashRows(keyRows()) : undefined,
+    ignoreRows: rows.length > 0 ? () => toggleIgnored(keyRows()) : undefined,
   });
   // Screenshot aid (dev start route only): `?shot=ctrl-a` presses Ctrl+A.
   const listed = rows.length > 0;
@@ -147,6 +172,10 @@ export function TransactionsPage() {
   // spec 20: the note box of one row, and the cash form (a row to edit, or null to add).
   const [noteRow, setNoteRow] = useState<number | null>(null);
   const [cashForm, setCashForm] = useState<{ open: boolean; row: Row | null }>({ open: false, row: null });
+  // spec 36: the row whose Paid back (or Not paid back) dialog is open.
+  const [paidBack, setPaidBack] = useState<Row | null>(null);
+  const paidBackHint = usePaidBackShot(rows, setPaidBack);
+  useRowKeysShot(rows, selection.set);
 
   const makeRule = (targets: Row[], category?: Category) =>
     suggestFor(targets.map((r) => r.id), category).then((draft) => openEditor({ draft, optIn: true }), failed);
@@ -180,6 +209,7 @@ export function TransactionsPage() {
     addKnownPlace,
     openNote: setNoteRow,
     editCash: (row) => setCashForm({ open: true, row }),
+    openPaidBack: setPaidBack,
     setIgnored: rowActions.setIgnored,
     trash: rowActions.trash,
     clearSelection: selection.clear,
@@ -338,7 +368,9 @@ export function TransactionsPage() {
             )}
           </div>
         ) : (
-          <div className={cn("pb-2 transition-opacity", tx.isPlaceholderData && "opacity-60")}>
+          <>
+          <span {...guard("before")} />
+          <div ref={list} className={cn("pb-2 transition-opacity", tx.isPlaceholderData && "opacity-60")}>
             {groups.map((g) => (
               <Fragment key={g.date}>
                 {byDay && <DayHeader group={g} selected={selected} onToggle={selection.toggleMany} />}
@@ -354,7 +386,7 @@ export function TransactionsPage() {
                     onCategory={onRowCategory}
                     menu={() => menuFor(row)}
                     menuOpen={shot.menuRow === row.id}
-                    hintOpen={shot.hintRow === row.id}
+                    hintOpen={shot.hintRow === row.id || paidBackHint === row.id}
                     showDate={!byDay}
                     onFilterCategory={(id) => setView(onlyCategory(view, id))}
                     noteOpen={noteRow === row.id}
@@ -367,11 +399,14 @@ export function TransactionsPage() {
                       onDelete: actions.remove,
                       onKeep: actions.keep,
                     }}
+                    roving={item(position.get(row.id) ?? 0)}
                   />
                 ))}
               </Fragment>
             ))}
           </div>
+          <span {...guard("after")} />
+          </>
         )}
       </div>
       {tx.data && rows.length > 0 && (
@@ -397,6 +432,65 @@ export function TransactionsPage() {
         row={cashForm.row}
         index={index}
       />
+      {paidBack &&
+        (paidBack.paidBackFor ? (
+          <NotPaidBackDialog key={paidBack.id} row={paidBack} onClose={() => setPaidBack(null)} />
+        ) : (
+          <PaidBackDialog key={paidBack.id} row={paidBack} onClose={() => setPaidBack(null)} />
+        ))}
     </Page>
   );
+}
+
+/**
+ * Screenshot aid (dev start route only, see lib/shot.ts): `?shot=paid-back`
+ * opens the Paid back dialog on the first row that can pay back a purchase,
+ * and `?shot=paid-back-hint` shows the first linked row's hover card.
+ * Returns that row's id, for its `hintOpen`.
+ */
+function usePaidBackShot(rows: Row[], open: (row: Row) => void): number | null {
+  const shot = useShot();
+  const [hintRow, setHintRow] = useState<number | null>(null);
+  const ready = rows.length > 0;
+  useEffect(() => {
+    if (!ready || (shot !== "paid-back" && shot !== "paid-back-hint")) return;
+    const id = setTimeout(() => {
+      const moneyIn = rows.find(canPayBack);
+      if (shot === "paid-back" && moneyIn) open(moneyIn);
+      const linked = rows.find((r) => r.paidBackFor);
+      if (shot === "paid-back-hint" && linked) {
+        document.querySelector(`[data-row-id="${linked.id}"]`)?.scrollIntoView({ block: "center" });
+        setHintRow(linked.id);
+      }
+    }, 400);
+    return () => clearTimeout(id);
+    // Once per load: refreshed rows must not repeat it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shot, ready]);
+  return hintRow;
+}
+
+/**
+ * Screenshot aid (spec 36): `?shot=row-keys` selects two rows and puts
+ * keyboard focus on the row after them, as Shift+Down then Down would. The
+ * hidden screenshot window runs no transitions and never has focus, so the
+ * rows' transitions are switched off and the row is marked as focused.
+ */
+function useRowKeysShot(rows: Row[], select: (ids: Set<number>) => void): void {
+  const shot = useShot();
+  const ready = rows.length > 0;
+  useEffect(() => {
+    if (shot !== "row-keys" || !ready) return;
+    const id = setTimeout(() => {
+      const [a, b, c] = rows.slice(1, 4);
+      if (!a || !b || !c) return;
+      for (const el of document.querySelectorAll<HTMLElement>("[data-row-id], [data-row-id] *")) el.style.transition = "none";
+      select(new Set([a.id, b.id]));
+      const row = document.querySelector<HTMLElement>(`[data-row-id="${c.id}"]`);
+      row?.setAttribute("data-shot-focus", "");
+      row?.querySelector<HTMLElement>("[data-row-focus]")?.focus();
+    }, 400);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shot, ready]);
 }

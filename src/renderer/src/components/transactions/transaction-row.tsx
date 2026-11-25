@@ -6,7 +6,10 @@
 // category chip filters and explains itself (category-cell.tsx). Spec 20:
 // the note under the description and its button, cash rows and withdrawals
 // moved into the cash wallet. Spec 31: Shift+click and Ctrl+click on the row.
+// Spec 36: the gutter box is the row's one Tab stop in the list; arrow keys
+// move between rows (lib/roving.ts), Space selects, the menu key opens the menu.
 
+import { useState } from "react";
 import { ArrowLeftRight, Check, CircleDashed, Clock, EyeOff, StickyNote, Wallet, WandSparkles } from "lucide-react";
 import type { Account, Category, TransactionRow as Row } from "@shared/types";
 import { s } from "@/strings";
@@ -16,6 +19,8 @@ import { awaitingShekels, formatDayShort, formatForeign } from "@/lib/format";
 import { isGone, isPossibleCardBill, type InternalChoice } from "@/lib/review";
 import { ruleChipId } from "@/lib/review-rows";
 import { useRules } from "@/lib/hooks";
+import { isMenuKey } from "@/lib/shortcuts";
+import type { RovingItem } from "@/lib/roving";
 import { Hint } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
 import { Money } from "@/components/common/money";
@@ -29,6 +34,14 @@ import { isMac } from "./find";
 
 /** Parts of a row that keep their own click: the box, chips, pickers, the note and menu buttons. */
 const ROW_CONTROLS = 'button, a, input, textarea, select, label, [role="button"], [role="checkbox"], [role="combobox"]';
+
+/**
+ * Spec 36: the look of the row keyboard focus is on (its gutter box, the
+ * row's Tab stop). A screenshot run's hidden window never has focus, so
+ * `data-shot-focus` on the row shows the same look there. Trash rows too.
+ */
+export const ROW_FOCUS =
+  "[&:is(:has([data-row-focus]:focus-visible),[data-shot-focus])]:bg-accent/50 [&:is(:has([data-row-focus]:focus-visible),[data-shot-focus])]:ring-2 [&:is(:has([data-row-focus]:focus-visible),[data-shot-focus])]:ring-ring/60 [&:is(:has([data-row-focus]:focus-visible),[data-shot-focus])]:ring-inset";
 
 export interface RowReview {
   /** The Needs review view is showing, where gone rows ask delete or keep. */
@@ -58,6 +71,7 @@ export function TransactionRow({
   hintOpen,
   noteOpen,
   onNoteOpenChange,
+  roving,
 }: {
   row: Row;
   account: Account | undefined;
@@ -81,7 +95,13 @@ export function TransactionRow({
   /** spec 20: the note box is open (from its button or the row menu). */
   noteOpen?: boolean;
   onNoteOpenChange?: (open: boolean) => void;
+  /** spec 36: the row's place in the list's one Tab stop and its arrow keys. */
+  roving: RovingItem;
 }) {
+  // spec 36: null until the "..." menu is opened or closed; the demo flag opens it at first.
+  const [menuState, setMenuState] = useState<boolean | null>(null);
+  // Destructured: React's lint reads `roving.ref` as a ref and then flags the rest.
+  const { ref: focusRef, tabIndex, onFocus, onBlur, onKeyDown: listKeys } = roving;
   const category = row.categoryId != null ? index.byId.get(row.categoryId) : undefined;
   const gone = isGone(row);
   const counted = row.flow !== "internal" && row.flow !== "excluded" && !gone;
@@ -100,9 +120,18 @@ export function TransactionRow({
     return rowClickKind(e, isMac());
   };
 
+  // spec 36: the menu key or Shift+F10 anywhere in the row opens its "..." menu.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (isMenuKey(e) && e.currentTarget.contains(e.target as Node)) {
+      e.preventDefault();
+      setMenuState(true);
+    } else listKeys(e);
+  };
+
   return (
     <RowContextMenu menu={menu}>
       <div
+        data-row-id={row.id}
         onMouseDown={(e) => {
           if (selectClick(e) === "range") e.preventDefault();
         }}
@@ -110,22 +139,32 @@ export function TransactionRow({
           const kind = selectClick(e);
           if (kind) onToggle(row.id, kind === "range");
         }}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
         className={cn(
           "group relative border-t border-border/70 transition-colors hover:bg-accent/35",
           selected && "bg-primary/[0.07] hover:bg-primary/10",
+          ROW_FOCUS,
         )}
       >
         <div className="flex h-16 items-center gap-4 pe-3">
           {/* The whole gutter selects (shift for a range). The bubble turns into
-              a checkbox on hover, and stays one while selecting. */}
+              a checkbox on hover, and stays one while selecting. Spec 36: it
+              is the row's Tab stop, and Space on it selects. The scroll
+              margins keep a row reached by arrow keys clear of the sticky
+              header and the bulk bar. */}
           <button
+            ref={focusRef}
+            tabIndex={tabIndex}
+            data-row-focus=""
             type="button"
             role="checkbox"
             aria-checked={selected}
             aria-label={s.transactions.select}
             onMouseDown={(e) => e.shiftKey && e.preventDefault()}
             onClick={(e) => onToggle(row.id, e.shiftKey)}
-            className="group/gutter relative flex h-16 w-[62px] shrink-0 items-center ps-6 outline-none select-none"
+            className="group/gutter relative flex h-16 w-[62px] shrink-0 scroll-mt-40 scroll-mb-24 items-center ps-6 outline-none select-none"
           >
             <span
               className={cn(
@@ -276,7 +315,7 @@ export function TransactionRow({
           </div>
 
           <NoteButton row={row} open={noteOpen ?? false} onOpenChange={(open) => onNoteOpenChange?.(open)} />
-          <RowMenuButton key={String(menuOpen)} menu={menu} defaultOpen={menuOpen} />
+          <RowMenuButton menu={menu} open={menuState ?? Boolean(menuOpen)} onOpenChange={setMenuState} />
         </div>
 
         {(askCardBill || askGone) && (
