@@ -9,7 +9,7 @@ import type { Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { pathOf, treeOf, type CategoryIndex } from "@/lib/categories";
-import { useShot } from "@/lib/shot";
+import { hashParam } from "@/lib/shot";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const KIND_LABEL: Record<CategoryKind, () => string> = {
@@ -48,10 +48,11 @@ let demoOwner: string | null = null;
 
 /**
  * Screenshot aid (spec 34): `?shot=pick-<text>` opens the first picker on the
- * page with `<text>` typed in its search. Null for every other picker.
+ * page with `<text>` typed in its search. Null for every other picker. Read
+ * from the hash, not the router: the rule editor's picker sits outside it.
  */
 function useDemoQuery(id: string): string | null {
-  const shot = useShot();
+  const shot = hashParam("shot");
   if (!shot?.startsWith("pick-")) return null;
   demoOwner ??= id;
   return demoOwner === id ? shot.slice("pick-".length) : null;
