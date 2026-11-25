@@ -64,11 +64,31 @@ export const useBudgetStatus = (month: IsoMonth) =>
     placeholderData: (prev) => prev,
   });
 
-/** Sets (agorot) or clears (null) a category's monthly budget, then refreshes Home's card. */
+/**
+ * Sets (agorot) or clears (null) a category's monthly budget, then refreshes
+ * the budget views. spec 37: a refusal comes back as `{ ok: false, problem }`.
+ */
 export function useSetBudget() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (args: { categoryId: number; monthlyBudget: Agorot | null }) => call("budgets:set", args),
+    mutationFn: (args: { categoryId: number; monthlyBudget: Agorot | null; raiseParents?: boolean }) => call("budgets:set", args),
+    onSettled: () => refreshBudgets(client),
+  });
+}
+
+/** spec 37: the Budgets page. Spent follows the month; budgets, usual and the averages do not. */
+export const useBudgetPlan = (month: IsoMonth) =>
+  useQuery({
+    queryKey: queryKey("budgets:plan", { month }),
+    queryFn: () => call("budgets:plan", { month }),
+    placeholderData: (prev) => prev,
+  });
+
+/** spec 37: sets (agorot) or clears (null) the month's total budget. */
+export function useSetBudgetTotal() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { total: Agorot | null }) => call("budgets:setTotal", args),
     onSettled: () => refreshBudgets(client),
   });
 }

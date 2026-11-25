@@ -18,6 +18,7 @@ describe("keys on the window", () => {
       ["h", "/"],
       ["t", "/transactions"],
       ["c", "/categories"],
+      ["u", "/budgets"],
       ["r", "/rules"],
       ["b", "/accounts"],
       ["x", "/trash"],
