@@ -104,8 +104,15 @@ export function previousRange(range: DateRange): DateRange {
 
 // ---- Sums over [from, until) ----
 
-/** Which rows a sum looks at: all, uncategorized (null), or a category with its subcategories. */
+/**
+ * Which rows a sum looks at: all, uncategorized (null), or a category with
+ * everything under it (its children and grandchildren, spec 34).
+ */
 type Match = number | null | undefined;
+
+/** The rows on a category or anywhere under it, over the `ledger` CTE; three `?` for the same id. */
+const UNDER_CATEGORY_SQL =
+  "(ledger.category_id = ? OR ledger.category_parent_id = ? OR ledger.category_grandparent_id = ?)";
 
 /**
  * Which spending by the essential tag (spec 22): true essential, false extra,
@@ -119,8 +126,8 @@ function whereSql(match: Match, tag: Tag = undefined): { sql: string; params: SQ
   const params: SQLInputValue[] = [];
   if (match === null) sql += " AND ledger.category_id IS NULL";
   if (typeof match === "number") {
-    sql += " AND (ledger.category_id = ? OR ledger.category_parent_id = ?)";
-    params.push(match, match);
+    sql += ` AND ${UNDER_CATEGORY_SQL}`;
+    params.push(match, match, match);
   }
   if (tag === null) {
     sql += " AND (ledger.category_id IS NULL OR ledger.category_id IN (SELECT id FROM categories WHERE essential IS NULL))";
@@ -188,11 +195,12 @@ export function spendingByCategory(db: Db, from: IsoDate, until: IsoDate, match?
     .map((r) => ({ categoryId: r.categoryId as number | null, amount: r.spent as number, count: r.count as number }));
 }
 
+/** Spending rolled up to top-level categories (null: uncategorized). */
 export function spendingByParent(db: Db, from: IsoDate, until: IsoDate, tag?: Tag): CategoryAmount[] {
   const w = whereSql(undefined, tag);
   return db
     .prepare(
-      `${WITH_LEDGER} SELECT COALESCE(ledger.category_parent_id, ledger.category_id) AS categoryId,
+      `${WITH_LEDGER} SELECT ledger.category_root_id AS categoryId,
          -SUM(ledger.amount) AS spent, COUNT(*) AS count
        FROM ledger
        WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}${w.sql}
@@ -201,6 +209,31 @@ export function spendingByParent(db: Db, from: IsoDate, until: IsoDate, tag?: Ta
     )
     .all(from, until, ...w.params)
     .map((r) => ({ categoryId: r.categoryId as number | null, amount: r.spent as number, count: r.count as number }));
+}
+
+/**
+ * One level at a time (spec 34): a category's spending split by its direct
+ * children, each with everything under it, plus the category's own rows
+ * under the category's own id. Charts drill down with this.
+ */
+export function spendingByChild(db: Db, from: IsoDate, until: IsoDate, categoryId: number, tag?: Tag): CategoryAmount[] {
+  const w = whereSql(categoryId, tag);
+  return db
+    .prepare(
+      `${WITH_LEDGER} SELECT
+         CASE
+           WHEN ledger.category_id = ? THEN ledger.category_id
+           WHEN ledger.category_parent_id = ? THEN ledger.category_id
+           ELSE ledger.category_parent_id
+         END AS categoryId,
+         -SUM(ledger.amount) AS spent, COUNT(*) AS count
+       FROM ledger
+       WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}${w.sql}
+       GROUP BY 1
+       ORDER BY spent DESC, categoryId`,
+    )
+    .all(categoryId, categoryId, from, until, ...w.params)
+    .map((r) => ({ categoryId: r.categoryId as number, amount: r.spent as number, count: r.count as number }));
 }
 
 /** Spending per day with any spending, oldest first. */
@@ -314,8 +347,8 @@ function splitTrendPoint(db: Db, month: IsoMonth): TrendPoint {
 
 /**
  * One month of the trend for chosen categories: one entry per id, in the
- * order asked, each with its subcategories (null is uncategorized), and
- * `parts` by the category each row is on.
+ * order asked, each with everything under it (null is uncategorized), and
+ * `parts` one level down: by direct child, plus the category's own rows.
  * `spending` is their sum, so the ids should not overlap.
  */
 function chosenTrendPoint(db: Db, month: IsoMonth, categoryIds: (number | null)[], tag: Tag): TrendPoint {
@@ -323,7 +356,10 @@ function chosenTrendPoint(db: Db, month: IsoMonth, categoryIds: (number | null)[
   const t = totals(db, from, until);
   const parts: TrendPoint["parts"] = [];
   const byCategory = categoryIds.map((categoryId) => {
-    const rows = spendingByCategory(db, from, until, categoryId, tag);
+    const rows =
+      categoryId === null
+        ? spendingByCategory(db, from, until, null, tag)
+        : spendingByChild(db, from, until, categoryId, tag);
     for (const r of rows) parts.push({ categoryId: r.categoryId, amount: r.amount });
     return { categoryId, amount: rows.reduce((sum, r) => sum + r.amount, 0) };
   });

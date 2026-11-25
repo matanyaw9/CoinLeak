@@ -1,7 +1,7 @@
 // The categories editor's writes: create, rename, recolor, mark essential or
-// extra, move between top-level categories, and delete (refused while in use
-// unless its rows and rules move first). The two-level and same-kind rules are
-// database triggers (0002); core checks them first so the window gets a fixed
+// extra, move anywhere in the tree, and delete (refused while in use unless
+// its rows and rules move first). The three-level and same-kind rules are
+// database triggers (0015); core checks them first so the window gets a fixed
 // problem code, never SQL text.
 
 import type {
@@ -18,6 +18,8 @@ import { listCategories } from "./queries";
 import { check, isId } from "./validate";
 
 const KINDS: readonly CategoryKind[] = ["expense", "income", "transfer"];
+/** Categories nest at most this deep (spec 34): a top-level category is level 1. */
+const MAX_LEVELS = 3;
 const NAME_MAX = 60;
 const EMOJI_MAX = 16;
 const COLOR = /^#[0-9A-Fa-f]{6}$/;
@@ -46,7 +48,7 @@ export function createCategory(db: Db, input: CategoryInput): CategoryChange {
 
   return transaction(db, () => {
     if (input.parentId !== null) {
-      const problem = parentProblem(db, input.parentId, input.kind);
+      const problem = parentProblem(db, input.parentId, input.kind, null);
       if (problem) return refuse(problem);
     }
     if (nameTaken(db, input.parentId, name, null)) return refuse("name_taken");
@@ -82,9 +84,8 @@ export function updateCategory(db: Db, id: number, patch: CategoryPatch): Catego
     const essential = flagged ? (patch.essential ?? current.essential !== 0) : null;
     if (moving && parentId !== null) {
       check(parentId !== id);
-      const problem = parentProblem(db, parentId, current.kind);
+      const problem = parentProblem(db, parentId, current.kind, id);
       if (problem) return refuse(problem);
-      if (hasChildren(db, id)) return refuse("has_children");
     }
     if (nameTaken(db, parentId, name ?? current.name, id)) return refuse("name_taken");
 
@@ -111,7 +112,7 @@ export function updateCategory(db: Db, id: number, patch: CategoryPatch): Catego
 /**
  * Deletes a category nothing uses. With `moveTo`, its rows and the rules that
  * set it move to that category (same kind) first; each row keeps who set it.
- * A top-level category with subcategories is never deleted: move them first.
+ * A category with subcategories is never deleted: move them first.
  */
 export function deleteCategory(db: Db, id: number, moveTo: number | null = null): CategoryDeleteResult {
   check(isId(id) && (moveTo === null || isId(moveTo)));
@@ -168,13 +169,38 @@ function cleanColor(value: unknown): string | null {
   return value.toUpperCase();
 }
 
-/** The database's two-level and same-kind rule, as a fixed code. */
-function parentProblem(db: Db, parentId: number, kind: CategoryKind): CategoryProblem | null {
+/**
+ * The database's tree rules (0015) as a fixed code: the parent has the same
+ * kind, is not the moved category's own subcategory, and the category (with
+ * everything under it, when `moving` is its id) still fits in three levels.
+ */
+function parentProblem(db: Db, parentId: number, kind: CategoryKind, moving: number | null): CategoryProblem | null {
   const parent = record(db, parentId);
   check(parent !== undefined);
-  if (parent.parent_id !== null) return "parent_not_top_level";
   if (parent.kind !== kind) return "parent_other_kind";
+  const above = ancestorsOf(db, parentId);
+  if (moving !== null && above.includes(moving)) return "parent_is_descendant";
+  // The parent sits at level above.length + 1; the branch's lowest level is that plus its height.
+  const height = moving === null ? 1 : heightOf(db, moving);
+  if (above.length + 1 + height > MAX_LEVELS) return "too_deep";
   return null;
+}
+
+/** The ids above a category, nearest first. */
+function ancestorsOf(db: Db, id: number): number[] {
+  const out: number[] = [];
+  let parentId = record(db, id)?.parent_id ?? null;
+  while (parentId !== null && out.length < MAX_LEVELS) {
+    out.push(parentId);
+    parentId = record(db, parentId)?.parent_id ?? null;
+  }
+  return out;
+}
+
+/** How many levels a category spans with everything under it: 1 when it has no children. */
+function heightOf(db: Db, id: number): number {
+  const children = db.prepare("SELECT id FROM categories WHERE parent_id = ?").all(id) as { id: number }[];
+  return 1 + Math.max(0, ...children.map((c) => heightOf(db, c.id)));
 }
 
 function nameTaken(db: Db, parentId: number | null, name: string, self: number | null): boolean {

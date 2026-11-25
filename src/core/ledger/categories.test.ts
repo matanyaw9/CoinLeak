@@ -60,12 +60,12 @@ describe("createCategory", () => {
     expect(createCategory(db, input({ name: "Groceries", parentId: categoryId(db, "Lifestyle") })).ok).toBe(true);
   });
 
-  it("keeps two levels: a subcategory cannot hold one", () => {
+  it("nests three levels: a level 2 category holds one, a level 3 category does not", () => {
     const db = newDb();
-    expect(createCategory(db, input({ parentId: categoryId(db, "Groceries") }))).toEqual({
-      ok: false,
-      problem: "parent_not_top_level",
-    });
+    const weekly = created(db, { name: "Weekly shop", parentId: categoryId(db, "Groceries") });
+    const list = listCategories(db);
+    expect(list.findIndex((c) => c.id === weekly)).toBe(list.findIndex((c) => c.name === "Groceries") + 1);
+    expect(createCategory(db, input({ parentId: weekly }))).toEqual({ ok: false, problem: "too_deep" });
   });
 
   it("keeps kinds apart: an income category cannot sit under an expense one", () => {
@@ -128,16 +128,49 @@ describe("updateCategory", () => {
     expect(updateCategory(db, travel, { parentId: categoryId(db, "Lifestyle") }).ok).toBe(true);
   });
 
-  it("enforces two levels with fixed codes", () => {
+  it("moves a whole branch when it still fits in three levels", () => {
     const db = newDb();
-    expect(updateCategory(db, categoryId(db, "Travel"), { parentId: categoryId(db, "Groceries") })).toEqual({
-      ok: false,
-      problem: "parent_not_top_level",
+    // Travel goes to level 3, under Groceries.
+    expect(updateCategory(db, categoryId(db, "Travel"), { parentId: categoryId(db, "Groceries") })).toMatchObject({
+      ok: true,
+      category: { parentId: categoryId(db, "Groceries") },
     });
-    // A top-level category with subcategories cannot become one.
+    // Lifestyle and its children go under Home & Bills: levels 2 and 3.
+    const lifestyle = categoryId(db, "Lifestyle");
+    expect(updateCategory(db, lifestyle, { parentId: categoryId(db, "Home & Bills") }).ok).toBe(true);
+    expect(listCategories(db).find((c) => c.name === "Entertainment")?.parentId).toBe(lifestyle);
+  });
+
+  it("enforces three levels with fixed codes", () => {
+    const db = newDb();
+    const groceries = categoryId(db, "Groceries");
+    const weekly = created(db, { name: "Weekly shop", parentId: groceries });
+    // Under a level 3 category.
+    expect(updateCategory(db, categoryId(db, "Travel"), { parentId: weekly })).toEqual({ ok: false, problem: "too_deep" });
+    // Food spans three levels now, so it cannot go under anything.
     expect(updateCategory(db, categoryId(db, "Food"), { parentId: categoryId(db, "Lifestyle") })).toEqual({
       ok: false,
-      problem: "has_children",
+      problem: "too_deep",
+    });
+    // A two-level branch cannot go under a level 2 category.
+    expect(updateCategory(db, groceries, { parentId: categoryId(db, "Restaurants") })).toEqual({
+      ok: false,
+      problem: "too_deep",
+    });
+  });
+
+  it("refuses a move under the category's own subcategory", () => {
+    const db = newDb();
+    const lifestyle = categoryId(db, "Lifestyle");
+    expect(updateCategory(db, lifestyle, { parentId: categoryId(db, "Entertainment") })).toEqual({
+      ok: false,
+      problem: "parent_is_descendant",
+    });
+    const groceries = categoryId(db, "Groceries");
+    const weekly = created(db, { name: "Weekly shop", parentId: groceries });
+    expect(updateCategory(db, categoryId(db, "Food"), { parentId: weekly })).toEqual({
+      ok: false,
+      problem: "parent_is_descendant",
     });
   });
 
@@ -275,9 +308,13 @@ describe("deleteCategory", () => {
     expect(stored(db, idOf(db, "SYNTH MARKET A"))["category_id"]).toBe(groceries);
   });
 
-  it("never deletes a top-level category that still has subcategories", () => {
+  it("never deletes a category that still has subcategories, at any level", () => {
     const db = newDb();
     expect(deleteCategory(db, categoryId(db, "Food"))).toEqual({ ok: false, problem: "has_children" });
+    const weekly = created(db, { name: "Weekly shop", parentId: categoryId(db, "Groceries") });
+    expect(deleteCategory(db, categoryId(db, "Groceries"))).toEqual({ ok: false, problem: "has_children" });
+    // A level 3 category nothing uses goes.
+    expect(deleteCategory(db, weekly)).toEqual({ ok: true, movedRows: 0, movedRules: 0 });
   });
 
   it("the database triggers still guard the same rules underneath", () => {

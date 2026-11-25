@@ -69,15 +69,23 @@ const GONE_FLAG_SQL = `(${FLOW_SQL} = 'gone')`;
  * Every transaction with its flow and review flags. Use as a CTE:
  * `WITH ledger AS (${LEDGER_SQL}) SELECT ... FROM ledger`. A gone row keeps
  * its stored status ('pending'); readers show status 'gone' when flow is.
+ *
+ * Categories nest three levels (spec 34), so each row also carries its
+ * category's parent and grandparent (null when there is none) and its
+ * top-level category (`category_root_id`, null when uncategorized).
  */
 export const LEDGER_SQL = `SELECT t.*,
   c.kind AS category_kind,
   c.parent_id AS category_parent_id,
+  cp.parent_id AS category_grandparent_id,
+  COALESCE(cp.parent_id, c.parent_id, c.id) AS category_root_id,
   ${FLOW_SQL} AS flow,
   ${UNCATEGORIZED_SQL} AS flag_uncategorized,
   ${CARD_BILL_FLAG_SQL} AS flag_possible_card_bill,
   ${GONE_FLAG_SQL} AS flag_gone
-FROM transactions t LEFT JOIN categories c ON c.id = t.category_id`;
+FROM transactions t
+  LEFT JOIN categories c ON c.id = t.category_id
+  LEFT JOIN categories cp ON cp.id = c.parent_id`;
 
 /** Flows that make up "spending" in summaries; refunds reduce it. */
 export const SPENDING_FLOWS_SQL = "('spending', 'refund')";

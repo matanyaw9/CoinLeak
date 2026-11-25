@@ -205,8 +205,8 @@ export interface TrendPoint {
   /** All spending split by the categories' essential tag (spec 22). Only on
    *  unfiltered points; the three add up to `spending`. */
   split?: EssentialSplit;
-  /** With chosen categories: their spending by the category each row is on,
-   *  so a chosen group comes split into its subcategories. */
+  /** With chosen categories: their spending one level down (spec 34), by
+   *  direct child with everything under it, plus each category's own rows. */
   parts?: { categoryId: number | null; amount: Agorot }[];
 }
 
@@ -482,7 +482,8 @@ export interface CategoryPatch {
 
 /**
  * Why core refused a category change. Fixed codes; the window turns them
- * into friendly text. The two-level and same-kind rules are the database's.
+ * into friendly text. The three-level and same-kind rules are the database's.
+ * `parent_not_top_level` is from the two-level days; core no longer sends it.
  */
 export type CategoryProblem =
   | "name_taken"
@@ -490,7 +491,11 @@ export type CategoryProblem =
   | "parent_other_kind"
   | "has_children"
   | "in_use"
-  | "target_other_kind";
+  | "target_other_kind"
+  /** The category, with everything under it, would go below level 3 (spec 34). */
+  | "too_deep"
+  /** The new parent is the category's own subcategory (spec 34). */
+  | "parent_is_descendant";
 
 export type CategoryChange = { ok: true; category: Category } | { ok: false; problem: CategoryProblem };
 
@@ -650,10 +655,11 @@ export interface ThisMonth {
 export type PeriodFlow = Omit<MoneyFlow, "month"> & DateRange;
 
 /**
- * One spending group opened up: the group's total (a `group` node) on the
- * left, its categories (`spending`, the group's own id for rows set on the
- * group itself) on the right. A category refunded beyond its spending is a
- * `refund` node on the left, and then a `hub` sits in the middle.
+ * One spending category opened up one level (spec 34): its total (a `group`
+ * node) on the left, its direct children (`spending`, each with everything
+ * under it, and the category's own id for rows set on it) on the right. A
+ * child refunded beyond its spending is a `refund` node on the left, and then
+ * a `hub` sits in the middle.
  */
 export interface GroupFlow extends DateRange {
   categoryId: number;

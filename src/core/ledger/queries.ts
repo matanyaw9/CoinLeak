@@ -69,7 +69,11 @@ export function listAccounts(db: Db): Account[] {
   }));
 }
 
-/** Expense before income; each top-level category followed by its children. */
+/**
+ * Expense before income; depth first, so each category is followed by its
+ * children, each child by its own children (spec 34). Top-level categories
+ * go by sort order then id, the ones under them by sort order then name.
+ */
 export function listCategories(db: Db): Category[] {
   const rows = db
     .prepare(
@@ -77,9 +81,7 @@ export function listCategories(db: Db): Category[] {
          (SELECT COUNT(*) FROM transactions t WHERE t.category_id = c.id) AS row_count,
          (SELECT COUNT(*) FROM rules r WHERE r.set_category_id = c.id) AS rule_count
        FROM categories c
-       LEFT JOIN categories p ON p.id = c.parent_id
-       ORDER BY c.kind = 'income', COALESCE(p.sort_order, c.sort_order), COALESCE(p.id, c.id),
-         c.parent_id IS NOT NULL, c.sort_order, c.name`,
+       ORDER BY c.kind = 'income', c.sort_order, CASE WHEN c.parent_id IS NULL THEN c.id END, c.name`,
     )
     .all() as {
     id: number;
@@ -93,7 +95,19 @@ export function listCategories(db: Db): Category[] {
     row_count: number;
     rule_count: number;
   }[];
-  return rows.map((r) => ({
+  // Siblings keep the query's order; walking from the top puts each one's children right after it.
+  const childrenOf = new Map<number | null, typeof rows>();
+  for (const r of rows) childrenOf.set(r.parent_id, [...(childrenOf.get(r.parent_id) ?? []), r]);
+  const ordered: typeof rows = [];
+  const walk = (parentId: number | null): void => {
+    for (const r of childrenOf.get(parentId) ?? []) {
+      ordered.push(r);
+      walk(r.id);
+    }
+  };
+  walk(null);
+
+  return ordered.map((r) => ({
     id: r.id,
     parentId: r.parent_id,
     name: r.name,
@@ -142,8 +156,8 @@ interface LedgerRow {
 
 /**
  * Newest first unless `sort` says otherwise (spec 17). Empty arrays in the
- * filter mean "no constraint". A parent
- * category id also matches its children; `null` matches the rows Needs review
+ * filter mean "no constraint". A category id also matches its children and
+ * grandchildren; `null` matches the rows Needs review
  * calls uncategorized (spending or income with no category).
  * Trashed rows show only when `flows` asks for them.
  */
@@ -178,8 +192,11 @@ export function listTransactions(db: Db, filter: TransactionFilter = {}): Transa
     const parts: string[] = [];
     if (filter.categoryIds.includes(null)) parts.push("ledger.flag_uncategorized");
     if (ids.length) {
-      parts.push(`ledger.category_id IN (${marks(ids.length)}) OR ledger.category_parent_id IN (${marks(ids.length)})`);
-      params.push(...ids, ...ids);
+      const list = marks(ids.length);
+      parts.push(
+        `ledger.category_id IN (${list}) OR ledger.category_parent_id IN (${list}) OR ledger.category_grandparent_id IN (${list})`,
+      );
+      params.push(...ids, ...ids, ...ids);
     }
     where.push(`(${parts.join(" OR ")})`);
   }
