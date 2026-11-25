@@ -87,8 +87,16 @@ describe("syncFrom (spec 23)", () => {
     for (const value of ["last", null, 1]) {
       expect(() => setSetting(db, { key: "homeCurveCompare", value } as SettingEntry)).toThrow(CodedError);
     }
-    for (const value of [[1, 1], [0], [1.5], ["2"], Array.from({ length: 31 }, (_, i) => i + 1), null]) {
+    for (const value of [[1, 1], [0], [1.5], ["2"], Array.from({ length: 501 }, (_, i) => i + 1), null]) {
       expect(() => setSetting(db, { key: "homeCurveCategories", value } as SettingEntry)).toThrow(CodedError);
     }
+  });
+
+  it("holds up to 500 chosen categories, a full tree (spec 38)", () => {
+    const db = newDb();
+    const full = [null, ...Array.from({ length: 499 }, (_, i) => i + 1)];
+    setSetting(db, { key: "homeCurveCategories", value: full });
+    expect(getSetting(db, "homeCurveCategories")).toEqual(full);
+    expect(() => setSetting(db, { key: "homeCurveCategories", value: [...full, 500] })).toThrow(CodedError);
   });
 });

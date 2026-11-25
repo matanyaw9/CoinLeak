@@ -652,6 +652,15 @@ export interface PeriodCurve {
   average?: AverageCurve | null;
 }
 
+/** Chosen categories added up into one curve, each row counted once (spec 38). */
+export interface SummedCurve {
+  categoryIds: (number | null)[];
+  bucket: SeriesBucket;
+  series: SeriesPoint[];
+  previous: SeriesPoint[];
+  average?: AverageCurve | null;
+}
+
 // ---- Profiles (spec 19) ----
 
 /** Separate data for one person or purpose: a name and its own database file. */

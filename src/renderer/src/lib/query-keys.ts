@@ -21,6 +21,7 @@ export const LEDGER_VIEWS: Channel[] = [
   "summary:groupFlow",
   "summary:periodTrend",
   "summary:periodCurves",
+  "summary:periodCurveSum",
   "summary:thisMonth",
   "summary:monthlyNet",
   "categories:list",
