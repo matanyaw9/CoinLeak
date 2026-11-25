@@ -9,6 +9,7 @@ import { NOW, bank, categoryId, idOf, newDb, txn } from "../testing/ledger";
 import { ruleInput } from "../testing/rules";
 import { createRule, listRules, previewRule, reorderRules, updateRule } from "./queries";
 import { addExceptions } from "./store";
+import { createCategory } from "../ledger/categories";
 
 function ledger(): Db {
   const db = newDb();
@@ -144,5 +145,38 @@ describe("exceptions (spec 35)", () => {
     addExceptions(db, narrow.id, [telAviv]);
     expect(overlapsOf(db, "קפה הפינה")).toBeUndefined();
     expect(previewRule(db, draft).decidedHigher).toBe(0);
+  });
+});
+
+describe("rows the editor shows without a tick box (wave 14 review)", () => {
+  it("names the listed rows the rule would not change: sorted by hand into its category or below, or decided higher", () => {
+    const db = ledger();
+    const cafes = categoryId(db, "Coffee & Cafes");
+    const food = categoryId(db, "Restaurants");
+    const fish = createCategory(db, { name: "Fish", kind: "expense", parentId: food, emoji: null, color: null });
+    if (!fish.ok) throw new Error(fish.problem);
+    createRule(db, ruleInput({ matchText: "קפה הפינה", setCategoryId: cafes }), NOW);
+    const sea = idOf(db, "מסעדת הים");
+    const pharm = idOf(db, "SUPER PHARM");
+    updateTransactions(db, [sea], { categoryId: fish.category.id }); // By hand, inside Restaurants.
+    updateTransactions(db, [pharm], { categoryId: cafes }); // By hand, elsewhere: F45 moves it when ticked.
+    const anyOf = { kind: "text", field: "description", mode: "contains", values: ["קפה", "מסעדת", "SUPER"] } as const;
+    const draft = { ...ruleInput({ matchText: "x", setCategoryId: food }), conditions: [anyOf] };
+
+    const corners = [idOf(db, "קפה הפינה"), idOf(db, "קפה הפינה תל אביב")];
+    const preview = previewRule(db, draft);
+    expect(preview.alreadyHere).toEqual([sea]);
+    expect([...preview.higherRule].sort()).toEqual([...corners].sort());
+    expect(preview.decidedHigher).toBe(2);
+
+    // A rule that also hides rows would change all of them, so every row keeps its box.
+    const hiding = previewRule(db, { ...draft, setExcluded: true });
+    expect([hiding.alreadyHere, hiding.higherRule]).toEqual([[], []]);
+
+    // The rule's own exceptions keep their box, so they can be ticked back.
+    const saved = createRule(db, draft, NOW);
+    addExceptions(db, saved.id, [sea, ...corners]);
+    const own = previewRule(db, { ...draft, ruleId: saved.id });
+    expect([own.alreadyHere, own.higherRule, own.decidedHigher]).toEqual([[], [], 0]);
   });
 });

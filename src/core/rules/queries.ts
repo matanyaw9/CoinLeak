@@ -10,7 +10,7 @@ import { listTransactions } from "../ledger/queries";
 import { assertIds, check, isId } from "../ledger/validate";
 import { decidedBy, runRules } from "./engine";
 import { compileMatcher, prepareRow, type PreparedRow } from "./match";
-import { decidedHigher, ruleOverlaps } from "./order";
+import { draftReach, ruleOverlaps } from "./order";
 import {
   addExceptions,
   exceptionsAmong,
@@ -136,7 +136,8 @@ export function applyAllRules(db: Db, now = new Date()): RulesApplied {
  * rules say, so the user sees what the rule reads. Name and actions are not
  * needed, so a half-written rule can be previewed while it is edited; with a
  * category, `handSet` lists the matching rows the user sorted elsewhere.
- * For a saved rule, `exceptions` names the shown rows it skips (spec 35).
+ * For a saved rule, `exceptions` names the shown rows it skips (spec 35);
+ * `alreadyHere` and `higherRule` the shown rows it would not change.
  */
 export function previewRule(db: Db, input: unknown): RulePreview {
   const conditions = cleanConditions(db, input);
@@ -156,13 +157,16 @@ export function previewRule(db: Db, input: unknown): RulePreview {
   const shown = rows.slice(0, PREVIEW_ROWS);
   const shownIds = shown.map((t) => t.id);
   const exceptions = raw.ruleId === undefined ? [] : exceptionsAmong(db, raw.ruleId, shownIds);
+  const reach = draftReach(db, { ...conditions, setCategoryId, setExcluded }, higher, inside, raw.ruleId);
   return {
     matches: rows.length,
     sample: shown,
     more: rows.length - shown.length,
     exceptions,
     handSet,
-    decidedHigher: decidedHigher(db, { ...conditions, setCategoryId, setExcluded }, higher, raw.ruleId),
+    decidedHigher: reach.decidedHigher,
+    alreadyHere: shownIds.filter((id) => reach.alreadyHere.has(id)),
+    higherRule: shownIds.filter((id) => reach.higherRule.has(id)),
   };
 }
 

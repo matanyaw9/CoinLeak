@@ -318,6 +318,14 @@ export interface RulePreview {
    * being edited (`ruleId`): it never matches them. Empty for a new rule.
    */
   exceptions: number[];
+  /**
+   * Wave 14 review: ids of rows in `sample` the rule would not change, shown
+   * without a tick box and left out of the count. `alreadyHere`: the user
+   * sorted them into the rule's category or one inside it. `higherRule`:
+   * higher rules decide all the rule would set. Never one of its exceptions.
+   */
+  alreadyHere: number[];
+  higherRule: number[];
 }
 
 // ---- Rules v2 (spec 13) ----

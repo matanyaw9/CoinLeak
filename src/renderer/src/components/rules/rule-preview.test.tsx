@@ -51,12 +51,13 @@ function render(data: Preview, ticks: Partial<PreviewTicks>) {
   );
 }
 
-const preview = (sample: TransactionRow[], more = 0): Preview => ({
+const preview = (sample: TransactionRow[], more = 0, fixed: Pick<Preview, "alreadyHere" | "higherRule"> = { alreadyHere: [], higherRule: [] }): Preview => ({
   matches: sample.length + more,
   sample,
   more,
   exceptions: [],
   handSet: [],
+  ...fixed,
 });
 
 describe("the rule preview's tick boxes", () => {
@@ -91,5 +92,30 @@ describe("the rule preview's tick boxes", () => {
     const html = render(preview([]), {});
     expect(html).not.toContain('role="checkbox"');
     expect(html).not.toContain(s.ruleTicks.hint);
+  });
+});
+
+describe("rows the rule would not change (wave 14 review)", () => {
+  it("show a label instead of a box, and the count, the box above and the Tab order leave them out", () => {
+    const rows = [row(3, "PAYBOX", "user"), row(9, "העברה ב-BIT", "rule"), row(14, "PAYBOX", null), row(20, "BIT", "rule")];
+    const html = render(preview(rows, 0, { alreadyHere: [3], higherRule: [9] }), { ticked: new Set([14]) });
+    expect(html).toContain(s.ruleTicks.alreadyHere);
+    expect(html).toContain(s.ruleTicks.higherRule);
+    // Rows 14 and 20 have boxes, plus the box above; 14 is ticked, 20 is not.
+    expect(html.match(/role="checkbox"/g)).toHaveLength(3);
+    expect(html).toContain(s.ruleTicks.count(1, 2));
+    expect(html).toContain('aria-checked="mixed"');
+    expect(html.match(/tabindex="0"/g)).toHaveLength(1);
+    expect(html.match(/tabindex="-1"/g)).toHaveLength(1);
+    // The row "Already here" was sorted by hand, but its label replaces the "Set by you" mark.
+    expect(html).not.toContain(s.ruleTicks.setByYou);
+  });
+
+  it("shows no box above and no unticking line when no row has a box", () => {
+    const rows = [row(3, "PAYBOX", "user")];
+    const html = render(preview(rows, 0, { alreadyHere: [3], higherRule: [] }), {});
+    expect(html).not.toContain('role="checkbox"');
+    expect(html).not.toContain(s.ruleTicks.hint);
+    expect(html).toContain(s.ruleTicks.alreadyHere);
   });
 });
