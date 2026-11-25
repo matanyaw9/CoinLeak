@@ -97,6 +97,19 @@ above got notes from the same message.
 | F85 | A key to ignore or un-ignore the selected transactions | done (wave 14, spec 36, owner to test) | Owner, 2026-11-25: "I should toggle on and off ignore." Lead: one key (for example `I`) toggles Ignore on the selection; rows already ignored come back. Shown in the `?` list and the row menu. |
 | F86 | Trash: select transactions and delete them for good | done (wave 14, spec 36, owner to test) | Owner, 2026-11-25. Today Trash can only be emptied as a whole. Add check boxes, select all, Shift and Ctrl click as on Transactions, and "Delete for good" for the selection, with a confirm (irreversible: Ctrl+Enter, spec 31). |
 
+## Owner feedback on wave 15, 2026-11-25 night
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| F87 | Budgets live on the Categories page | planned (wave 15 round 2) | Owner: "there is no need for separate Budget and Categories tabs, budget can be set in the category tabs." Move the total card, split bar, usual month, budget boxes and raise offer onto Categories (Spending); drop the Budgets page, its route and the `U` key; Home's "Plan budgets" opens Categories. |
+| F88 | Nesting must be obvious | planned (wave 15 round 2) | Owner, on the Budgets page: the children of Groceries were not recognizable as children, "there is a small indentation I only now notice. Not clear enough." Guide lines and a clearer indent wherever the tree shows (Categories, chooser, pickers). |
+| F89 | Thousands separators in money boxes | planned (wave 15 round 2) | Owner: "Add a ',' when there are more than 3 digits" (budget boxes showed 16000). |
+| F90 | Finance accounts key is A | planned (wave 15 round 2) | Owner: "A is better for Finance accounts" (today B). |
+| F91 | Category chooser that works like tick boxes | planned (wave 15 round 2) | Owner: ticking Shopping ticks its subcategories; clicking a ticked subcategory then selected it and unticked the others; "it should be simply unselected." The chooser must show which categories are selected and allow deselecting all. "Terrible category chooser." Lead: normal tree tick boxes (a parent ticks all under it; unticking one child leaves the rest; a partly ticked parent shows a dash), a "Selected" row of removable chips, and "Clear all". |
+| F92 | Newer rules have the final say | planned (wave 15 round 2) | Owner, on a new rule whose 17 rows another rule already sorts (no tick boxes there): "Rules should apply on new transactions, and, when created, may apply on existing transactions. Besides that, newer rules have the final say over older rules. If rules contradict, it should give a hint about that." Lead: a new rule goes on top of the order (starter lists stay at the bottom), so every row of a new rule gets a box; the editor and the Rules page name the rule it contradicts. |
+| F93 | Restore: choose what to keep | planned (wave 15 round 2) | Owner: "migrate my profile as is (with the rules and categories) with the .coinleak file (and be able to choose what to keep and what not), or, just the transactions with the csv." Lead: after the check, tick boxes for transactions (with accounts and notes), rules, budgets; categories always come (rows and rules use them). Keeping only transactions covers "just the transactions", so no CSV import; the CSV stays for Excel. Owner to confirm. |
+| F94 | Default categories for new profiles | planned (round 2: no third level), later: rethink | Owner: "No need for Weekly Shop and Top Up categories by default. No need for 3 layer nested categories right at the default." "The default categories are about new profiles ... the current default categories don't seem good, we will rethink them later." Existing and restored profiles keep theirs. |
+
 ## Later
 
 | # | Feature | Status | Notes |
