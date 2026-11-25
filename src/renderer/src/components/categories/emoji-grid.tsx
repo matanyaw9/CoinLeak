@@ -24,7 +24,7 @@ export function EmojiGrid({ emojis, value, onChange }: { emojis: readonly string
           onClick={() => onChange(e)}
           aria-pressed={value === e}
           className={cn(
-            "flex aspect-square min-h-11 items-center justify-center rounded-xl text-[2rem] leading-none outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover",
+            "flex aspect-square min-h-11 items-center justify-center rounded-xl text-[2rem] leading-none outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover data-shot-focus:ring-2 data-shot-focus:ring-ring data-shot-focus:ring-offset-2 data-shot-focus:ring-offset-popover",
             value === e && "bg-accent ring-2 ring-primary/50",
           )}
         >
@@ -39,12 +39,18 @@ export function EmojiGrid({ emojis, value, onChange }: { emojis: readonly string
  * Screenshot aid (dev start route only, see lib/shot.ts): with
  * `?shot=edit-Groceries-emoji` the categories page opens the editor and an
  * emoji in the second line takes keyboard focus, as arrow keys would.
+ * `data-shot-focus` shows its ring, since the hidden screenshot window never has focus.
  */
 function useFocusShot(): void {
   const focus = useShot()?.endsWith("-emoji") ?? false;
   useEffect(() => {
     if (!focus) return;
-    const id = setTimeout(() => document.querySelector<HTMLElement>(`[data-emoji-grid] > :nth-child(${COLUMNS + 3})`)?.focus(), 800);
+    const id = setTimeout(() => {
+      // The hidden screenshot window never has focus, so the mark shows the focus ring.
+      const emoji = document.querySelector<HTMLElement>(`[data-emoji-grid] > :nth-child(${COLUMNS + 3})`);
+      emoji?.setAttribute("data-shot-focus", "");
+      emoji?.focus();
+    }, 800);
     return () => clearTimeout(id);
   }, [focus]);
 }

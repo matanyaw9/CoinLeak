@@ -22,7 +22,7 @@ export function KeyboardHelp({ open, onOpenChange }: { open: boolean; onOpenChan
   const mac = isMac();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl" closeLabel={s.keys.close}>
+      <DialogContent className="max-w-3xl" closeLabel={s.keys.close}>
         <div className="overflow-y-auto px-8 pt-7 pb-8">
           <DialogTitle>{s.keys.title}</DialogTitle>
           <DialogDescription className="mt-2">{s.keys.intro}</DialogDescription>
