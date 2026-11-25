@@ -215,7 +215,7 @@ migrations are never edited.
 | 9 | `23-delete-and-sync-range`, `24-balance-check`, `25-cleanup` | Done. Trust and safety: delete data and sync range (F52, F53); balance check (F54); code-health cleanup |
 | 10 | to write | First public version: installer, bug report and feedback, version and update link, backup export, experimental labels, scraper update routine (F55, F27, F28, F56, F57, F1) |
 | 13 | `31-keyboard-and-sort-headers`, `32-card-bills-and-quick-sync`, `33-paid-back-and-small-fixes` | Done, owner tested 2026-11-25. Keyboard shortcuts and sort headers (F66, F80); card bills by card number and a quick sync (F75, F82); paid back for a purchase, investment starter lists, Finance accounts, bigger emojis (F65, F76, F77, F74) |
-| 14 | to write | Nested categories to 3 levels, better defaults, Routine / Treats removed, rule editor tick boxes (F69, F70, F72, F71) |
+| 14 | `34`, `35`, `36` (written by the 05:20 lead, 2026-11-25) | Nested categories to 3 levels, better defaults, Routine / Treats removed (F69, F70, F72); rule editor tick boxes (F71); keyboard inside lists, Delete and Ignore keys, Trash selection (F83 to F86). After a code review of wave 13 |
 | 15 | to write | Budgets page (F73); charts: click-through and the category chooser (F78, F79); backup and restore (F56) |
 | later | | Net worth, investments and loans (F67, absorbs F58; a design note first), Hebrew UI, pockets, AI helper (opt-in) |
 
