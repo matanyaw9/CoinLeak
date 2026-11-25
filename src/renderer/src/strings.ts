@@ -390,8 +390,6 @@ export const s = {
       typeSomething: "Type some text, and the transactions it fits show up here.",
       none: "Nothing fits right now. That's fine: it will sort new ones after a sync.",
       yours: "Sync and Apply now never change a category you set by hand.",
-      newest: (shown: number, all: number) => (shown < all ? `The newest ${shown}` : ""),
-      setByYou: "Sorted by you",
       broken: "Fix the pattern to see a preview.",
     },
 
@@ -631,15 +629,6 @@ export const s = {
       needsAmount: "Type at least one amount.",
       suggested: "Suggested",
       suggestedHint: "From the transactions you picked. Add any that help.",
-    },
-    handSet: {
-      // F45: saving always hands these rows to the rule; the list says so first.
-      willChange: (n: number) =>
-        n === 1
-          ? "This rule will also change 1 transaction you categorized by hand"
-          : `This rule will also change ${n} transactions you categorized by hand`,
-      hint: "You put them in another category. Saving moves them to this rule's category.",
-      more: (n: number) => `and ${n} more`,
     },
     saved: (name: string) => `Saved “${name}”`,
     applied: (n: number) =>
