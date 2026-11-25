@@ -1,37 +1,40 @@
 // One list, one Tab stop (spec 36, F83): Tab hops between lists, arrow keys
 // move within one. `nextIndex` is the key logic as a plain function;
-// `useRoving` gives a list's items their Tab order, focus and keys.
+// `useRoving` gives a list's items their Tab order, focus and keys. Lists
+// with disabled lines name them in `skip`.
 
 import { useEffect, useRef, useState } from "react";
+
+/** Items the arrow keys pass over (disabled buttons, say). */
+export type Skip = (index: number) => boolean;
+
+const SKIP_NONE: Skip = () => false;
+
+/** The first item from `from`, going `step` at a time, that is not skipped; null when none is. */
+export function firstOpen(from: number, step: number, count: number, skip: Skip = SKIP_NONE): number | null {
+  for (let i = from; i >= 0 && i < count; i += step) if (!skip(i)) return i;
+  return null;
+}
 
 /**
  * Where focus goes from item `index` of `count` when `key` is pressed, in a
  * list of `columns` columns (1 for a plain list, where Left and Right are
  * not the list's). Moves stop at the first and last item and never wrap; in
- * a grid, Right from the end of a line goes on to the next line. Null when
- * the key is not the list's or the list is empty.
+ * a grid, Right from the end of a line goes on to the next line. Items
+ * `skip` names are passed over (spec 36 review: the move dialog's disabled
+ * lines). Null when the key is not the list's or no item is open.
  */
-export function nextIndex(key: string, index: number, count: number, columns = 1): number | null {
-  if (count <= 0) return null;
-  const last = count - 1;
-  const at = Math.min(Math.max(index, 0), last);
+export function nextIndex(key: string, index: number, count: number, columns = 1, skip: Skip = SKIP_NONE): number | null {
+  if (count <= 0 || firstOpen(0, 1, count, skip) === null) return null;
+  const at = Math.min(Math.max(index, 0), count - 1);
   const grid = columns > 1;
-  switch (key) {
-    case "ArrowDown":
-      return at + columns <= last ? at + columns : at;
-    case "ArrowUp":
-      return at - columns >= 0 ? at - columns : at;
-    case "ArrowRight":
-      return grid ? Math.min(at + 1, last) : null;
-    case "ArrowLeft":
-      return grid ? Math.max(at - 1, 0) : null;
-    case "Home":
-      return 0;
-    case "End":
-      return last;
-    default:
-      return null;
-  }
+  if (key === "Home") return firstOpen(0, 1, count, skip);
+  if (key === "End") return firstOpen(count - 1, -1, count, skip);
+  const step =
+    key === "ArrowDown" ? columns : key === "ArrowUp" ? -columns : grid && key === "ArrowRight" ? 1 : grid && key === "ArrowLeft" ? -1 : 0;
+  if (step === 0) return null;
+  // Nothing open that way: stay put.
+  return firstOpen(at + step, step, count, skip) ?? at;
 }
 
 /** What one item gets. Spread it on the item, or split it: see TransactionRow. */
@@ -75,6 +78,8 @@ export interface RovingOptions {
   start?: number;
   /** An arrow key moved focus from item `from` to item `to` (Shift+Down extends a selection, say). */
   onMove?: (from: number, to: number, e: React.KeyboardEvent) => void;
+  /** Items that are neither the Tab stop nor reached by arrow keys (disabled buttons). */
+  skip?: Skip;
 }
 
 /** Fixed, so focusing a stop never scrolls the page. */
@@ -90,12 +95,14 @@ function tabStops(root: HTMLElement): HTMLElement[] {
 }
 
 /** `keys` name the items in order (row ids, say), so the active one stays put when items before it go. */
-export function useRoving(keys: readonly (string | number)[], { columns = 1, start = 0, onMove }: RovingOptions = {}): Roving {
+export function useRoving(keys: readonly (string | number)[], { columns = 1, start = 0, onMove, skip = SKIP_NONE }: RovingOptions = {}): Roving {
   const count = keys.length;
   const [active, setActive] = useState({ key: keys[start], index: start });
-  // The item last focused, wherever it is now; if it left, the one now in its place.
+  // The item last focused, wherever it is now; if it left, the one now in its
+  // place. A skipped item cannot be the Tab stop: the next open one is.
   const found = active.key === undefined ? -1 : keys.indexOf(active.key);
-  const current = Math.max(0, Math.min(found >= 0 ? found : active.index, count - 1));
+  const wanted = Math.max(0, Math.min(found >= 0 ? found : active.index, count - 1));
+  const current = skip(wanted) ? (firstOpen(wanted, 1, count, skip) ?? firstOpen(wanted, -1, count, skip) ?? wanted) : wanted;
   const activate = (i: number) => setActive((a) => (a.key === keys[i] && a.index === i ? a : { key: keys[i], index: i }));
   const items = useRef<(HTMLElement | null)[]>([]);
   const list = useRef<HTMLElement | null>(null);
@@ -136,7 +143,7 @@ export function useRoving(keys: readonly (string | number)[], { columns = 1, sta
       if (e.defaultPrevented || !e.currentTarget.contains(e.target as Node)) return;
       if (e.key === "Tab") return leave(e);
       if (e.altKey || e.ctrlKey || e.metaKey) return;
-      const to = nextIndex(e.key, i, count, columns);
+      const to = nextIndex(e.key, i, count, columns, skip);
       if (to === null) return;
       e.preventDefault();
       onMove?.(i, to, e);
