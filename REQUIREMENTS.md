@@ -51,7 +51,7 @@ Change a decision only by editing this table and the affected specs together.
 | D10 | Money is integer agorot everywhere. Floats exist only at the scraper edge and are converted immediately. |
 | D11 | Errors crossing to the window are fixed codes with our own text (`src/shared/errors.ts`). Library and bank error text is never shown, logged, or stored. |
 | D12 | Look: Spent's warm buttercream and sage theme, warm dark variant, serif numbers, generous whitespace. React, Tailwind v4, shadcn/ui on base-ui, Recharts. |
-| D13 | Categories are a two-level tree (category, subcategory); owner, 2026-11-25: up to three levels where every level is a real category (wave 14, F69). Rules are visible and ordered. Rows the user categorized by hand are never changed by sync; saving a rule also changes the matching hand-set rows, listed in the editor first (F45). |
+| D13 | Categories nest up to three levels; every level is a real category (rows, rules and a budget at any level), the same kind all the way down, and a category's totals include everything under it (owner, 2026-11-25, F69, spec 34). Rules are visible and ordered; a row unticked in a rule's editor is that rule's exception and keeps its category (F71, spec 35). Rows the user categorized by hand are never changed by sync; saving a rule also changes the matching hand-set rows, listed in the editor first (F45). |
 | D14 | Untracked card bills stay counted. A bank line that looks like a card bill but matches no tracked card counts as spending and is flagged for review. A line naming the last 4 digits of a synced card is that card's bill even when the amounts differ (owner, 2026-11-25, F75). |
 | D15 | Supply chain: exact versions, install scripts off by default, new versions only after a two-week cooldown (Electron security patches excepted), scraper diffs reviewed before upgrade. |
 | D16 | Built by AI agents, one spec per agent, each in its own git worktree. The lead (Claude in the main session) writes specs, reviews and merges. |
@@ -92,8 +92,9 @@ Glossary. Use these words in code, UI and docs.
   `gone` (a pending row a later download no longer contains). A row the
   user trashed keeps its status, gets `trashed_at`, and counts nowhere until
   restored.
-- **Category**: two-level tree with a kind (`expense`, `income`, or
-  `transfer` for money moved to savings or investments), emoji and color.
+- **Category**: a tree up to three levels deep with a kind (`expense`,
+  `income`, or `transfer` for money moved to savings or investments),
+  emoji and color.
 - **Rule**: ordered condition (text, account, amount, direction) to action
   (set category, exclude). First match wins per action.
 - **Card bill**: the bank line that pays a card. When that card is tracked,
@@ -222,7 +223,7 @@ migrations are never edited.
 | 9 | `23-delete-and-sync-range`, `24-balance-check`, `25-cleanup` | Done. Trust and safety: delete data and sync range (F52, F53); balance check (F54); code-health cleanup |
 | 10 | to write | First public version: installer, bug report and feedback, version and update link, backup export, experimental labels, scraper update routine (F55, F27, F28, F56, F57, F1) |
 | 13 | `31-keyboard-and-sort-headers`, `32-card-bills-and-quick-sync`, `33-paid-back-and-small-fixes` | Done, owner tested 2026-11-25. Keyboard shortcuts and sort headers (F66, F80); card bills by card number and a quick sync (F75, F82); paid back for a purchase, investment starter lists, Finance accounts, bigger emojis (F65, F76, F77, F74) |
-| 14 | `34`, `35`, `36` (written by the 05:20 lead, 2026-11-25) | Nested categories to 3 levels, better defaults, Routine / Treats removed (F69, F70, F72); rule editor tick boxes (F71); keyboard inside lists, Delete and Ignore keys, Trash selection (F83 to F86). After a code review of wave 13 |
+| 14 | `34-nested-categories`, `35-rule-tick-boxes`, `36-keyboard-lists-and-trash` | Done, merged 2026-11-25, owner to test (`docs/OWNER-TESTS.md` section 10). Nested categories to 3 levels, new defaults, Routine / Treats removed (F69, F70, F72); rule editor tick boxes (F71); arrow keys in lists, Delete and I keys, Trash selection and delete for good (F83 to F86). After the wave 13 code review and its two fixes |
 | 15 | to write | Budgets page (F73); charts: click-through and the category chooser (F78, F79); backup and restore (F56) |
 | later | | Net worth, investments and loans (F67, absorbs F58; a design note first), Hebrew UI, pockets, AI helper (opt-in) |
 

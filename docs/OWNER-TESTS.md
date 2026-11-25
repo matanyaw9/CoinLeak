@@ -255,3 +255,59 @@ keyboard and paid back items on the Demo profile first, then on your own.
 `loginMs=27857 downloadMs=7097 saveMs=30 accounts=6 rows=88`, so the
 download takes 7 seconds and the rest is logging in. New requests from
 this test: F83 to F86 in `docs/FEATURES.md`.
+
+## 10. Wave 14 (specs 34, 35, 36) and the wave 13 review fixes
+
+Restart `npm run dev` first (migrations 0015 and 0016 run on start). Try
+each item on the Demo profile first, then on your own. Screenshots of the
+merged app: `.claude/shots/wave14/`.
+
+1. **Three levels (F69).** Categories page: Groceries & Shop › Groceries
+   now holds Weekly shop, Top-up and Specialty food; Transportation ›
+   Transport holds Bus and Train. Add a category inside a level 2 one.
+   Try to put one inside a level 3 one: it is refused with a clear note.
+   Move a category that has subcategories: they come along. Delete one
+   that still has subcategories: refused until you move them.
+2. **Every level is real (F69).** Give a row the category "Groceries"
+   itself (not only Weekly shop). Give a level 3 category a budget. On
+   Home's money flow click Groceries & Shop, then Groceries: Weekly shop,
+   Top-up and "Other in Groceries"; Back goes up one level. Filter
+   Transactions by Groceries: the Weekly shop rows are in it.
+3. **Picker.** In a row's category picker type "bus": it shows
+   "Transportation › Transport › Bus". Arrows move, Enter picks, Esc
+   closes.
+4. **Routine / Treats gone (F72).** No Routine / Treats on Home, in the
+   category editor or on the Categories page.
+5. **New names (F70).** Weekly shop, Top-up, Specialty food, Bus, Train,
+   Taxi & rides, Tolls, Car repairs, Car insurance, Car license & test
+   are the lead's names. Rename any in the app, or tell the lead.
+6. **Rule tick boxes (F71).** Open a rule: every matching row has a tick
+   box. Untick two, Save: they keep their category. Open the rule again:
+   still unticked. Tick one back, Save: the rule sorts it again. Tab and
+   Space reach and toggle the boxes.
+7. **Rows you sorted by hand, in a rule.** Rows you sorted elsewhere show
+   "Set by you" and are ticked: saving moves them to the rule's category
+   (F45); untick to keep them. A row you sorted into a subcategory of the
+   rule's category (Weekly shop, for a Groceries rule) is never moved
+   back up (lead's fix at merge).
+8. **Arrow keys in lists (F83).** Category editor: Tab to the emoji grid,
+   arrows move, Enter picks; the color grid the same. Transactions: Tab
+   lands on one row, Up and Down move, Space selects, Shift+Down extends,
+   the Menu key or Shift+F10 opens the row menu. **Please check** that
+   Tab leaves the list and Shift+Tab comes back: the agent could not test
+   that without a real keyboard.
+9. **Delete and I (F84, F85).** Select rows, press Delete: they go to
+   Trash with Undo in the toast. Press I: they are ignored; I again:
+   counted again. With nothing selected, both act on the focused row.
+10. **Trash (F86).** Boxes on each row, the box above the list, Shift and
+    Ctrl+click, Ctrl+A, Esc. "Delete N for good" asks first; plain Enter
+    does nothing, Ctrl+Enter confirms. The Delete key opens the same
+    question. "Empty trash" still works.
+11. **Paid back.** The dialog still opens from the row menu. Type a
+    purchase's name fast and press Enter at once: it picks that purchase,
+    not the one that was first before you typed.
+12. **Review fixes.** (a) Link a pay-back, then give that row another
+    category by hand: the coin icon goes, and "Not paid back" is no longer
+    offered. (b) Quick sync: if you ever "Add back" a card removed from
+    syncing, the next Sync of that bank reaches back to that card's last
+    sync, so nothing in between is missed.

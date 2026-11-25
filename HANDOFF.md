@@ -1,43 +1,34 @@
 # Handoff: CoinLeak
-_Last session: 2026-11-25 · branch: dev · last commit: the "docs: handoff for 2026-11-25" commit (pushed)_
+_Last session: 2026-11-25 (overnight run and morning) · branch: dev · last commit: the "docs: wave 14 merged" commit (not pushed)_
 
 ## Today in one line
-Wave 13 (specs 31, 32, 33) built by three herdr agents, merged into `dev`, and passed every owner test; four new keyboard and Trash requests (F83 to F86) logged.
+Overnight: the wave 13 code review and its two bug fixes, then wave 14 (specs 34, 35, 36) built by three herdr agents, reviewed, merged into `dev` with two more fixes found after merging; all checks green (1179 tests). Not pushed, `main` untouched. Owner to test (`docs/OWNER-TESTS.md` section 10).
 
 ## What we did
-- Compared CoinLeak with Sure (`we-promise/sure`, AGPL fork of Maybe Finance): not a fit (no Israeli banks, Rails server plus Docker, bank passwords saved via moneyman), but its budgets UI and net worth, investments and loans are what the owner wants next. Ideas only, never code (AGPL vs our MIT).
-- Logged feedback F67 to F82 in `docs/FEATURES.md` with decisions: 3 category levels (F69), remove Routine / Treats (F72), card bills by last 4 digits (F75, D14), nothing older than a year for Discount (F81 closed), Cal sync too slow (F82).
-- Wave 13, built by three agents in herdr tab 2 on Opus 5.5, reviewed, sent back once each, merged (`npm run check` green, 1093 tests):
-  - Spec 31: page keys H T C R B X S, `?` list, key badges, Ctrl+A, Esc, Shift and Ctrl click, Enter and Esc in dialogs (destructive dialogs: Ctrl+Enter), sticky sort headers.
-  - Spec 32: a bank line naming one synced card's last 4 digits is its bill; quick sync from last sync minus 60 days, "Download everything again", `[sync]` timing log.
-  - Spec 33: "Paid back for a purchase" (migration 0014), Investments and Savings starter lists, "Finance accounts", bigger emojis, a Demo pizza paid back.
-- Owner tested all of wave 13: everything works. Quick Cal sync: download 7 s (`downloadMs=7097`); the remaining ~28 s is the login itself. Results in `docs/OWNER-TESTS.md` section 9.
-- New requests logged: F83 arrow keys inside lists and Tab between lists, F84 Delete key trashes the selection, F85 a key to toggle Ignore, F86 select and delete for good in Trash. F28 note: owner wants the update button in the first release for the friend.
+- **05:20 code review** of everything since 2026-11-19 (`6255ff3..dev`): `docs/reviews/2026-11-25-wave13-review.md`. Two must fix, fixed on `fix/review-wave13` and merged: a new category on a paid-back row ends the link (so "Not paid back" can no longer empty a category you chose); quick sync counts from each syncing account's own last save (a card added back after a gap no longer loses months). The rest is in `docs/BACKLOG.md`; `REQUIREMENTS.md` section 5 now describes quick sync.
+- **Specs 34, 35, 36** written and committed on `dev`; old merged worktrees removed (their screenshots kept in `.claude/shots/archive/`).
+- **Wave 14**, three agents in herdr tab 2 (Opus 5.5, xhigh, auto), started about 05:40; the Pro usage limit paused everything from about 06:00 to 10:20, and the agents continued on their own:
+  - Spec 35 (F71): a tick box on every row in the rule editor; unticked rows are the rule's exceptions and keep their category (migration 0016). Three small fixes sent back, then merged.
+  - Spec 34 (F69, F70, F72): categories up to 3 levels, every level real (rows, rules, budgets), totals include everything under a category, money flow drills one level at a time with "Other in <name>", picker searches full paths; new default categories (migration 0015); Routine / Treats removed everywhere (the column and its data stay). The lead dropped four unused strings and a dead problem code, then merged.
+  - Spec 36 (F83 to F86): `lib/roving.ts` (arrow keys inside a list or grid, one Tab stop per list) on the emoji and color grids, Transactions rows and Trash rows; Delete moves to Trash with Undo; `I` toggles Ignore; Trash selection and "Delete N for good" (asks, Ctrl+Enter); the Paid back dialog now opens from the page and Enter waits for the search (review should-fix 1 and 2). Merged.
+- **Found only after merging**, fixed on `fix/picker-outside-router` and merged, each with a test that fails without the fix: (1) opening any rule editor blanked the window (spec 34's picker used a router hook; the rule editor renders outside the router); (2) a rule offered to move rows you sorted into a subcategory of its own category (Weekly shop, for a Groceries rule) back up to it.
+- Screenshots of the merged app, light and dark: `.claude/shots/wave14/` (each agent's own shots and report in the subfolders).
+- Docs: FEATURES (F69 to F72, F83 to F86 done, owner to test), REQUIREMENTS (D13, glossary, section 8), OWNER-TESTS section 10, AGENTS.md keyboard rule (use `lib/roving.ts`), BACKLOG.
 
 ## Where we stopped
-- `dev` pushed, all checks green, nothing uncommitted. `main` not updated: the section 8 tests (waves 10 to 12 and the 11-19 fixes) are still not confirmed by the owner.
-- herdr: the three agent sessions are closed; tab 2 is one shell at the project root. Tab 1 still runs the owner's `npm run dev`.
-- Worktrees `.claude/worktrees/wave13-{keyboard,cardbills,paidback}` and the old wave 10 to 12 ones still exist; all their branches are merged. Remove them when convenient (`git worktree remove --force <path>`; the `node_modules` symlink makes `--force` needed).
+- `dev` has everything, `npm run check` green (101 files, 1179 tests), nothing uncommitted. **Not pushed** (owner's rule for tonight). `main` untouched.
+- herdr tab 2: the lead's pane plus three idle agent panes (`wave14-categories`, `wave14-ruleticks`, `wave14-keys`), kept open so you can scroll back; close them when done. Tab 1 still runs your `npm run dev`: restart it to get migrations 0015 and 0016.
+- Worktrees `.claude/worktrees/wave14-{categories,ruleticks,keys,shots}` still exist (all merged), kept in case a test sends work back. Remove with `git worktree remove --force <path>` and delete the `wave14/*` and `fix/picker-outside-router` branches after your tests.
 
-## Overnight run status (morning-lead, 2026-11-25, updated as it goes)
-- 05:20 review done: `docs/reviews/2026-11-25-wave13-review.md` (2 must fix, 3 should fix, 5 nice to have; checks green).
-- Both must-fix bugs fixed on `fix/review-wave13`, merged into `dev` (1099 tests green): a new category on a paid-back row ends the link; quick sync counts from each syncing account's own last save. Review findings logged in `docs/BACKLOG.md`; `REQUIREMENTS.md` section 5 now describes quick sync.
-- Specs 34, 35, 36 written and committed on `dev`. Old merged worktrees removed (their screenshots kept in `.claude/shots/archive/`).
-- About 05:40: three agents started in herdr tab 2 (panes split off the lead's), Opus 5.5, xhigh, auto: `wave14-categories` (spec 34), `wave14-ruleticks` (spec 35), `wave14-keys` (spec 36), worktrees `.claude/worktrees/wave14-*`. Reports go to each worktree's `.claude/shots/REPORT.md`.
-- 06:00: spec 35 (rule tick boxes) reviewed, three small fixes sent back and done, merged into `dev` (1124 tests green).
-- About 06:00 to 10:20: the Pro usage limit stopped everything; the two agents still building continued on their own when it reset. At 10:20 spec 34 had phases 1 to 3 committed (3 levels in core and on screen, new defaults) and was on phase 4 (Routine / Treats); spec 36 had Trash delete for good, the emoji and color grid keys and the key table committed.
-- Next: review 34 and 36, send fixes back, merge one at a time, screenshot, update docs.
-
-## Overnight plan (owner asked 2026-11-25 at 02:15; runs at 05:20)
-A systemd user timer (`coinleak-morning`) runs `~/.local/share/coinleak-morning/run.sh` at 05:20: it starts a fresh lead session (`morning-lead`, Opus 5.5) in herdr tab "2", sends `/review-code` for `6255ff3..dev` (saved to `docs/reviews/2026-11-25-wave13-review.md`), then the wave 14 prompt. Log: `~/.local/share/coinleak-morning/run.log`. Lead in the morning, do this:
-
-1. **From the review:** add each important finding to `docs/BACKLOG.md`. Fix only clear, small bugs in files wave 14 will not touch, on a `fix/...` branch merged into `dev` before the agents start. Everything else waits for the owner.
-2. **Write specs 34, 35, 36** (format of specs 31 to 33, under two pages each, owner's words quoted from `docs/FEATURES.md`), commit them on `dev`:
-   - **34 Nested categories and new defaults (F69, F70, F72).** Migration 0015: up to 3 levels, every level a real category (holds rows and a budget), the same kind all the way down; a category's totals include everything under it; charts drill down one level at a time; pickers, the Categories page, move and delete work with 3 levels. New defaults for new and existing profiles, touching only categories still under their default name and parent (the 0013 rules): Groceries gets Weekly shop, Top-up, Specialty food; Transportation gets Bus, Train, Fuel, Parking, Taxi & rides, Tolls, Car repairs, Car insurance, Car license & test. These are the lead's names; the owner can rename in the app. Routine / Treats goes from every screen (the `essential` column stays; no data deleted). Biggest spec: give it category core, migration 0015, the Categories page, the category picker and the Home filters. If it is too big for one agent, build the core and migration now and the UI next wave; never two agents on the same files.
-   - **35 Rule editor tick boxes (F71).** Migration 0016 for rule exceptions. The editor's affected-rows list gets a box per row; an unticked row keeps its category and this rule never touches it again, also after later edits. Keyboard per `AGENTS.md`.
-   - **36 Keyboard lists and Trash (F83 to F86).** One roving-focus helper (arrows inside a list, Tab to the next list) used by menus, the Paid back list, the Transactions rows and the emoji and color grids; Delete moves the selection to Trash with Undo; `I` toggles Ignore on the selection; Trash gets selection and "Delete for good" (Ctrl+Enter confirm, spec 31); the Paid back dialog keys and the new keys in the `?` list. In the category editor, 36 owns only the emoji and color grids; 34 owns the rest.
-3. **Agents** as in the memory note `parallel-agents-in-herdr`: one worktree each, Opus 5.5, xhigh, auto, split off your own pane in tab 2. Review each branch against its spec, send fixes back, merge into `dev` one at a time, `npm run check` after each merge, screenshot the merged app.
-4. **Rules for tonight:** never push, never touch `main`, no real bank sync, no new dependencies, no answers to permission or payment dialogs (note them in HANDOFF and skip). Before stopping, update `docs/FEATURES.md`, `REQUIREMENTS.md` section 8, `docs/OWNER-TESTS.md` (new section 10) and this file. If usage runs low, update this file first.
+## Overnight run status (paused for a PC restart, 2026-11-25 late morning)
+- **No merge in progress; `dev` is clean** after this commit. Every wave 14 branch is merged; no review or merge is waiting.
+- **Spec 34** (`wave14/categories`, `.claude/worktrees/wave14-categories`): all 4 phases done, merged (`e36603f`).
+- **Spec 35** (`wave14/ruleticks`, `.claude/worktrees/wave14-ruleticks`): done, 3 review fixes done, merged (`83778ce`).
+- **Spec 36** (`wave14/keys`, `.claude/worktrees/wave14-keys`): done, merged (`4e88d8f`).
+- **Fixes after merging** (`fix/picker-outside-router`, built in `.claude/worktrees/wave14-shots`): merged (`2c4b670`); `npm run check` green, 1179 tests.
+- **Docs**: FEATURES, REQUIREMENTS (D13, glossary, section 8), OWNER-TESTS section 10, AGENTS.md, BACKLOG and this file are committed with this pause.
+- **Left to do:** only the owner's tests (OWNER-TESTS section 10), then push `dev` when the owner says so.
+- **Resume after the restart:** the herdr panes are gone, but each agent's conversation is saved. To reopen one (only if a test sends work back), open a terminal in its worktree and continue that session, for example `cd ~/Projects/CoinLeak/.claude/worktrees/wave14-keys && claude --continue --model opus --effort xhigh --permission-mode auto`, or start it in a herdr pane with `herdr agent start <name> --kind claude --pane <id> -- --continue --model opus --effort xhigh --permission-mode auto`. The lead resumes with `claude --continue` in `~/Projects/CoinLeak`, then `git pull` is not needed (nothing pushed).
 
 ## Open questions / decisions for the user
 - Updates for the friend's first version: step 1 (Settings shows the version, "Check for updates" opens GitHub Releases, the friend downloads the new installer himself, no file passing) or step 2 (the app downloads and installs after a click: new dependency `electron-updater`, the app contacts GitHub, unsigned so trust rests on the GitHub account)? The owner said "updates button from the start"; confirm which.
@@ -49,13 +40,14 @@ A systemd user timer (`coinleak-morning`) runs `~/.local/share/coinleak-morning/
 - Quick sync fix trade-off: an account the bank stopped reporting (for example an old card) keeps its "last synced" date old, so that bank's quick syncs reach further back each time (slower, never missing rows) until you remove the account from syncing. If a Cal sync is slow again, check the Finance accounts page for a card with an old "last synced".
 
 ## Next steps
-0. **If you are the 05:20 `morning-lead`: follow "Overnight plan" above, not the steps below.** Owner, back in the morning: read `~/.local/share/coinleak-morning/run.log`, the review in `docs/reviews/`, and this file.
-1. `git pull`, then ask the owner the update question above and whether section 8 is tested (then merge `dev` into `main`).
-2. After wave 14 (see "Overnight plan"): release prep for the friend as wave 15: version 0.1.0, F28 (step 1 or 2, owner to choose), F57 experimental labels, secrets re-scan, GitHub pre-release with `.exe` and SHA-256 (`docs/PUBLISH-CHECKLIST.md`, `docs/RELEASE.md`; build from the main checkout). Then budgets page and charts (F73, F78, F79) and backup (F56).
+0. **Owner:** restart `npm run dev`, run `docs/OWNER-TESTS.md` section 10 (Demo first, then your own profile) and answer the open questions above. Item 10.8 (Tab out of the lists) could not be tested without a real keyboard.
+1. Lead: fix whatever section 10 finds (the wave 14 agent panes and worktrees are still there to send work back), then push `dev` when the owner says so. Section 8 tests (waves 10 to 12), then merge `dev` into `main`.
+2. Wave 15: release prep for the friend as wave 15: version 0.1.0, F28 (step 1 or 2, owner to choose), F57 experimental labels, secrets re-scan, GitHub pre-release with `.exe` and SHA-256 (`docs/PUBLISH-CHECKLIST.md`, `docs/RELEASE.md`; build from the main checkout). Then budgets page and charts (F73, F78, F79) and backup (F56).
 3. Run agents in herdr tab 2 as today (see memory note: worktree per agent, `claude --model opus --effort xhigh --permission-mode auto`; `herdr agent read` scrollback is short, ask agents to write the report to `.claude/shots/REPORT.md`).
 4. Write the F67 design note (net worth, investments, loans) for the owner.
 
 ## History
+- 2026-11-25 (overnight, morning-lead): wave 13 code review and its two fixes; wave 14 (specs 34 to 36: 3 category levels and new defaults, no Routine / Treats, rule tick boxes, arrow keys in lists, Delete and I keys, Trash delete for good) built by herdr agents, merged with two fixes found after merging; not pushed.
 - 2026-11-25: Sure comparison; feedback F67 to F86; wave 13 (specs 31 to 33) built by herdr agents, merged, owner tested, pushed.
 - 2026-11-23: short session; F66 keyboard shortcuts requested and logged, next feature.
 - 2026-11-19: whole-code review; 5 fixes merged (startup without window, today rollover, one shekel parser, Transactions page split, chart helpers); dev pushed; F65 refund idea logged.

@@ -92,6 +92,9 @@ prompt:
 - **Keyboard too.** Every feature and every way of interacting also works
   from the keyboard (Tab, Enter, Esc, arrow keys in lists), and a shortcut
   is listed in the Keyboard shortcuts list (`?`, spec 31). Owner, 2026-11-23.
+  Inside a list or grid the arrow keys move and the whole list is one Tab
+  stop; Tab goes on to the next list (F83). Use `lib/roving.ts` (spec 36)
+  for that, never a new helper.
 - Short, readable modules. Each file starts with a 1 to 3 line comment on
   what it owns. No doc comments unless the logic is surprising.
 - TypeScript strict. No `any` without a comment saying why.

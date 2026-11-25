@@ -7,6 +7,30 @@ into specs when planning a wave. Must-fix items block the first real use.
 
 Nothing open.
 
+## From wave 14 (specs 34 and 36) and its merge
+
+- `components/categories/tree-choice.tsx` has its own small `arrowFocus`
+  (spec 34, built in parallel with spec 36): move it onto `lib/roving.ts`.
+- Categories page: a category's amount includes everything under it, but
+  "N transactions" counts only its own rows. Say which, or count both.
+- A budget can sit inside another budget's category (both count the same
+  rows). The Demo avoids it; decide whether the window should warn.
+- A category's own rows open Transactions for the whole category: there
+  is no "only this level" filter.
+- Tab out of the Transactions and Trash lists relies on Chromium carrying
+  Tab on from an invisible stop (`lib/roving.ts` guards); owner to confirm
+  (OWNER-TESTS 10.8). The Menu key is caught on keydown; on Windows the
+  native menu fires on keyup and might also open the right-click menu.
+- New screenshot hooks sit in product components (`emoji-grid.tsx`,
+  `trash-page.tsx`, `transactions-page.tsx`), as finding 6 of the
+  2026-11-08 review describes; `demo-shot.ts` is a better home.
+- Lead, at merge: two bugs came only from specs 34 and 35 together and
+  were fixed on `fix/picker-outside-router` (the rule editor crashed: a
+  router hook in the category picker, which the editor renders outside
+  the router; a rule offered to move rows from a subcategory of its own
+  category back up). Next waves: screenshot every dialog after merging,
+  not only each branch alone.
+
 ## From spec 35 (rule tick boxes)
 
 - Undo after deleting a rule makes a new rule without its exceptions
@@ -244,7 +268,5 @@ Full review: `docs/reviews/2026-11-25-wave13-review.md`.
   their top groups and fold the rest into "Other".
 - `monthSummary`, `trend` and `MonthSummary` stay in core as test helpers;
   no channel reaches them.
-- A failed save of `homeSpendingFilter` is silent (the choice still shows
-  for the session).
 - REQUIREMENTS section 4 glossary lists fewer flows than exist;
   `docs/ARCHITECTURE.md` has all 8.
