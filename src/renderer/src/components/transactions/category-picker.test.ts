@@ -71,4 +71,12 @@ describe("the picker outside the router", () => {
     const picker = createElement(CategoryPicker, { index, onSelect: () => undefined, children: "Pick" });
     expect(renderToStaticMarkup(picker)).toContain("Pick");
   });
+
+  // Every Transactions row has a closed picker: it must not build the list.
+  it("renders only its trigger while closed: no search box, no list", () => {
+    const markup = renderToStaticMarkup(createElement(CategoryPicker, { index, onSelect: () => undefined, children: "Pick" }));
+    expect(markup).toContain("data-category-picker");
+    expect(markup).not.toContain('role="listbox"');
+    expect(markup).not.toContain("Groceries");
+  });
 });
