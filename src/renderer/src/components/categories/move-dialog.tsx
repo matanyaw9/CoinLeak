@@ -1,7 +1,8 @@
 // Moving a category without dragging (spec 34: at every level, with everything
 // inside it): one button per category it may go inside, shown as the tree,
 // plus "top level". Keyboard users get here from the row's Move button; the
-// arrow keys move between the choices. Drops and this dialog both call `move`.
+// list is one Tab stop and the arrow keys move between the choices (lib/roving.ts).
+// Drops and this dialog both call `move`.
 
 import { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
@@ -9,12 +10,12 @@ import { toast } from "sonner";
 import type { Category } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
+import { useRoving } from "@/lib/roving";
 import { indexCategories, parentChoices, type TreeEntry } from "@/lib/categories";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CategoryBubble } from "@/components/common/chips";
 import { problemText, useCategoryActions } from "./category-actions";
-import { arrowFocus } from "./tree-choice";
 
 const INDENT = ["", "", "ps-8", "ps-14"];
 
@@ -57,6 +58,13 @@ export function MoveDialog({
   const mover = useMoveCategory();
   const [picked, setPicked] = useState<number | null | undefined>(undefined);
   const targets = useMemo(() => moveTargets(category, categories), [category, categories]);
+  // Its current place, and every line while a move is saving, cannot be picked.
+  const disabled = (t: TreeEntry | null | undefined) => (t?.category.id ?? null) === category.parentId || mover.pending;
+  // One Tab stop; the arrow keys move between the lines that can be picked, Enter picks.
+  const { list, item } = useRoving(
+    targets.map((t) => t?.category.id ?? "top"),
+    { skip: (i) => disabled(targets[i]) },
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -70,8 +78,8 @@ export function MoveDialog({
             {targets.length === 0 ? s.nested.moveNowhere : s.nested.moveIntro}
           </DialogDescription>
           {targets.length > 0 && (
-            <ul className="mt-5 max-h-[22rem] space-y-1.5 overflow-y-auto p-0.5" onKeyDown={arrowFocus}>
-              {targets.map((t) => {
+            <ul ref={list} className="mt-5 max-h-[22rem] space-y-1.5 overflow-y-auto p-0.5">
+              {targets.map((t, i) => {
                 const target = t?.category ?? null;
                 const id = target?.id ?? null;
                 const current = id === category.parentId;
@@ -79,7 +87,8 @@ export function MoveDialog({
                   <li key={id ?? "top"} className={t ? INDENT[t.depth] : undefined}>
                     <button
                       type="button"
-                      disabled={current || mover.pending}
+                      {...item(i)}
+                      disabled={disabled(t)}
                       onClick={() => {
                         setPicked(id);
                         mover.move(category, target, () => onOpenChange(false));
