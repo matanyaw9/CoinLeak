@@ -21,7 +21,7 @@ export { createCategory, deleteCategory, updateCategory } from "./categories";
 export { setAccountsSyncing } from "./accounts";
 export { addManualTransaction, editManualTransaction, getCashWallet } from "./cash";
 export { balanceChecks } from "./balance";
-export { budgetStatus, setBudget } from "./budgets";
+export { budgetPlan, budgetStatus, setBudget, setBudgetTotal } from "./budgets";
 export { restoreExclusions } from "./exclusions";
 export { QUICK_SYNC_DAYS, quickSyncStart } from "./sync-window";
 export { clearPaidBack, markPaidBack, paidBackCandidates } from "./paid-back";
