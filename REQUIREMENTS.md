@@ -224,7 +224,7 @@ migrations are never edited.
 | 10 | to write | First public version: installer, bug report and feedback, version and update link, backup export, experimental labels, scraper update routine (F55, F27, F28, F56, F57, F1) |
 | 13 | `31-keyboard-and-sort-headers`, `32-card-bills-and-quick-sync`, `33-paid-back-and-small-fixes` | Done, owner tested 2026-11-25. Keyboard shortcuts and sort headers (F66, F80); card bills by card number and a quick sync (F75, F82); paid back for a purchase, investment starter lists, Finance accounts, bigger emojis (F65, F76, F77, F74) |
 | 14 | `34-nested-categories`, `35-rule-tick-boxes`, `36-keyboard-lists-and-trash` | Done, merged 2026-11-25, owner to test (`docs/OWNER-TESTS.md` section 10). Nested categories to 3 levels, new defaults, Routine / Treats removed (F69, F70, F72); rule editor tick boxes (F71); arrow keys in lists, Delete and I keys, Trash selection and delete for good (F83 to F86). After the wave 13 code review and its two fixes |
-| 15 | to write | Budgets page (F73); charts: click-through and the category chooser (F78, F79); backup and restore (F56) |
+| 15 | `37-budgets-page`, `38-chart-clicks-and-chooser`, `39-backup-and-restore` | In progress (started 2026-11-25 evening). Budgets page (F73); charts: click-through and the category chooser (F78, F79); backup, restore and CSV export (F56). After the wave 14 review fixes |
 | later | | Net worth, investments and loans (F67, absorbs F58; a design note first), Hebrew UI, pockets, AI helper (opt-in) |
 
 ## 9. Open questions
