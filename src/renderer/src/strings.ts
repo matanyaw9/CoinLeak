@@ -1148,6 +1148,22 @@ export const s = {
       purchase_uncategorized: "That purchase has no category yet. Categorize it first, then pick it here.",
     },
   },
+
+  // spec 35
+  ruleTicks: {
+    count: (ticked: number, shown: number) =>
+      `Changes ${ticked.toLocaleString("en-IL")} of ${plural(shown, "transaction", "transactions")}`,
+    all: "Tick or untick every listed transaction",
+    row: (description: string, date: string) => `${description}, ${date}`,
+    listLabel: "Transactions this rule fits",
+    setByYou: "Set by you",
+    handSet: (n: number) =>
+      n === 1
+        ? "1 ticked transaction is one you categorized by hand. Saving moves it to this rule's category."
+        : `${n.toLocaleString("en-IL")} ticked transactions are ones you categorized by hand. Saving moves them to this rule's category.`,
+    hint: "Unticked rows keep their category, and this rule leaves them alone from now on.",
+    more: (n: number) => `Plus ${plural(n, "older match", "older matches")}, not listed here.`,
+  },
 };
 
 export type Strings = typeof s;
