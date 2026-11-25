@@ -162,7 +162,7 @@ export function previewRule(db: Db, input: unknown): RulePreview {
     more: rows.length - shown.length,
     exceptions,
     handSet,
-    decidedHigher: decidedHigher(db, { ...conditions, setCategoryId, setExcluded }, higher),
+    decidedHigher: decidedHigher(db, { ...conditions, setCategoryId, setExcluded }, higher, raw.ruleId),
   };
 }
 

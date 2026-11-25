@@ -139,8 +139,10 @@ describe("exceptions (spec 35)", () => {
     const draft = { ...ruleInput({ matchText: "קפה הפינה", setCategoryId: food }), ruleId: narrow.id };
     expect(previewRule(db, draft).decidedHigher).toBe(1);
 
-    // The lower rule skips the other row, so it no longer fits it either.
+    // The lower rule skips the other row, so it no longer fits it either,
+    // in the list and in its own editor.
     addExceptions(db, narrow.id, [telAviv]);
     expect(overlapsOf(db, "קפה הפינה")).toBeUndefined();
+    expect(previewRule(db, draft).decidedHigher).toBe(0);
   });
 });

@@ -63,19 +63,23 @@ export function ruleOverlaps(db: Db, rules: RuleLike[]): Map<number, RuleOverlap
 
 /**
  * For the editor's preview: rows `draft` fits where one of `higher` sets
- * the same action first, so the draft would not decide them.
+ * the same action first, so the draft would not decide them. `ruleId` is
+ * the saved rule being edited, if any: its own exceptions never count.
  */
 export function decidedHigher(
   db: Db,
   draft: Pick<RuleInput, "join" | "conditions" | "setCategoryId" | "setExcluded">,
   higher: RuleLike[],
+  ruleId?: number,
 ): number {
   const matches = compileMatcher(draft);
-  const compiled = compileRules(higher, loadExceptions(db));
+  const exceptions = loadExceptions(db);
+  const compiled = compileRules(higher, exceptions);
+  const own = (ruleId === undefined ? undefined : exceptions.get(ruleId)) ?? new Set<number>();
   let count = 0;
   for (const row of loadRows(db, "all")) {
     const facts = factsOf(row);
-    if (!matches(facts)) continue;
+    if (own.has(row.id) || !matches(facts)) continue;
     const user = userSet(row);
     const wantsCategory = draft.setCategoryId !== null && !user.category;
     const wantsExclude = draft.setExcluded !== null && !user.excluded;
