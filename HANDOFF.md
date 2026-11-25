@@ -1,5 +1,5 @@
 # Handoff: CoinLeak
-_Last session: 2026-11-25 (overnight run and morning) · branch: dev · last commit: the "docs: wave 14 merged" commit (not pushed)_
+_Last session: 2026-11-25 (overnight, morning and evening) · branch: dev · not pushed since d837cdd_
 
 ## Today in one line
 Overnight: the wave 13 code review and its two bug fixes, then wave 14 (specs 34, 35, 36) built by three herdr agents, reviewed, merged into `dev` with two more fixes found after merging; all checks green (1179 tests). Not pushed, `main` untouched. Owner to test (`docs/OWNER-TESTS.md` section 10).
@@ -19,6 +19,13 @@ Overnight: the wave 13 code review and its two bug fixes, then wave 14 (specs 34
 - `dev` has everything, `npm run check` green (101 files, 1179 tests), nothing uncommitted. **Not pushed** (owner's rule for tonight). `main` untouched.
 - herdr tab 2: the lead's pane plus three idle agent panes (`wave14-categories`, `wave14-ruleticks`, `wave14-keys`), kept open so you can scroll back; close them when done. Tab 1 still runs your `npm run dev`: restart it to get migrations 0015 and 0016.
 - Worktrees `.claude/worktrees/wave14-{categories,ruleticks,keys,shots}` still exist (all merged), kept in case a test sends work back. Remove with `git worktree remove --force <path>` and delete the `wave14/*` and `fix/picker-outside-router` branches after your tests.
+
+## Evening run status (2026-11-25, from about 19:15)
+- **Wave 14 review fixes** (owner said go): `wave14-keys` (last lists onto useRoving, `arrowFocus` deleted) and `wave14-categories` (closed category picker does no work; stale backlog line dropped) are **merged** into `dev`. `wave14-ruleticks` (must fix: drop `giveBack`; rule editor list onto useRoving; `decidedHigher` skips own exceptions; "Already here" / "Higher rule" rows without a box) is in pane `w1:pT`, merge when its `.claude/shots/REPORT-fixes.md` is in. Each fix agent's report: `.claude/worktrees/wave14-<name>/.claude/shots/REPORT-fixes.md`.
+- **Wave 15** (owner: "start wave 15 by the requirements"): specs 37 (Budgets page, F73), 38 (chart click-through and chooser, F78, F79), 39 (backup, restore as a new profile, CSV export, F56) committed (`f60d56e`). Three builders in herdr tab 2: `wave15-budgets` (`w1:pW`), `wave15-charts` (`w1:pX`), `wave15-backup` (`w1:pY`), worktrees `.claude/worktrees/wave15-*`, branches `wave15/*` from `dev` at `42e17c4`. Reports go to each worktree's `.claude/shots/REPORT.md`.
+- Release prep for the friend (0.1.0, F28, F57, pre-release) moves to after wave 15.
+- Sleep blocked by `coinleak-awake4` until Thu about 09:18.
+- To resume after a break: `herdr agent get wave15-<name>`; a lost pane is reopened with `claude --continue` inside its worktree (see "Resume" below).
 
 ## Overnight run status (paused for a PC restart, 2026-11-25 late morning)
 - **No merge in progress; `dev` is clean** after this commit. Every wave 14 branch is merged; no review or merge is waiting.
@@ -40,10 +47,10 @@ Overnight: the wave 13 code review and its two bug fixes, then wave 14 (specs 34
 - Quick sync fix trade-off: an account the bank stopped reporting (for example an old card) keeps its "last synced" date old, so that bank's quick syncs reach further back each time (slower, never missing rows) until you remove the account from syncing. If a Cal sync is slow again, check the Finance accounts page for a card with an old "last synced".
 
 ## Next steps
-00. **Lead, first thing after the restart (owner asked 2026-11-25 10:40):** run a `/review-code` session, in a fresh session (for example a herdr pane in tab 2), on everything since the morning review: `8c052ad..dev` (the two review fixes, wave 14 and the two fixes after merging). Save it to `docs/reviews/2026-11-25-wave14-review.md` and commit it on `dev`; no fixes without the owner, no push.
+00. Done: the wave 14 code review ran (`docs/reviews/2026-11-25-wave14-review.md`, `c5e466e`); its fixes are being merged (see "Evening run status").
 0. **Owner:** restart `npm run dev`, run `docs/OWNER-TESTS.md` section 10 (Demo first, then your own profile) and answer the open questions above. Item 10.8 (Tab out of the lists) could not be tested without a real keyboard.
 1. Lead: fix whatever section 10 finds (the wave 14 agent panes and worktrees are still there to send work back), then push `dev` when the owner says so. Section 8 tests (waves 10 to 12), then merge `dev` into `main`.
-2. Wave 15: release prep for the friend as wave 15: version 0.1.0, F28 (step 1 or 2, owner to choose), F57 experimental labels, secrets re-scan, GitHub pre-release with `.exe` and SHA-256 (`docs/PUBLISH-CHECKLIST.md`, `docs/RELEASE.md`; build from the main checkout). Then budgets page and charts (F73, F78, F79) and backup (F56).
+2. Wave 15 (specs 37 to 39) is running; review and merge each branch, then a `/review-code` of the wave, then owner tests. After it: release prep for the friend: version 0.1.0, F28 (step 1 or 2, owner to choose), F57 experimental labels, secrets re-scan, GitHub pre-release with `.exe` and SHA-256 (`docs/PUBLISH-CHECKLIST.md`, `docs/RELEASE.md`; build from the main checkout).
 3. Run agents in herdr tab 2 as today (see memory note: worktree per agent, `claude --model opus --effort xhigh --permission-mode auto`; `herdr agent read` scrollback is short, ask agents to write the report to `.claude/shots/REPORT.md`).
 4. Write the F67 design note (net worth, investments, loans) for the owner.
 
