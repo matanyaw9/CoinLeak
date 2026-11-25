@@ -23,8 +23,10 @@ Wave 13 (specs 31, 32, 33) built by three herdr agents, merged into `dev`, and p
 - 05:20 review done: `docs/reviews/2026-11-25-wave13-review.md` (2 must fix, 3 should fix, 5 nice to have; checks green).
 - Both must-fix bugs fixed on `fix/review-wave13`, merged into `dev` (1099 tests green): a new category on a paid-back row ends the link; quick sync counts from each syncing account's own last save. Review findings logged in `docs/BACKLOG.md`; `REQUIREMENTS.md` section 5 now describes quick sync.
 - Specs 34, 35, 36 written and committed on `dev`. Old merged worktrees removed (their screenshots kept in `.claude/shots/archive/`).
-- About 06:10: three agents started in herdr tab 2 (panes split off the lead's), Opus 5.5, xhigh, auto: `wave14-categories` (spec 34), `wave14-ruleticks` (spec 35), `wave14-keys` (spec 36), worktrees `.claude/worktrees/wave14-*`. Reports go to each worktree's `.claude/shots/REPORT.md`.
-- Next: review each branch, send fixes back, merge one at a time, screenshot, update docs.
+- About 05:40: three agents started in herdr tab 2 (panes split off the lead's), Opus 5.5, xhigh, auto: `wave14-categories` (spec 34), `wave14-ruleticks` (spec 35), `wave14-keys` (spec 36), worktrees `.claude/worktrees/wave14-*`. Reports go to each worktree's `.claude/shots/REPORT.md`.
+- 06:00: spec 35 (rule tick boxes) reviewed, three small fixes sent back and done, merged into `dev` (1124 tests green).
+- About 06:00 to 10:20: the Pro usage limit stopped everything; the two agents still building continued on their own when it reset. At 10:20 spec 34 had phases 1 to 3 committed (3 levels in core and on screen, new defaults) and was on phase 4 (Routine / Treats); spec 36 had Trash delete for good, the emoji and color grid keys and the key table committed.
+- Next: review 34 and 36, send fixes back, merge one at a time, screenshot, update docs.
 
 ## Overnight plan (owner asked 2026-11-25 at 02:15; runs at 05:20)
 A systemd user timer (`coinleak-morning`) runs `~/.local/share/coinleak-morning/run.sh` at 05:20: it starts a fresh lead session (`morning-lead`, Opus 5.5) in herdr tab "2", sends `/review-code` for `6255ff3..dev` (saved to `docs/reviews/2026-11-25-wave13-review.md`), then the wave 14 prompt. Log: `~/.local/share/coinleak-morning/run.log`. Lead in the morning, do this:

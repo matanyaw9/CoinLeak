@@ -7,6 +7,18 @@ into specs when planning a wave. Must-fix items block the first real use.
 
 Nothing open.
 
+## From spec 35 (rule tick boxes)
+
+- Undo after deleting a rule makes a new rule without its exceptions
+  (`lib/rules.ts` `restoreRule`): an unticked row the rule never sorted
+  could be picked up again. Fix: `rules:delete` returns the exceptions and
+  the undo sends them back as `unticked`.
+- The editor lists at most 500 matching rows. Hand-set rows past the 500
+  are not shown, so saving never moves them (user edits win); before spec
+  35 every hand-set row was listed and moved.
+- The rule preview list has tick boxes reachable with Tab and Space; add
+  arrow keys with spec 36's helper (`lib/roving.ts`) once both are merged.
+
 ## From the wave 13 review (2026-11-25)
 
 Full review: `docs/reviews/2026-11-25-wave13-review.md`.
