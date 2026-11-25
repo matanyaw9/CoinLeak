@@ -1,19 +1,31 @@
 // The rules list the window edits: list, save (create or update), delete,
 // reorder, Apply now, and a preview that saves nothing. Every change
 // reapplies all rules to all rows in the same transaction, so stored rows
-// always agree with the list.
+// always agree with the list. Saving also records the rows the user
+// unticked in the editor as the rule's exceptions (spec 35).
 
 import type { Rule, RuleInput, RulePreview, RulePreviewArgs, RuleSaved, RulesApplied } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { listTransactions } from "../ledger/queries";
 import { assertIds, check, isId } from "../ledger/validate";
-import { runRules } from "./engine";
-import { compileMatcher, prepareRow } from "./match";
+import { decidedBy, runRules } from "./engine";
+import { compileMatcher, prepareRow, type PreparedRow } from "./match";
 import { decidedHigher, ruleOverlaps } from "./order";
-import { insertRule, loadRule, loadRules, nextPosition, renumber, writeRule } from "./store";
+import {
+  addExceptions,
+  exceptionsAmong,
+  insertRule,
+  loadRule,
+  loadRules,
+  nextPosition,
+  removeExceptions,
+  renumber,
+  writeRule,
+} from "./store";
 import { cleanConditions, cleanRuleInput } from "./validate";
 
-export const PREVIEW_SAMPLE = 20;
+/** The editor lists at most this many matching rows, newest first (spec 35). */
+export const PREVIEW_ROWS = 500;
 
 export interface SaveRequest {
   /** null creates the rule, last in the order. */
@@ -25,6 +37,14 @@ export interface SaveRequest {
    * every other row the user set stays as it is.
    */
   alsoChange?: unknown;
+  /**
+   * spec 35: rows the editor showed that the user unticked. They become the
+   * rule's exceptions; a row the rule sorted keeps what it has, as the user's.
+   * An id here wins over the same id in `ticked` or `alsoChange`.
+   */
+  unticked?: unknown;
+  /** spec 35: rows the editor showed ticked. Any exception they had ends. */
+  ticked?: unknown;
 }
 
 /** Every rule in order, each with what higher rules decide among the rows it fits (spec 21). */
@@ -42,16 +62,26 @@ export function saveRule(db: Db, req: SaveRequest, now = new Date()): RuleSaved 
   check(req.id === null || isId(req.id));
   const rule = cleanRuleInput(db, req.rule);
   const alsoChange = req.alsoChange ?? [];
+  const unticked = req.unticked ?? [];
+  const ticked = req.ticked ?? [];
   assertIds(alsoChange);
+  assertIds(unticked);
+  assertIds(ticked);
   const at = now.toISOString();
   return transaction(db, () => {
     let id: number;
     if (req.id === null) id = insertRule(db, rule, nextPosition(db), at);
     else {
+      // Before the rule changes: what it sorts now is what unticked rows keep.
+      keepForUser(db, req.id, unticked, at);
       check(writeRule(db, req.id, rule, at));
       id = req.id;
     }
-    handOver(db, rule, alsoChange);
+    const tickedBack = exceptionsAmong(db, id, ticked).filter((t) => !unticked.includes(t));
+    removeExceptions(db, id, ticked);
+    addExceptions(db, id, unticked);
+    giveBack(db, rule, tickedBack);
+    handOver(db, id, rule, alsoChange);
     const run = runRules(db, "all", now);
     return { rule: loadRule(db, id) as Rule, applied: run.applied.get(id) ?? 0, changed: run.changed };
   });
@@ -105,6 +135,7 @@ export function applyAllRules(db: Db, now = new Date()): RulesApplied {
  * rules say, so the user sees what the rule reads. Name and actions are not
  * needed, so a half-written rule can be previewed while it is edited; with a
  * category, `handSet` lists the matching rows the user sorted elsewhere.
+ * For a saved rule, `exceptions` names the shown rows it skips (spec 35).
  */
 export function previewRule(db: Db, input: unknown): RulePreview {
   const conditions = cleanConditions(db, input);
@@ -118,9 +149,14 @@ export function previewRule(db: Db, input: unknown): RulePreview {
   const handSet =
     setCategoryId === null ? [] : rows.filter((t) => t.categorySource === "user" && t.categoryId !== setCategoryId);
   const higher = rulesAbove(db, raw.ruleId);
+  const shown = rows.slice(0, PREVIEW_ROWS);
+  const shownIds = shown.map((t) => t.id);
+  const exceptions = raw.ruleId === undefined ? [] : exceptionsAmong(db, raw.ruleId, shownIds);
   return {
     matches: rows.length,
-    sample: rows.slice(0, PREVIEW_SAMPLE),
+    sample: shown,
+    more: rows.length - shown.length,
+    exceptions,
     handSet,
     decidedHigher: decidedHigher(db, { ...conditions, setCategoryId, setExcluded }, higher),
   };
@@ -134,32 +170,84 @@ function rulesAbove(db: Db, id: number | undefined): Rule[] {
 }
 
 /**
- * Releases the named hand-sorted rows the rule matches to the rules, so the
- * run that follows sets them (they become `category_source = 'rule'`).
+ * spec 35: of the unticked rows, those rule `ruleId` sorts now keep what it
+ * set, as the user's, so no later run changes them. Rows it does not sort
+ * are left as they are (other rules still apply to them).
  */
-function handOver(db: Db, rule: RuleInput, ids: number[]): void {
+function keepForUser(db: Db, ruleId: number, ids: number[], at: string): void {
+  if (ids.length === 0) return;
+  const { category, excluded } = decidedBy(db, ruleId, ids);
+  const keepCategory = db.prepare("UPDATE transactions SET category_source = 'user', updated_at = ? WHERE id = ?");
+  const keepExcluded = db.prepare("UPDATE transactions SET excluded_source = 'user', updated_at = ? WHERE id = ?");
+  for (const id of category) keepCategory.run(at, id);
+  for (const id of excluded) keepExcluded.run(at, id);
+}
+
+/**
+ * spec 35: rows ticked back after being the rule's exceptions. Where a row
+ * kept exactly what this rule sets (as `keepForUser` left it), that field
+ * goes back to the rules, so the rule applies again; nothing changes on
+ * screen now. A row kept in another category goes through `handOver`.
+ */
+function giveBack(db: Db, rule: RuleInput, ids: number[]): void {
+  if (ids.length === 0 || !rule.enabled) return;
+  const matches = compileMatcher(rule);
+  const rows = db
+    .prepare(
+      `SELECT id, account_id, amount, description, memo, category_id, category_source, excluded, excluded_source
+       FROM transactions WHERE trashed_at IS NULL AND id IN (SELECT value FROM json_each(?))`,
+    )
+    .all(JSON.stringify(ids)) as unknown as (MatchRow & {
+    category_source: string | null;
+    excluded: number;
+    excluded_source: string | null;
+  })[];
+  const category = db.prepare("UPDATE transactions SET category_source = 'rule' WHERE id = ?");
+  const excluded = db.prepare("UPDATE transactions SET excluded_source = 'rule' WHERE id = ?");
+  const setExcluded = rule.setExcluded === null ? null : rule.setExcluded ? 1 : 0;
+  for (const r of rows) {
+    if (!matches(factsOf(r))) continue;
+    if (rule.setCategoryId !== null && r.category_source === "user" && r.category_id === rule.setCategoryId) {
+      category.run(r.id);
+    }
+    if (r.excluded_source === "user" && r.excluded === setExcluded) excluded.run(r.id);
+  }
+}
+
+/**
+ * Releases the named hand-sorted rows the rule matches to the rules, so the
+ * run that follows sets them (they become `category_source = 'rule'`). The
+ * rule's exceptions are never released: they keep their category.
+ */
+function handOver(db: Db, ruleId: number, rule: RuleInput, ids: number[]): void {
   if (ids.length === 0 || !rule.enabled || rule.setCategoryId === null) return;
   const matches = compileMatcher(rule);
   const rows = db
     .prepare(
       `SELECT id, account_id, amount, description, memo, category_id FROM transactions
-       WHERE trashed_at IS NULL AND category_source = 'user' AND id IN (SELECT value FROM json_each(?))`,
+       WHERE trashed_at IS NULL AND category_source = 'user' AND id IN (SELECT value FROM json_each(?))
+         AND id NOT IN (SELECT transaction_id FROM rule_exceptions WHERE rule_id = ?)`,
     )
-    .all(JSON.stringify(ids)) as unknown as {
-    id: number;
-    account_id: number;
-    amount: number;
-    description: string;
-    memo: string | null;
-    category_id: number | null;
-  }[];
+    .all(JSON.stringify(ids), ruleId) as unknown as MatchRow[];
   // The rule changes the category, so a pay-back link (spec 33) ends too.
   const release = db.prepare(
     "UPDATE transactions SET category_id = NULL, category_source = 'rule', paid_back_for = NULL WHERE id = ?",
   );
   for (const r of rows) {
-    if (r.category_id === rule.setCategoryId) continue;
-    const facts = prepareRow({ accountId: r.account_id, amount: r.amount, description: r.description, memo: r.memo });
-    if (matches(facts)) release.run(r.id);
+    if (r.category_id !== rule.setCategoryId && matches(factsOf(r))) release.run(r.id);
   }
+}
+
+/** What the conditions read from a stored row, and its category. */
+interface MatchRow {
+  id: number;
+  account_id: number;
+  amount: number;
+  description: string;
+  memo: string | null;
+  category_id: number | null;
+}
+
+function factsOf(r: MatchRow): PreparedRow {
+  return prepareRow({ accountId: r.account_id, amount: r.amount, description: r.description, memo: r.memo });
 }

@@ -269,7 +269,7 @@ describe("rejected rules", () => {
 });
 
 describe("previewRule", () => {
-  it("counts every match and samples the newest 20, saving nothing", () => {
+  it("counts every match and lists the newest 25, saving nothing", () => {
     const db = newDb();
     const coffees = Array.from({ length: 25 }, (_, i) =>
       charge(`2026-03-${String(i + 1).padStart(2, "0")}`, -(1000 + i), `קפה ${i}`, "2026-04-10"),
@@ -280,12 +280,24 @@ describe("previewRule", () => {
 
     const draft = ruleInput({ matchMode: "starts_with", matchText: "קפה", setCategoryId: categoryId(db, "Coffee & Cafes") });
     const preview = previewRule(db, draft);
-    expect(preview.matches).toBe(25);
-    expect(preview.sample).toHaveLength(20);
+    expect(preview).toMatchObject({ matches: 25, more: 0, exceptions: [] });
+    expect(preview.sample).toHaveLength(25);
     expect(preview.sample[0]).toMatchObject({ description: "קפה 24", date: "2026-03-25", flow: "spending" });
-    expect(preview.sample.at(-1)?.description).toBe("קפה 5");
+    expect(preview.sample.at(-1)?.description).toBe("קפה 0");
     expect(snapshot(db)).toEqual(before);
     expect(listRules(db)).toEqual([]);
+  });
+
+  it("lists at most 500 rows, newest first, and says how many more match (spec 35)", () => {
+    const db = newDb();
+    const day = (i: number) => new Date(Date.UTC(2024, 10, 1 + i)).toISOString().slice(0, 10);
+    ingest(db, [bank(Array.from({ length: 503 }, (_, i) => out(day(i), -(1000 + i), `קפה ${i}`)))], { now: NOW });
+
+    const preview = previewRule(db, ruleInput({ matchText: "קפה" }));
+    expect(preview).toMatchObject({ matches: 503, more: 3 });
+    expect(preview.sample).toHaveLength(500);
+    expect(preview.sample[0]?.description).toBe("קפה 502");
+    expect(preview.sample.at(-1)?.description).toBe("קפה 3");
   });
 
   it("shows rows whatever their owner, and needs only valid conditions", () => {
