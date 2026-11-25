@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkState, checkedProp, pickRow, rowClickKind, selectAll, toggleAll, toggleRow } from "./selection";
+import { checkState, checkedProp, extendTo, keyTargets, pickRow, rowClickKind, selectAll, toggleAll, toggleRow } from "./selection";
 
 describe("one row's box", () => {
   const order = [10, 20, 30, 40, 50];
@@ -112,5 +112,69 @@ describe("clicks with Ctrl and Shift, and Ctrl+A (spec 31)", () => {
     }
     // Unlike the box, a second Ctrl+A keeps them selected.
     expect(ids(selectAll(shown, new Set(shown)))).toEqual(shown);
+  });
+});
+
+describe("Shift+arrows and the keys' rows (spec 36)", () => {
+  const order = [10, 20, 30, 40, 50];
+  const ids = (s: ReadonlySet<number>) => [...s].sort((a, b) => a - b);
+
+  it("Shift+Down from a row with no anchor selects it and the next one", () => {
+    const pick = extendTo(order, { selected: new Set(), anchor: null }, 20, 30);
+    expect(ids(pick.selected)).toEqual([20, 30]);
+    expect(pick.anchor).toBe(20);
+  });
+
+  it("extends from the anchor, the last row clicked, wherever focus started", () => {
+    // Clicked 40, moved up to 10 with plain arrows, then Shift+Down to 20.
+    const clicked = pickRow(order, { selected: new Set(), anchor: null }, 40, false);
+    const pick = extendTo(order, clicked, 10, 20);
+    expect(ids(pick.selected)).toEqual([20, 30, 40]);
+    expect(pick.anchor).toBe(40);
+  });
+
+  it("keeps extending the same way, and going back toward the anchor shrinks it", () => {
+    let pick = extendTo(order, { selected: new Set(), anchor: null }, 20, 30);
+    pick = extendTo(order, pick, 30, 40);
+    expect(ids(pick.selected)).toEqual([20, 30, 40]);
+    pick = extendTo(order, pick, 40, 30);
+    expect(ids(pick.selected)).toEqual([20, 30]);
+    // Past the anchor, the other way.
+    pick = extendTo(order, pick, 30, 20);
+    pick = extendTo(order, pick, 20, 10);
+    expect(ids(pick.selected)).toEqual([10, 20]);
+    expect(pick.anchor).toBe(20);
+  });
+
+  it("leaves rows outside the range alone", () => {
+    const pick = extendTo(order, { selected: new Set([50]), anchor: null }, 10, 20);
+    expect(ids(pick.selected)).toEqual([10, 20, 50]);
+  });
+
+  it("at the edge of the list, or for a row no longer listed, changes nothing", () => {
+    const start = { selected: new Set([10]), anchor: 10 };
+    expect(ids(extendTo(order, start, 10, 10).selected)).toEqual([10]);
+    expect(extendTo(order, start, 10, 99)).toBe(start);
+    // An anchor no longer listed: the range starts where focus was.
+    expect(ids(extendTo(order, { selected: new Set(), anchor: 99 }, 30, 40).selected)).toEqual([30, 40]);
+  });
+
+  it("Delete and I act on the selection, or else on the row focus is on", () => {
+    const rows = order.map((id) => ({ id }));
+    expect(keyTargets(rows, new Set([20, 40]), 10).map((r) => r.id)).toEqual([20, 40]);
+    expect(keyTargets(rows, new Set(), 30).map((r) => r.id)).toEqual([30]);
+    expect(keyTargets(rows, new Set(), null)).toEqual([]);
+    expect(keyTargets(rows, new Set(), 99)).toEqual([]);
+  });
+
+  it("Trash selects with these same functions: boxes, Shift+click, Ctrl+A and Shift+arrows", () => {
+    // Trash lists newest first; the rules do not care about the order's meaning.
+    const trash = [7, 5, 3];
+    let pick = pickRow(trash, { selected: new Set(), anchor: null }, 7, false);
+    pick = pickRow(trash, pick, 3, true);
+    expect(ids(pick.selected)).toEqual([3, 5, 7]);
+    expect(ids(selectAll(trash, new Set()))).toEqual([3, 5, 7]);
+    expect(ids(extendTo(trash, { selected: new Set(), anchor: null }, 5, 3).selected)).toEqual([3, 5]);
+    expect(checkState(trash, new Set([5]))).toBe("some");
   });
 });

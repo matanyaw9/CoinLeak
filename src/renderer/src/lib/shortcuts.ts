@@ -191,3 +191,9 @@ export function keyFor(id: ShortcutId, mac: boolean): string {
   const k = SHORTCUTS.find((k) => k.id === id);
   return k ? keyLabel(k, mac) : "";
 }
+
+/** Spec 36: the menu key, or Shift+F10, opens the focused row's menu. */
+export function isMenuKey(e: KeyPress): boolean {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  return e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey);
+}

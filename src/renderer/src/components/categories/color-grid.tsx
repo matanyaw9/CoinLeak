@@ -11,7 +11,7 @@ const COLUMNS = 9;
 
 export function ColorGrid({ colors, value, onChange }: { colors: readonly string[]; value: string | null; onChange: (color: string) => void }) {
   const chosen = value?.toUpperCase();
-  const { list, item } = useRoving(colors.length, { columns: COLUMNS, start: Math.max(0, colors.indexOf(chosen ?? "")) });
+  const { list, item } = useRoving(colors, { columns: COLUMNS, start: Math.max(0, colors.indexOf(chosen ?? "")) });
   return (
     <div ref={list} role="radiogroup" aria-label={s.catEdit.color} className="grid w-fit grid-cols-9 gap-2">
       {colors.map((c, i) => (

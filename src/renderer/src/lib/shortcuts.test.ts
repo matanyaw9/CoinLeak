@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAGE_KEYS, SHORTCUTS, dialogEnter, keyFor, keyLabel, letterOf, shortcutFor, type KeyContext, type KeyPress } from "./shortcuts";
+import { PAGE_KEYS, SHORTCUTS, dialogEnter, isMenuKey, keyFor, keyLabel, letterOf, shortcutFor, type KeyContext, type KeyPress } from "./shortcuts";
 
 const press = (key: string, extra: Partial<KeyPress> = {}): KeyPress => ({
   key,
@@ -202,5 +202,21 @@ describe("key labels", () => {
     expect(keyFor("dialogSubmit", false)).toBe("Ctrl+Enter");
     expect(keyFor("toggleClick", true)).toBe("Cmd+click");
     expect(keyLabel({ id: "rangeClick", group: "transactions", click: "shift" }, false)).toBe("Shift+click");
+  });
+});
+
+describe("the row menu from the keyboard (spec 36)", () => {
+  it("opens with the menu key or Shift+F10", () => {
+    expect(isMenuKey(press("ContextMenu"))).toBe(true);
+    expect(isMenuKey(press("ContextMenu", { shiftKey: true }))).toBe(true);
+    expect(isMenuKey(press("F10", { shiftKey: true }))).toBe(true);
+  });
+
+  it("not with F10 alone, or with Ctrl, Cmd or Alt", () => {
+    expect(isMenuKey(press("F10"))).toBe(false);
+    expect(isMenuKey(press("F10", { shiftKey: true, ctrlKey: true }))).toBe(false);
+    expect(isMenuKey(press("ContextMenu", { altKey: true }))).toBe(false);
+    expect(isMenuKey(press("ContextMenu", { metaKey: true }))).toBe(false);
+    expect(isMenuKey(press("Enter"))).toBe(false);
   });
 });

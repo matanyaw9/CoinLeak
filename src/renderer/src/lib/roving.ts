@@ -55,7 +55,7 @@ export interface RovingGuard {
 
 /** Destructure it (`const { list, item } = useRoving(...)`): React's lint reads `roving.list` as a ref and then flags `roving.item(i)`. */
 export interface Roving {
-  /** The item in the Tab order: the last one focused, else the first. */
+  /** The index of the item in the Tab order: the last one focused, else the first. */
   active: number;
   item(i: number): RovingItem;
   /** On the element around every item. */
@@ -89,9 +89,14 @@ function tabStops(root: HTMLElement): HTMLElement[] {
   );
 }
 
-export function useRoving(count: number, { columns = 1, start = 0, onMove }: RovingOptions = {}): Roving {
-  const [active, setActive] = useState(start);
-  const current = Math.max(0, Math.min(active, count - 1));
+/** `keys` name the items in order (row ids, say), so the active one stays put when items before it go. */
+export function useRoving(keys: readonly (string | number)[], { columns = 1, start = 0, onMove }: RovingOptions = {}): Roving {
+  const count = keys.length;
+  const [active, setActive] = useState({ key: keys[start], index: start });
+  // The item last focused, wherever it is now; if it left, the one now in its place.
+  const found = active.key === undefined ? -1 : keys.indexOf(active.key);
+  const current = Math.max(0, Math.min(found >= 0 ? found : active.index, count - 1));
+  const activate = (i: number) => setActive((a) => (a.key === keys[i] && a.index === i ? a : { key: keys[i], index: i }));
   const items = useRef<(HTMLElement | null)[]>([]);
   const list = useRef<HTMLElement | null>(null);
   const before = useRef<HTMLSpanElement>(null);
@@ -100,7 +105,7 @@ export function useRoving(count: number, { columns = 1, start = 0, onMove }: Rov
   const inside = useRef(false);
 
   const focus = (i: number) => {
-    setActive(i);
+    activate(i);
     const el = items.current[i];
     el?.focus({ preventScroll: true });
     el?.scrollIntoView({ block: "nearest" });
@@ -119,7 +124,7 @@ export function useRoving(count: number, { columns = 1, start = 0, onMove }: Rov
     tabIndex: i === current ? 0 : -1,
     onFocus: () => {
       inside.current = true;
-      setActive(i);
+      activate(i);
     },
     onBlur: (e) => {
       // Focus went elsewhere, or the page itself was clicked: not lost.
