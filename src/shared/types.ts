@@ -565,6 +565,8 @@ export interface PeriodSummary extends DateRange {
   needsReview: number;
   byCategory: { categoryId: number | null; amount: Agorot; count: number }[];
   byParent: { categoryId: number | null; amount: Agorot; count: number }[];
+  /** Each category's spending with everything under it (spec 34); no uncategorized line. */
+  spendingUnder: { categoryId: number; amount: Agorot; count: number }[];
   bucket: SeriesBucket;
   /** Cumulative spending per bucket, stopping at today's bucket. */
   series: SeriesPoint[];

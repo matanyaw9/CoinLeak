@@ -56,6 +56,16 @@ describe("three levels in the totals", () => {
     expect(summary.spending).toBe(3900);
   });
 
+  it("gives every category's spending with everything under it", () => {
+    expect(periodSummary(db, march, { now: NOW }).spendingUnder).toEqual([
+      { categoryId: food, amount: 3900, count: 5 },
+      { categoryId: groceries, amount: 2700, count: 3 },
+      // A tie goes by id: Restaurants is older than the new Weekly shop.
+      { categoryId: restaurants, amount: 700, count: 1 },
+      { categoryId: weekly, amount: 700, count: 2 },
+    ]);
+  });
+
   it("the transactions filter: a category matches itself, its children and its grandchildren", () => {
     const count = (ids: number[]) => listTransactions(db, { categoryIds: ids }).length;
     expect(count([food])).toBe(5);

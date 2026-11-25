@@ -16,7 +16,8 @@ export const KINDS = (Object.keys(KIND_OFFERED) as CategoryKind[]).filter((k) =>
 export const kindLabel = (kind: CategoryKind): string => s.catEdit.kinds[kind] ?? kind;
 
 /** Friendly text for a refusal code; a code we do not know gets a generic line. */
-export const problemText = (problem: string): string => s.catEdit.problem[problem] ?? s.errors.failed.categories;
+export const problemText = (problem: string): string =>
+  s.nested.problem[problem] ?? s.catEdit.problem[problem] ?? s.errors.failed.categories;
 
 const showError = (e: unknown) => showFailure(e, s.errors.failed.categories);
 

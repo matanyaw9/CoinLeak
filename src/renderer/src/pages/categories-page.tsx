@@ -1,7 +1,7 @@
-// Categories: the two-level tree with emoji, color and this month's amount,
-// and the editor (spec 15): add, rename, recolor, move by drag or button,
-// delete, and each category's known places from its list rule. Spec 21:
-// Ctrl+F searches names and known places, highlighting what matched.
+// Categories: the tree (three levels, spec 34) with emoji, color and this
+// month's amount, and the editor (spec 15): add, rename, recolor, move by drag
+// or button, delete, and each category's known places from its list rule.
+// Spec 21: Ctrl+F searches names and known places, highlighting what matched.
 // Look adapted from Spent (github.com/Shaya16/Spent), settings categories screen.
 
 import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
@@ -15,7 +15,7 @@ import { usePeriodSummary } from "@/components/home/period-data";
 import { formatMonth } from "@/lib/format";
 import { useShot } from "@/lib/shot";
 import { cn } from "@/lib/utils";
-import { colorOf, indexCategories } from "@/lib/categories";
+import { colorOf, depthOf, indexCategories, MAX_LEVELS, parentChoices } from "@/lib/categories";
 import { Page } from "@/components/layout/page";
 import { Skeleton } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
@@ -78,19 +78,25 @@ export function CategoriesPage() {
   const loose = groups.filter((g) => (index.children.get(g.root.id) ?? []).length === 0);
   const trees = groups.filter((g) => (index.children.get(g.root.id) ?? []).length > 0);
 
-  /** True when the category being dragged may drop into this group. */
+  // spec 34: where the dragged category may go, by the same rule as the editor's chooser.
+  const dropIds = useMemo(
+    () => new Set(dragging ? parentChoices(index, dragging.kind, dragging).map((e) => e.category.id) : []),
+    [index, dragging],
+  );
+  /** True when the category being dragged may drop into this one (or to the top level). */
   const canDrop = (target: Category | "top"): boolean => {
     if (!dragging) return false;
     if (target === "top") return dragging.parentId !== null;
-    if (target.id === dragging.id || target.id === dragging.parentId || target.parentId !== null) return false;
-    return target.kind === dragging.kind && !index.children.has(dragging.id);
+    return target.id !== dragging.parentId && dropIds.has(target.id);
   };
+  // A line inside a group's box takes the drop first; when it cannot, the box does.
   const dropProps = (target: Category | "top") => {
     const key = target === "top" ? "top" : target.id;
     return {
       onDragOver: (e: DragEvent) => {
         if (!canDrop(target)) return;
         e.preventDefault();
+        e.stopPropagation();
         e.dataTransfer.dropEffect = "move";
         if (over !== key) setOver(key);
       },
@@ -98,8 +104,10 @@ export function CategoriesPage() {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null) && over === key) setOver(null);
       },
       onDrop: (e: DragEvent) => {
+        if (!canDrop(target)) return;
         e.preventDefault();
-        if (dragging && canDrop(target)) mover.move(dragging, target === "top" ? null : target);
+        e.stopPropagation();
+        if (dragging) mover.move(dragging, target === "top" ? null : target);
         setDragging(null);
         setOver(null);
       },
@@ -118,29 +126,36 @@ export function CategoriesPage() {
     },
   });
 
-  const line = (c: Category) => (
-    <CategoryLine
-      key={c.id}
-      category={c}
-      stat={summary.data?.byCategory.find((b) => b.categoryId === c.id)}
-      places={places.data?.get(c.id)}
-      query={q}
-      dragging={dragging?.id === c.id}
-      dropTarget={c.parentId === null && canDrop(c)}
-      over={over === c.id}
-      onEdit={() => edit(c)}
-      onMove={() => show({ name: "move", category: c })}
-      dragProps={dragProps(c)}
-      dropProps={c.parentId === null ? dropProps(c) : undefined}
-      budget={budgetField(c)}
-    />
-  );
+  const line = (c: Category) => {
+    // spec 34: levels 1 and 2 hold categories; level 3 holds none.
+    const depth = depthOf(index, c);
+    const holds = depth < MAX_LEVELS;
+    return (
+      <CategoryLine
+        key={c.id}
+        category={c}
+        depth={depth}
+        stat={summary.data?.spendingUnder.find((b) => b.categoryId === c.id)}
+        places={places.data?.get(c.id)}
+        query={q}
+        dragging={dragging?.id === c.id}
+        dropTarget={canDrop(c)}
+        over={over === c.id}
+        onEdit={() => edit(c)}
+        onMove={() => show({ name: "move", category: c })}
+        onAdd={holds ? () => add(c.id, false) : undefined}
+        dragProps={dragProps(c)}
+        dropProps={holds ? dropProps(c) : undefined}
+        budget={budgetField(c)}
+      />
+    );
+  };
 
   return (
     <Page title={s.categories.title} withMonth>
       <div className="mx-auto max-w-4xl">
         <p className="text-[15px] text-muted-foreground">
-          {s.categories.intro} <span className="text-foreground">{formatMonth(month)}</span>.
+          {s.nested.intro} <span className="text-foreground">{formatMonth(month)}</span>.
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Segmented

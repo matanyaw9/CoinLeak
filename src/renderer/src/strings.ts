@@ -1148,6 +1148,26 @@ export const s = {
       purchase_uncategorized: "That purchase has no category yet. Categorize it first, then pick it here.",
     },
   },
+
+  // spec 34
+  nested: {
+    intro: "Your categories, up to three levels deep. Amounts include everything inside and are for",
+    parent: "Inside",
+    parentHint: "Categories go up to three levels deep",
+    noRoom: "It holds categories three levels deep, so it stays at the top level.",
+    addIn: (name: string) => `Add a category inside ${name}`,
+    moveIntro: "Pick where it goes. Everything inside it comes along, with its transactions and rules.",
+    moveNowhere: "Nothing else has room for it: with what it holds it would go past three levels.",
+    hasChildren: "This category still holds others. Move them out first.",
+    problem: {
+      too_deep: "Categories go three levels deep at most. Pick a place higher up.",
+      parent_is_descendant: "A category cannot go inside itself or one of its own.",
+      parent_other_kind: "Spending, income and savings categories cannot mix.",
+      has_children: "This category still holds others. Move them out first.",
+    } as Record<string, string>,
+    otherIn: (name: string) => `Other in ${name}`,
+    flowUp: (name: string) => `Back to ${name}`,
+  },
 };
 
 export type Strings = typeof s;

@@ -1,14 +1,15 @@
-// What the Categories search shows (spec 21): a group whose name matches
-// keeps all its categories; otherwise only the categories whose name or a
-// known place matches; groups with nothing left are gone.
+// What the Categories search shows (spec 21, three levels since spec 34): a
+// group whose name matches keeps everything in it; otherwise a category stays
+// when it, a category inside it, or the category it sits in (below the group)
+// matches by name or known place; groups with nothing left are gone.
 
 import type { Category, CategoryKind } from "@shared/types";
-import type { CategoryIndex } from "@/lib/categories";
+import { ancestorsOf, idsUnder, type CategoryIndex } from "@/lib/categories";
 import { hasText } from "@/components/layout/find-text";
 
 export interface CategoryGroup {
   root: Category;
-  /** The categories shown under the group. */
+  /** The categories shown under the group, depth first (levels 2 and 3). */
   kids: Category[];
 }
 
@@ -20,15 +21,27 @@ export function categoryHits(c: Category, query: string, places: PlaceNames): bo
   return hasText(c.name, query) || (places(c.id) ?? []).some((p) => hasText(p, query));
 }
 
+/** Everything under a category, depth first. */
+function descendants(index: CategoryIndex, id: number): Category[] {
+  return (index.children.get(id) ?? []).flatMap((c) => [c, ...descendants(index, c.id)]);
+}
+
 /** The groups of `kind` the search keeps, in the tree's order. Every group when `query` is empty. */
 export function searchCategories(index: CategoryIndex, kind: CategoryKind, query: string, places: PlaceNames): CategoryGroup[] {
+  const hits = (id: number) => {
+    const c = index.byId.get(id);
+    return c !== undefined && categoryHits(c, query, places);
+  };
   return index.roots
     .filter((r) => r.kind === kind)
     .flatMap((root) => {
-      const kids = index.children.get(root.id) ?? [];
+      const kids = descendants(index, root.id);
       if (categoryHits(root, query, places)) return [{ root, kids }];
-      const hits = kids.filter((c) => categoryHits(c, query, places));
-      return hits.length > 0 ? [{ root, kids: hits }] : [];
+      // Its own line, anything under it, or what it sits in (the group itself already did not match).
+      const shown = kids.filter(
+        (c) => idsUnder(index, c.id).some(hits) || ancestorsOf(index, c).some((a) => a.id !== root.id && hits(a.id)),
+      );
+      return shown.length > 0 ? [{ root, kids: shown }] : [];
     });
 }
 

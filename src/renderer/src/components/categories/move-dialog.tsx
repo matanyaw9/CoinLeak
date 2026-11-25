@@ -1,22 +1,27 @@
-// Moving a category to another group without dragging: one button per group
-// of the same kind, plus "top level". Keyboard users get here from the row's
-// Move button. Drops and this dialog both call `moveCategory`.
+// Moving a category without dragging (spec 34: at every level, with everything
+// inside it): one button per category it may go inside, shown as the tree,
+// plus "top level". Keyboard users get here from the row's Move button; the
+// arrow keys move between the choices. Drops and this dialog both call `move`.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import type { Category } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
+import { indexCategories, parentChoices, type TreeEntry } from "@/lib/categories";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CategoryBubble } from "@/components/common/chips";
 import { problemText, useCategoryActions } from "./category-actions";
+import { arrowFocus } from "./tree-choice";
 
-/** Where a category may go: groups of its kind other than itself. Null is top level. */
-export function moveTargets(category: Category, categories: Category[]): (Category | null)[] {
-  const groups = categories.filter((c) => c.parentId === null && c.kind === category.kind && c.id !== category.id);
-  return category.parentId === null ? groups : [...groups, null];
+const INDENT = ["", "", "ps-8", "ps-14"];
+
+/** Where a category may go: the parents it fits under (as the tree), then top level (null) unless it is there. */
+export function moveTargets(category: Category, categories: Category[]): (TreeEntry | null)[] {
+  const parents = parentChoices(indexCategories(categories), category.kind, category);
+  return category.parentId === null ? parents : [...parents, null];
 }
 
 export function useMoveCategory() {
@@ -51,8 +56,7 @@ export function MoveDialog({
 }) {
   const mover = useMoveCategory();
   const [picked, setPicked] = useState<number | null | undefined>(undefined);
-  const targets = moveTargets(category, categories);
-  const hasChildren = categories.some((c) => c.parentId === category.id);
+  const targets = useMemo(() => moveTargets(category, categories), [category, categories]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,33 +67,34 @@ export function MoveDialog({
             <DialogTitle>{s.catEdit.moveTitle(category.name)}</DialogTitle>
           </div>
           <DialogDescription className="mt-3 leading-relaxed">
-            {hasChildren ? s.catEdit.problem["has_children"] : s.catEdit.moveIntro}
+            {targets.length === 0 ? s.nested.moveNowhere : s.nested.moveIntro}
           </DialogDescription>
-          {!hasChildren && (
-            <ul className="mt-5 space-y-1.5">
+          {targets.length > 0 && (
+            <ul className="mt-5 max-h-[22rem] space-y-1.5 overflow-y-auto p-0.5" onKeyDown={arrowFocus}>
               {targets.map((t) => {
-                const id = t?.id ?? null;
+                const target = t?.category ?? null;
+                const id = target?.id ?? null;
                 const current = id === category.parentId;
                 return (
-                  <li key={id ?? "top"}>
+                  <li key={id ?? "top"} className={t ? INDENT[t.depth] : undefined}>
                     <button
                       type="button"
                       disabled={current || mover.pending}
                       onClick={() => {
                         setPicked(id);
-                        mover.move(category, t, () => onOpenChange(false));
+                        mover.move(category, target, () => onOpenChange(false));
                       }}
                       className={cn(
                         "flex w-full items-center gap-3 rounded-2xl border border-border px-3.5 py-2.5 text-start text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60",
                         picked === id && "border-primary/50 bg-primary/10",
                       )}
                     >
-                      {t ? (
-                        <CategoryBubble category={t} size={28} />
+                      {target ? (
+                        <CategoryBubble category={target} size={28} />
                       ) : (
                         <span className="size-7 rounded-full border border-dashed border-foreground/25" />
                       )}
-                      <span className="flex-1">{t ? t.name : s.catEdit.moveTop}</span>
+                      <span className="flex-1">{target ? target.name : s.catEdit.moveTop}</span>
                       {current ? (
                         <span className="text-xs text-muted-foreground">{s.catEdit.current}</span>
                       ) : (

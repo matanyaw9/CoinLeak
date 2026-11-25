@@ -1,13 +1,12 @@
 // The trend card's category filter (spec 16, F43): one list of checkboxes,
-// groups with their categories under them, and uncategorized. Nothing ticked
+// the three-level tree (spec 34), and uncategorized. Nothing ticked
 // is all spending; "All spending" at the top always goes back to it.
 
 import { useEffect, useState } from "react";
 import { ChevronDown, Layers } from "lucide-react";
-import type { Category } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import type { CategoryIndex } from "@/lib/categories";
+import { treeOf, type CategoryIndex } from "@/lib/categories";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { TrendTicks } from "./trend-filter";
 
@@ -39,12 +38,13 @@ export function TrendCategoryPicker({
         ? nameOf(index, ticks[0] ?? null)
         : s.periodHome.trendCount(ticks.length);
 
-  const row = (id: number | null, name: string, emoji: string | null, sub: boolean) => (
+  const row = (id: number | null, name: string, emoji: string | null, depth: number) => (
     <label
       key={id ?? "none"}
       className={cn(
         "flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-accent",
-        sub && "ps-7",
+        depth === 2 && "ps-7",
+        depth >= 3 && "ps-12",
       )}
     >
       <input
@@ -57,10 +57,6 @@ export function TrendCategoryPicker({
       <span className="min-w-0 flex-1 truncate">{name}</span>
     </label>
   );
-  const rowsOf = (group: Category) => [
-    row(group.id, group.name, group.emoji, false),
-    ...(index.children.get(group.id) ?? []).map((c) => row(c.id, c.name, c.emoji, true)),
-  ];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -86,8 +82,8 @@ export function TrendCategoryPicker({
             {s.periodHome.trendAll}
           </button>
           <div className="border-t border-border pt-1">
-            {index.roots.filter((r) => r.kind === "expense").flatMap(rowsOf)}
-            {row(null, s.common.uncategorized, null, false)}
+            {treeOf(index, "expense").map(({ category: c, depth }) => row(c.id, c.name, c.emoji, depth))}
+            {row(null, s.common.uncategorized, null, 1)}
           </div>
         </div>
       </PopoverContent>

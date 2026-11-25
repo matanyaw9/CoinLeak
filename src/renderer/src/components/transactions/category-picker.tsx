@@ -1,13 +1,14 @@
-// Searchable category popover: the two-level tree while browsing, a flat
-// list of matches while searching. Enter picks the first match.
+// Searchable category popover: the three-level tree while browsing (every
+// level pickable, spec 34), a flat list of full paths while searching.
+// Arrow keys move, Enter picks (the first match while searching), Esc closes.
 // Adapted from Spent (github.com/Shaya16/Spent), src/components/transactions/category-picker.tsx.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, Search } from "lucide-react";
 import type { Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { pathOf, type CategoryIndex } from "@/lib/categories";
+import { pathOf, treeOf, type CategoryIndex } from "@/lib/categories";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const KIND_LABEL: Record<CategoryKind, () => string> = {
@@ -15,6 +16,31 @@ const KIND_LABEL: Record<CategoryKind, () => string> = {
   transfer: () => s.flow.pickerTransfer,
   income: () => s.picker.income,
 };
+
+export interface PickerItem {
+  category: Category;
+  /** The name while browsing, the full path while searching. */
+  label: string;
+  /** Indent level: 1 for a top-level category, and always 1 while searching. */
+  depth: number;
+}
+
+/** Transfers (savings, investments) can go either way, so they sit in the middle. */
+export function kindsFor(preferKind: CategoryKind): CategoryKind[] {
+  return preferKind === "income" ? ["income", "transfer", "expense"] : ["expense", "transfer", "income"];
+}
+
+/** What the picker lists, in order: the tree by kind, or the categories whose full path holds the search. */
+export function pickerItems(index: CategoryIndex, preferKind: CategoryKind, query: string): PickerItem[] {
+  const q = query.trim().toLowerCase();
+  const tree = kindsFor(preferKind).flatMap((kind) => treeOf(index, kind));
+  if (!q) return tree.map(({ category, depth }) => ({ category, label: category.name, depth }));
+  return tree
+    .map(({ category }) => ({ category, label: pathOf(index, category), depth: 1 }))
+    .filter((item) => item.label.toLowerCase().includes(q));
+}
+
+const INDENT = ["", "ps-2", "ps-7", "ps-12"];
 
 export function CategoryPicker({
   index,
@@ -38,7 +64,10 @@ export function CategoryPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [active, setActive] = useState(-1);
   const input = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const idBase = useId();
 
   // Focus after the popup is positioned, so the page does not jump.
   useEffect(() => {
@@ -47,42 +76,62 @@ export function CategoryPicker({
     return () => cancelAnimationFrame(frame);
   }, [open]);
 
-  const q = query.trim().toLowerCase();
-  // Transfers (savings, investments) can go either way, so they sit in the middle.
-  const kinds: CategoryKind[] = preferKind === "income" ? ["income", "transfer", "expense"] : ["expense", "transfer", "income"];
-  const selectable = (c: Category) => !(index.children.get(c.id)?.length);
-  const matches = q
-    ? [...index.byId.values()].filter((c) => selectable(c) && pathOf(index, c).toLowerCase().includes(q))
-    : [];
+  const searching = query.trim() !== "";
+  const items = pickerItems(index, preferKind, query);
+  // "No category" is the last choice while browsing, when there is one to clear.
+  const withNone = !searching && value != null;
+  const count = items.length + (withNone ? 1 : 0);
+
+  // Keep the highlighted line in view as the arrow keys move it.
+  useEffect(() => {
+    list.current?.querySelector("[data-active='true']")?.scrollIntoView({ block: "nearest" });
+  }, [active]);
 
   const finish = (c: Category | null) => {
     setOpen(false);
     setQuery("");
     onSelect(c);
   };
+  const pick = (i: number) => {
+    if (i >= 0 && i < items.length) finish((items[i] as PickerItem).category);
+    else if (withNone && i === items.length) finish(null);
+  };
+  const optionId = (i: number) => `${idBase}-${i}`;
 
-  const row = (c: Category, label: string, indent: boolean) => (
-    <button
-      key={c.id}
-      type="button"
-      onClick={() => finish(c)}
-      className={cn(
-        "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm transition-colors hover:bg-accent",
-        indent && "ps-7",
-      )}
-    >
-      <span className="w-5 shrink-0 text-center leading-none">{c.emoji}</span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      {value === c.id && <Check className="size-3.5 text-primary" />}
-    </button>
-  );
+  const row = (item: PickerItem, i: number) => {
+    const c = item.category;
+    return (
+      <button
+        key={c.id}
+        id={optionId(i)}
+        type="button"
+        role="option"
+        aria-selected={active === i}
+        data-active={active === i}
+        tabIndex={-1}
+        onClick={() => finish(c)}
+        onMouseMove={() => active !== i && setActive(i)}
+        className={cn(
+          "flex w-full items-center gap-2.5 rounded-lg py-1.5 pe-2 text-start text-sm transition-colors",
+          INDENT[item.depth] ?? "ps-12",
+          item.depth === 1 && !searching && (index.children.get(c.id)?.length ?? 0) > 0 && "font-medium",
+          active === i && "bg-accent",
+        )}
+      >
+        <span className="w-5 shrink-0 text-center leading-none">{c.emoji}</span>
+        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        {value === c.id && <Check className="size-3.5 text-primary" />}
+      </button>
+    );
+  };
 
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) setQuery("");
+        setQuery("");
+        setActive(next ? items.findIndex((item) => item.category.id === value) : -1);
       }}
     >
       <PopoverTrigger className={triggerClassName}>{children}</PopoverTrigger>
@@ -92,59 +141,64 @@ export function CategoryPicker({
           <input
             ref={input}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            role="combobox"
+            aria-expanded
+            aria-controls={`${idBase}-list`}
+            aria-activedescendant={active >= 0 ? optionId(active) : undefined}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setActive(e.target.value.trim() ? 0 : -1);
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && matches[0]) {
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                 e.preventDefault();
-                finish(matches[0]);
+                const step = e.key === "ArrowDown" ? 1 : -1;
+                setActive((i) => Math.min(count - 1, Math.max(0, i + step)));
+              } else if (e.key === "Enter" && active >= 0) {
+                e.preventDefault();
+                pick(active);
               }
             }}
             placeholder={s.picker.search}
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="max-h-80 overflow-y-auto p-1.5">
-          {q ? (
-            matches.length ? (
-              matches.map((c) => row(c, pathOf(index, c), false))
-            ) : (
-              <p className="px-2 py-6 text-center text-xs text-muted-foreground">{s.picker.noMatch}</p>
-            )
-          ) : (
-            <>
-              {kinds.map((kind) => {
-                const roots = index.roots.filter((r) => r.kind === kind);
-                if (!roots.length) return null;
-                return (
-                  <div key={kind} className="pb-1">
-                    <div className="px-2 pt-2 pb-1 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                      {KIND_LABEL[kind]()}
-                    </div>
-                    {roots.flatMap((r) => {
-                      const kids = index.children.get(r.id) ?? [];
-                      if (!kids.length) return [row(r, r.name, false)];
-                      return [
-                        <div key={`h${r.id}`} className="flex items-center gap-2.5 px-2 pt-1.5 pb-0.5 text-xs font-medium text-muted-foreground">
-                          <span className="w-5 text-center">{r.emoji}</span>
-                          {r.name}
-                        </div>,
-                        ...kids.map((c) => row(c, c.name, true)),
-                      ];
-                    })}
+        <div ref={list} id={`${idBase}-list`} role="listbox" className="max-h-80 overflow-y-auto p-1.5">
+          {searching && items.length === 0 && (
+            <p className="px-2 py-6 text-center text-xs text-muted-foreground">{s.picker.noMatch}</p>
+          )}
+          {items.map((item, i) => {
+            const kind = item.category.kind;
+            const header = !searching && (i === 0 || (items[i - 1] as PickerItem).category.kind !== kind);
+            return (
+              <div key={item.category.id} className={cn(header && i > 0 && "pt-1")}>
+                {header && (
+                  <div className="px-2 pt-2 pb-1 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                    {KIND_LABEL[kind]()}
                   </div>
-                );
-              })}
-              {value != null && (
-                <button
-                  type="button"
-                  onClick={() => finish(null)}
-                  className="mt-1 flex w-full items-center gap-2.5 rounded-lg border-t border-border px-2 py-2 text-start text-sm text-muted-foreground transition-colors hover:bg-accent"
-                >
-                  <span className="w-5" />
-                  {s.picker.none}
-                </button>
+                )}
+                {row(item, i)}
+              </div>
+            );
+          })}
+          {withNone && (
+            <button
+              id={optionId(items.length)}
+              type="button"
+              role="option"
+              aria-selected={active === items.length}
+              data-active={active === items.length}
+              tabIndex={-1}
+              onClick={() => finish(null)}
+              onMouseMove={() => active !== items.length && setActive(items.length)}
+              className={cn(
+                "mt-1 flex w-full items-center gap-2.5 rounded-lg border-t border-border px-2 py-2 text-start text-sm text-muted-foreground transition-colors",
+                active === items.length && "bg-accent",
               )}
-            </>
+            >
+              <span className="w-5" />
+              {s.picker.none}
+            </button>
           )}
         </div>
       </PopoverContent>

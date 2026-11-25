@@ -8,7 +8,8 @@ import type { Category } from "@shared/types";
 import { s } from "@/strings";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Choices } from "./category-editor";
+import { indexCategories, treeOf } from "@/lib/categories";
+import { TreeChoice } from "./tree-choice";
 import { problemText, useCategoryActions } from "./category-actions";
 
 export function DeleteDialog({
@@ -29,12 +30,8 @@ export function DeleteDialog({
   const rules = category.ruleCount ?? 0;
   const inUse = rows + rules > 0;
   const hasChildren = categories.some((c) => c.parentId === category.id);
-  const targets = categories.filter((c) => c.kind === category.kind && c.id !== category.id);
-  const byId = new Map(categories.map((c) => [c.id, c]));
-  const label = (c: Category) => {
-    const parent = c.parentId != null ? byId.get(c.parentId) : undefined;
-    return `${c.emoji ?? ""} ${parent ? `${parent.name} › ` : ""}${c.name}`.trim();
-  };
+  // spec 34: any other category of its kind, at any level, shown as the tree.
+  const targets = treeOf(indexCategories(categories), category.kind).filter((e) => e.category.id !== category.id);
 
   const confirm = () => {
     setProblem(null);
@@ -57,7 +54,7 @@ export function DeleteDialog({
           <DialogTitle>{s.catEdit.deleteTitle(category.name)}</DialogTitle>
           <DialogDescription className="mt-2 leading-relaxed text-pretty">
             {hasChildren
-              ? s.catEdit.problem["has_children"]
+              ? s.nested.hasChildren
               : inUse
                 ? s.catEdit.deleteInUse(s.catEdit.usage(rows, rules))
                 : s.catEdit.deleteFree}
@@ -65,9 +62,7 @@ export function DeleteDialog({
           {inUse && !hasChildren && (
             <div className="mt-5">
               <p className="mb-2 text-sm font-medium">{s.catEdit.moveTo}</p>
-              <div className="max-h-56 overflow-y-auto">
-                <Choices value={moveTo} options={targets.map((c) => ({ value: c.id, label: label(c) }))} onChange={setMoveTo} />
-              </div>
+              <TreeChoice value={moveTo} entries={targets} onChange={setMoveTo} label={s.catEdit.moveTo} />
             </div>
           )}
           {problem && (

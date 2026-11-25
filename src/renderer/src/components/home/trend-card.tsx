@@ -23,7 +23,7 @@ import { ArrowLeft } from "lucide-react";
 import type { DateRange, IsoMonth, TrendPoint } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { categorySlice, otherSlice, parentSlices, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
+import { categorySlice, otherSlice, ownRowsSlice, parentSlices, UNCATEGORIZED_COLOR, type CategoryIndex, type Slice } from "@/lib/categories";
 import { monthOf, shiftMonth, toIsoMonth } from "@/lib/month";
 import { formatMonth, formatMonthShort, ils, percent } from "@/lib/format";
 import { useShot } from "@/lib/shot";
@@ -355,17 +355,20 @@ function trendRange(range: DateRange): DateRange {
 }
 
 /**
- * The ticked categories as series. A ticked group shows its subcategories
- * (and itself, for rows set on the group), keeping only those with spending
- * in these months, so its bars say where the money went.
+ * The ticked categories as series. A ticked category with children shows them
+ * one level down (core already counts each child with everything under it),
+ * plus "Other in <name>" for rows set on the category itself, keeping only
+ * those with spending in these months, so its bars say where the money went.
  */
 function tickedSeries(index: CategoryIndex, ticks: TrendTicks, points: TrendPoint[]): Slice[] {
   const spent = new Set(points.flatMap((t) => t.parts ?? []).filter((p) => p.amount > 0).map((p) => p.categoryId));
   return ticks.flatMap((id) => {
     const children = id === null ? [] : (index.children.get(id) ?? []);
-    if (children.length === 0) return [categorySlice(index, id)];
+    if (id === null || children.length === 0) return [categorySlice(index, id)];
     const parts = [...children.map((c) => c.id), id].filter((x) => spent.has(x));
-    return parts.length > 0 ? parts.map((x) => categorySlice(index, x)) : [categorySlice(index, id)];
+    return parts.length > 0
+      ? parts.map((x) => (x === id ? ownRowsSlice(index, id) : categorySlice(index, x)))
+      : [categorySlice(index, id)];
   });
 }
 

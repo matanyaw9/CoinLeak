@@ -1,6 +1,7 @@
 // One category on the Categories page: drag handle, emoji bubble, name, this
-// month's amount, its budget (spec 27), Move and Edit buttons, and its known places underneath.
-// The name opens its transactions; a group header gets Edit and Add.
+// month's amount, its budget (spec 27), Add (levels 1 and 2, spec 34), Move
+// and Edit buttons, and its known places underneath. Level 3 lines sit
+// indented. The name opens its transactions; a group header gets Edit and Add.
 
 import type { DragEvent, ReactNode } from "react";
 import { Link } from "react-router";
@@ -33,6 +34,7 @@ const actionClass = "rounded-full text-muted-foreground opacity-0 group-hover:op
 
 export function CategoryLine({
   category,
+  depth = 2,
   stat,
   places,
   query,
@@ -41,26 +43,32 @@ export function CategoryLine({
   over,
   onEdit,
   onMove,
+  onAdd,
   dragProps,
   dropProps,
   budget,
 }: {
   category: Category;
+  /** spec 34: 1 for a top-level category; level 3 lines sit indented. */
+  depth?: number;
   stat: { amount: Agorot; count: number } | undefined;
   places: KnownPlaces | undefined;
   /** spec 21: the search, highlighted in the name and places. */
   query: string;
   dragging: boolean;
-  /** A top-level category the dragged one may drop into. */
+  /** A category the dragged one may drop into. */
   dropTarget: boolean;
   over: boolean;
   onEdit: () => void;
   onMove: () => void;
+  /** spec 34: adds a category inside this one; left out at level 3. */
+  onAdd?: () => void;
   dragProps: DragProps;
   dropProps: DropProps | undefined;
   /** spec 27: the budget field, on spending categories. */
   budget?: ReactNode;
 }) {
+  const deep = depth >= 3;
   return (
     <div
       {...dragProps}
@@ -72,14 +80,14 @@ export function CategoryLine({
         over && "bg-primary/[0.09] ring-2 ring-primary/50 ring-inset",
       )}
     >
-      <div className="flex items-center gap-2 py-3.5 ps-2 pe-5">
+      <div className={cn("flex items-center gap-2 pe-5", deep ? "py-2.5 ps-12" : "py-3.5 ps-2")}>
         <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground/40 group-hover:text-muted-foreground" aria-hidden />
         <Link
           to={`/transactions?category=${category.id}`}
           className="flex min-w-0 flex-1 items-center gap-4 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           draggable={false}
         >
-          <CategoryBubble category={category} size={40} />
+          <CategoryBubble category={category} size={deep ? 32 : 40} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span dir="auto" className="truncate text-[15px] font-medium">
@@ -94,6 +102,11 @@ export function CategoryLine({
           {stat && stat.amount !== 0 && <Money amount={stat.amount} className="text-[17px]" />}
         </Link>
         {budget}
+        {onAdd && (
+          <Button variant="ghost" size="icon-xs" className={actionClass} aria-label={s.nested.addIn(category.name)} onClick={onAdd}>
+            <Plus />
+          </Button>
+        )}
         <Button variant="ghost" size="icon-xs" className={actionClass} aria-label={s.catEdit.move(category.name)} onClick={onMove}>
           <FolderInput />
         </Button>
@@ -102,7 +115,7 @@ export function CategoryLine({
         </Button>
         <ChevronRight className="size-4 text-muted-foreground/60" aria-hidden />
       </div>
-      {places && <PlacesLine places={places} query={query} />}
+      {places && <PlacesLine places={places} query={query} deep={deep} />}
     </div>
   );
 }
@@ -120,7 +133,7 @@ function ExtraBadge() {
 }
 
 /** Read-only: the names in the category's list rule. "Edit" opens that rule. */
-function PlacesLine({ places, query }: { places: KnownPlaces; query: string }) {
+function PlacesLine({ places, query, deep }: { places: KnownPlaces; query: string; deep: boolean }) {
   const rules = useRules();
   const { openEditor } = useRuleEditor();
   const rule = places.ruleId != null ? rules.data?.find((r) => r.id === places.ruleId) : undefined;
@@ -129,7 +142,7 @@ function PlacesLine({ places, query }: { places: KnownPlaces; query: string }) {
   const shown = names.slice(0, SHOWN_PLACES);
   const more = places.names.length - shown.length;
   return (
-    <div className="-mt-1.5 flex flex-wrap items-center gap-1.5 ps-[74px] pe-5 pb-3.5 text-xs">
+    <div className={cn("-mt-1.5 flex flex-wrap items-center gap-1.5 pe-5 pb-3.5 text-xs", deep ? "ps-[106px]" : "ps-[74px]")}>
       <span className="me-1 text-muted-foreground">{s.catEdit.places}</span>
       {shown.map((n) => (
         <span key={n} dir="auto" className="rounded-full bg-secondary px-2 py-0.5 text-secondary-foreground">

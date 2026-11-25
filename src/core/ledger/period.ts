@@ -212,6 +212,32 @@ export function spendingByParent(db: Db, from: IsoDate, until: IsoDate, tag?: Ta
 }
 
 /**
+ * Every category's spending with everything under it (spec 34): a row counts
+ * for its own category, its parent and its grandparent. Uncategorized rows
+ * are left out.
+ */
+export function spendingUnder(db: Db, from: IsoDate, until: IsoDate, tag?: Tag): PeriodSummary["spendingUnder"] {
+  const w = whereSql(undefined, tag);
+  return db
+    .prepare(
+      `${WITH_LEDGER}, spent AS (
+         SELECT ledger.category_id, ledger.category_parent_id, ledger.category_grandparent_id, ledger.amount FROM ledger
+         WHERE ledger.date >= ? AND ledger.date < ? AND ledger.flow IN ${SPENDING_FLOWS_SQL}${w.sql}
+       )
+       SELECT id AS categoryId, -SUM(amount) AS spent, COUNT(*) AS count FROM (
+                   SELECT category_id AS id, amount FROM spent
+         UNION ALL SELECT category_parent_id, amount FROM spent
+         UNION ALL SELECT category_grandparent_id, amount FROM spent
+       )
+       WHERE id IS NOT NULL
+       GROUP BY id
+       ORDER BY spent DESC, id`,
+    )
+    .all(from, until, ...w.params)
+    .map((r) => ({ categoryId: r.categoryId as number, amount: r.spent as number, count: r.count as number }));
+}
+
+/**
  * One level at a time (spec 34): a category's spending split by its direct
  * children, each with everything under it, plus the category's own rows
  * under the category's own id. Charts drill down with this.
@@ -308,6 +334,7 @@ export function periodSummary(db: Db, args: DateRange & EssentialFilter, opts: {
     needsReview: t.needsReview,
     byCategory: spendingByCategory(db, range.from, until, undefined, tag),
     byParent: spendingByParent(db, range.from, until, tag),
+    spendingUnder: spendingUnder(db, range.from, until, tag),
     bucket,
     series,
     inProgress,

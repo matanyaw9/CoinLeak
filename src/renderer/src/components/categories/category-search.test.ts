@@ -5,7 +5,7 @@ import { hitsElsewhere, searchCategories } from "./category-search";
 
 let next = 1;
 function cat(name: string, parentId: number | null = null, kind: Category["kind"] = "expense"): Category {
-  return { id: next++, parentId, name, kind, emoji: null, color: null, archived: false, essential: null };
+  return { id: next++, parentId, name, kind, emoji: null, color: null, archived: false };
 }
 
 const food = cat("Food");
@@ -53,5 +53,20 @@ describe("the Categories search", () => {
     expect(names("salary")).toEqual([]);
     expect(hitsElsewhere(index, "expense", "salary", placeNames)).toEqual([{ kind: "income", count: 1 }]);
     expect(names("salary", "income")).toEqual([["Salary", []]]);
+  });
+
+  it("three levels: a match keeps the line it sits in, and a level 2 match keeps what is inside it", () => {
+    const shop = cat("Groceries & Shop");
+    const grocer = cat("Groceries", shop.id);
+    const weekly = cat("Weekly shop", grocer.id);
+    const topUp = cat("Top-up", grocer.id);
+    const local = cat("Local shop", shop.id);
+    const deep = indexCategories([shop, grocer, weekly, topUp, local]);
+    const find = (q: string) => searchCategories(deep, "expense", q, () => undefined).map((g) => g.kids.map((c) => c.name));
+    expect(find("")).toEqual([["Groceries", "Weekly shop", "Top-up", "Local shop"]]);
+    expect(find("weekly")).toEqual([["Groceries", "Weekly shop"]]);
+    expect(find("grocer")).toEqual([["Groceries", "Weekly shop", "Top-up", "Local shop"]]);
+    expect(find("top")).toEqual([["Groceries", "Top-up"]]);
+    expect(find("local")).toEqual([["Local shop"]]);
   });
 });

@@ -1,12 +1,15 @@
-// Display helpers for the two-level category tree: lookups, and core's
-// totals per top-level category as chart slices.
+// Display helpers for the category tree (three levels, spec 34): lookups,
+// depth and full paths, the tree in order for lists, and core's totals per
+// top-level category as chart slices.
 
-import type { Agorot, Category } from "@shared/types";
+import type { Agorot, Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
 
 export const UNCATEGORIZED_COLOR = "#C9BFAE";
 export const OTHER_COLOR = "#B1AA9C";
 const FALLBACK_COLOR = "#B8AE9C";
+/** How deep categories nest; core and the database refuse more (spec 34). */
+export const MAX_LEVELS = 3;
 
 export interface CategoryIndex {
   byId: Map<number, Category>;
@@ -30,17 +33,64 @@ export function indexCategories(list: Category[] = []): CategoryIndex {
   return { byId, roots, children };
 }
 
-/** The category and its subcategories, for "show me these transactions". */
+/** The category and everything under it, for "show me these transactions". */
 export function idsUnder(index: CategoryIndex, id: number): number[] {
-  return [id, ...(index.children.get(id) ?? []).map((c) => c.id)];
+  return [id, ...(index.children.get(id) ?? []).flatMap((c) => idsUnder(index, c.id))];
 }
 
 export const colorOf = (c: Category | null | undefined) => (c ? (c.color ?? FALLBACK_COLOR) : UNCATEGORIZED_COLOR);
 
-/** "Food › Groceries" style label for a subcategory. */
+/** The categories above this one, top level first. */
+export function ancestorsOf(index: CategoryIndex, c: Category): Category[] {
+  const out: Category[] = [];
+  let parent = c.parentId != null ? index.byId.get(c.parentId) : undefined;
+  while (parent && out.length < MAX_LEVELS) {
+    out.unshift(parent);
+    parent = parent.parentId != null ? index.byId.get(parent.parentId) : undefined;
+  }
+  return out;
+}
+
+/** 1 for a top-level category, 2 under it, 3 under that. */
+export function depthOf(index: CategoryIndex, c: Category): number {
+  return ancestorsOf(index, c).length + 1;
+}
+
+/** How many levels the category spans with everything under it: 1 without children. */
+export function heightOf(index: CategoryIndex, id: number): number {
+  return 1 + Math.max(0, ...(index.children.get(id) ?? []).map((c) => heightOf(index, c.id)));
+}
+
+/** "Groceries & Shop › Groceries › Weekly shop": the full path. */
 export function pathOf(index: CategoryIndex, c: Category): string {
-  const parent = c.parentId != null ? index.byId.get(c.parentId) : undefined;
-  return parent ? `${parent.name} › ${c.name}` : c.name;
+  return [...ancestorsOf(index, c), c].map((x) => x.name).join(" › ");
+}
+
+export interface TreeEntry {
+  category: Category;
+  /** 1 for a top-level category. */
+  depth: number;
+}
+
+/** The categories depth first, each right before its children, as core orders them; one kind's, or all. */
+export function treeOf(index: CategoryIndex, kind?: CategoryKind): TreeEntry[] {
+  const walk = (list: Category[], depth: number): TreeEntry[] =>
+    list.flatMap((c) => [{ category: c, depth }, ...walk(index.children.get(c.id) ?? [], depth + 1)]);
+  return walk(
+    index.roots.filter((r) => kind === undefined || r.kind === kind),
+    1,
+  );
+}
+
+/**
+ * Where a category may sit (spec 34): same-kind categories at level 1 or 2,
+ * never itself or anything under it, and only where it still fits in three
+ * levels with everything under it. `category` is null for a new one.
+ */
+export function parentChoices(index: CategoryIndex, kind: CategoryKind, category: Category | null): TreeEntry[] {
+  const own = category ? new Set(idsUnder(index, category.id)) : new Set<number>();
+  const height = category ? heightOf(index, category.id) : 1;
+  return treeOf(index, kind).filter((e) => !own.has(e.category.id) && e.depth + height <= MAX_LEVELS);
 }
 
 export interface Slice {
@@ -87,6 +137,12 @@ export function categorySlice(index: CategoryIndex, id: number | null): Slice {
     color: c ? (c.color ?? colorOf(parent ?? c)) : UNCATEGORIZED_COLOR,
     amount: 0,
   };
+}
+
+/** A category's own rows, beside its children's in a chart one level down: "Other in Groceries" (spec 34). */
+export function ownRowsSlice(index: CategoryIndex, id: number): Slice {
+  const slice = categorySlice(index, id);
+  return { ...slice, name: s.nested.otherIn(slice.name) };
 }
 
 /** The "Other" bucket a chart folds its small slices into. */
