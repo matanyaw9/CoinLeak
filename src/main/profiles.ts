@@ -68,6 +68,22 @@ function newProfile(list: ProfileList, name: string): Profile {
   return { id: `p${n}`, name, file: `profile-p${n}.db`, demo: false };
 }
 
+/**
+ * Spec 39: a checked backup becomes a new profile. The file at `fromPath`
+ * (a copy inside the data folder) moves to the profile's own file name. The
+ * caller switches to it.
+ */
+export function addRestoredProfile(dataDir: string, name: string, fromPath: string): Profile {
+  const list = readProfiles(dataDir);
+  const profile = newProfile(list, cleanName(name));
+  const path = databasePath(dataDir, profile);
+  // Never let an old -wal of a deleted profile with this name apply to the new file.
+  removeDatabaseFiles(path);
+  renameSync(fromPath, path);
+  writeProfiles(dataDir, { ...list, profiles: [...list.profiles, profile] });
+  return profile;
+}
+
 /** Only one Demo profile at a time. */
 export function addDemoProfile(dataDir: string): Profile {
   const list = readProfiles(dataDir);

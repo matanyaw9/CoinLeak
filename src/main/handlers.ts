@@ -45,6 +45,7 @@ import { getSetting, setSetting } from "@core/settings";
 import { createDemoDatabase } from "@core/demo";
 import { CodedError } from "@shared/errors";
 import type { Channel } from "@shared/ipc";
+import { backupHandlers, electronDialogs, type FileDialogs } from "./backup";
 import type { Handlers } from "./ipc";
 import {
   addDemoProfile,
@@ -76,6 +77,8 @@ export interface HandlerDeps {
   /** Clears what the window stored in Electron's own storage (local storage, caches). */
   clearWindowStorage(): Promise<void>;
   now?: () => Date;
+  /** Spec 39: the native save and open dialogs; Electron's unless a test passes fakes. */
+  dialogs?: FileDialogs;
 }
 
 export function createHandlers(deps: HandlerDeps): Handlers {
@@ -83,6 +86,15 @@ export function createHandlers(deps: HandlerDeps): Handlers {
   const now = deps.now ?? (() => new Date());
   return {
     ...profileHandlers(deps),
+    // spec 39: backup, restore and CSV export
+    ...backupHandlers({
+      dataDir,
+      dialogs: deps.dialogs ?? electronDialogs,
+      isSyncing: () => sync.isRunning(),
+      getDb,
+      openCurrentDb: deps.openCurrentDb,
+      now,
+    }),
     "app:info": () => ({ version, dataDir, dev }),
     "accounts:list": () => listAccounts(getDb()),
     "accounts:setCardMode": ({ accountId, mode }) => {

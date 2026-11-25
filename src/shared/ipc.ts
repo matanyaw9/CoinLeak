@@ -18,6 +18,7 @@ import type {
   CategoryPatch,
   DateRange,
   ExclusionState,
+  FileSaved,
   GroupFlow,
   PeriodCurve,
   PeriodFlow,
@@ -196,6 +197,17 @@ export interface IpcContract {
   "transactions:markPaidBack": { args: { rowId: number; purchaseId: number }; result: PaidBackResult };
   /** Removes the link and the category: the row is back in Needs review. */
   "transactions:clearPaidBack": { args: { rowId: number }; result: { updated: number } };
+  // ---- spec 39: backup, restore and CSV export (F56). The window never sends a path. ----
+  /** Asks where to save, then writes the open profile to one backup file. Null when the user cancels. */
+  "backup:create": { args: undefined; result: FileSaved | null };
+  /**
+   * Asks for a backup file, checks it, and opens it as a new profile (never over
+   * the open one). The window reloads itself after. Null when the user cancels.
+   * Refused while a sync runs.
+   */
+  "backup:restore": { args: undefined; result: Profile | null };
+  /** Asks where to save, then writes the profile's transactions as a CSV file. Null when the user cancels. */
+  "backup:exportCsv": { args: undefined; result: FileSaved | null };
 }
 
 export interface IpcEvents {
@@ -271,6 +283,10 @@ export const CHANNELS = [
   "transactions:paidBackCandidates",
   "transactions:markPaidBack",
   "transactions:clearPaidBack",
+  // spec 39
+  "backup:create",
+  "backup:restore",
+  "backup:exportCsv",
 ] as const satisfies readonly Channel[];
 
 // Main and preload register only CHANNELS, so a channel missing here would

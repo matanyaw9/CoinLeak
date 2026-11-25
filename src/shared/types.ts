@@ -809,3 +809,12 @@ export interface PaidBackLink {
 export type PaidBackProblem = "not_money_in" | "not_a_purchase" | "purchase_uncategorized";
 
 export type PaidBackResult = { ok: true } | { ok: false; problem: PaidBackProblem };
+
+// ---- spec 39: backup, restore and CSV export (F56) ----
+
+/** A file main saved where the user chose: its name only, never the folder. */
+export interface FileSaved {
+  fileName: string;
+  /** Transactions in the file (Trash not counted). */
+  transactions: number;
+}
