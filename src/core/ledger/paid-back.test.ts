@@ -7,6 +7,8 @@ import { ingest } from "./ingest";
 import { clearPaidBack, markPaidBack, paidBackCandidates } from "./paid-back";
 import { spendingByCategory, totals } from "./period";
 import { emptyTrash, listTransactions, trashTransactions, updateTransactions } from "./queries";
+import { saveRule } from "../rules/queries";
+import { ruleInput } from "../testing/rules";
 
 // The pay-back arrives 2026-03-12. Its window runs 2026-01-11 to 2026-03-19.
 function ledger(): Db {
@@ -163,6 +165,35 @@ describe("not paid back", () => {
     // A row with no link is left alone.
     expect(clearPaidBack(db, { rowId })).toEqual({ updated: 0 });
     expect(() => clearPaidBack(db, { rowId: -1 })).toThrow("BAD_REQUEST");
+  });
+
+  // Review 2026-11-25: the link explains the category it copied, so a new category ends it.
+  it("happens when the user gives the row another category, so Not paid back cannot wipe it", () => {
+    const db = ledger();
+    const rowId = idOf(db, "Bit from Dana");
+    markPaidBack(db, { rowId, purchaseId: idOf(db, "Pizza Hut") });
+    updateTransactions(db, [rowId], { categoryId: categoryId(db, "Groceries") });
+    expect(stored(db, rowId)).toMatchObject({ paid_back_for: null, category_id: categoryId(db, "Groceries") });
+    expect(clearPaidBack(db, { rowId })).toEqual({ updated: 0 });
+    expect(stored(db, rowId)).toMatchObject({ category_id: categoryId(db, "Groceries"), category_source: "user" });
+  });
+
+  it("does not happen when the row is given the category it already has", () => {
+    const db = ledger();
+    const rowId = idOf(db, "Bit from Dana");
+    const purchaseId = idOf(db, "Pizza Hut");
+    markPaidBack(db, { rowId, purchaseId });
+    updateTransactions(db, [rowId, idOf(db, "coffee")], { categoryId: categoryId(db, "Restaurants") });
+    expect(stored(db, rowId)).toMatchObject({ paid_back_for: purchaseId });
+  });
+
+  it("happens when a rule the user saves takes the row over", () => {
+    const db = ledger();
+    const rowId = idOf(db, "Bit from Dana");
+    markPaidBack(db, { rowId, purchaseId: idOf(db, "Pizza Hut") });
+    const groceries = categoryId(db, "Groceries");
+    saveRule(db, { id: null, rule: ruleInput({ matchText: "Bit from", setCategoryId: groceries }), alsoChange: [rowId] }, NOW);
+    expect(stored(db, rowId)).toMatchObject({ paid_back_for: null, category_id: groceries, category_source: "rule" });
   });
 
   it("happens on its own when the purchase is deleted for good, and the category stays", () => {

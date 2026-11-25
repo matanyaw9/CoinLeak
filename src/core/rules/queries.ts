@@ -153,7 +153,10 @@ function handOver(db: Db, rule: RuleInput, ids: number[]): void {
     memo: string | null;
     category_id: number | null;
   }[];
-  const release = db.prepare("UPDATE transactions SET category_id = NULL, category_source = 'rule' WHERE id = ?");
+  // The rule changes the category, so a pay-back link (spec 33) ends too.
+  const release = db.prepare(
+    "UPDATE transactions SET category_id = NULL, category_source = 'rule', paid_back_for = NULL WHERE id = ?",
+  );
   for (const r of rows) {
     if (r.category_id === rule.setCategoryId) continue;
     const facts = prepareRow({ accountId: r.account_id, amount: r.amount, description: r.description, memo: r.memo });
