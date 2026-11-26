@@ -13,7 +13,6 @@ import { RuleEditorProvider } from "@/components/rules/rule-editor-provider";
 import { HomePage } from "@/pages/home-page";
 import { TransactionsPage } from "@/pages/transactions-page";
 import { CategoriesPage } from "@/pages/categories-page";
-import { BudgetsPage } from "@/pages/budgets-page";
 import { RulesPage } from "@/pages/rules-page";
 import { AccountsPage } from "@/pages/accounts-page";
 import { SettingsPage } from "@/pages/settings-page";
@@ -35,7 +34,6 @@ const router = createHashRouter([
       { path: "/", element: <HomePage /> },
       { path: "/transactions", element: <TransactionsPage /> },
       { path: "/categories", element: <CategoriesPage /> },
-      { path: "/budgets", element: <BudgetsPage /> },
       { path: "/rules", element: <RulesPage /> },
       { path: "/accounts", element: <AccountsPage /> },
       { path: "/trash", element: <TrashPage /> },

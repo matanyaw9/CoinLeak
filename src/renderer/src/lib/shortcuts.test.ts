@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { s } from "../strings";
 import { PAGE_KEYS, SHORTCUTS, dialogEnter, isMenuKey, keyFor, keyLabel, letterOf, shortcutFor, type KeyContext, type KeyPress } from "./shortcuts";
 
 const press = (key: string, extra: Partial<KeyPress> = {}): KeyPress => ({
@@ -18,7 +19,6 @@ describe("keys on the window", () => {
       ["h", "/"],
       ["t", "/transactions"],
       ["c", "/categories"],
-      ["u", "/budgets"],
       ["r", "/rules"],
       ["a", "/accounts"],
       ["x", "/trash"],
@@ -92,6 +92,27 @@ describe("keys on the window", () => {
   });
 });
 
+// Spec 40: budgets live on Categories, which keeps C; their page and its U key are gone.
+describe("budget keys", () => {
+  it("no U and no /budgets", () => {
+    expect(shortcutFor(press("u"), pc)).toBeNull();
+    expect(PAGE_KEYS.map((k) => k.to)).not.toContain("/budgets");
+  });
+
+  it("lists the budgets group, every line named", () => {
+    const group = SHORTCUTS.filter((k) => k.group === "budgets");
+    expect(group.map((k) => [k.id, keyLabel(k, false)])).toEqual([
+      ["budgetMove", "↑ ↓"],
+      ["budgetSave", "Enter"],
+      ["budgetRevert", "Esc"],
+      ["budgetRaise", "Enter"],
+      ["budgetCancel", "Esc"],
+    ]);
+    expect(s.keys.groups["budgets"]).toBeTruthy();
+    for (const k of group) expect(s.keys.does[k.id]).toBeTruthy();
+  });
+});
+
 // Spec 36: Delete and I on the selected or focused rows, and the keys lists handle themselves.
 describe("keys on rows", () => {
   it("Delete moves rows to Trash; Backspace does too, on a Mac only", () => {
@@ -135,7 +156,7 @@ describe("keys on rows", () => {
 
   it("lists every row key, with the same Delete for Trash", () => {
     const listed = SHORTCUTS.filter((k) => k.listed).map((k) => k.id);
-    expect(listed).toEqual(["listMove", "listJump", "listTab", "rowToggle", "rowExtend", "rowMenu", "deleteForGood", "chartMonth", "chooserTick", "chooserApply"]);
+    expect(listed).toEqual(["listMove", "listJump", "listTab", "rowToggle", "rowExtend", "rowMenu", "deleteForGood", "chartMonth", "chooserTick", "chooserApply", "budgetMove", "budgetSave", "budgetRevert", "budgetRaise", "budgetCancel"]);
     expect(keyFor("deleteRows", false)).toBe("Delete");
     expect(keyFor("deleteForGood", true)).toBe("Delete");
     expect(keyFor("ignoreRows", false)).toBe("I");

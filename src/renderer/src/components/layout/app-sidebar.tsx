@@ -8,7 +8,6 @@ import {
   House,
   Keyboard,
   Landmark,
-  PiggyBank,
   Settings,
   Shapes,
   Trash2,
@@ -32,7 +31,6 @@ const MAIN: NavItem[] = [
   { to: "/", label: s.nav.home, icon: House },
   { to: "/transactions", label: s.nav.transactions, icon: ArrowLeftRight },
   { to: "/categories", label: s.nav.categories, icon: Shapes },
-  { to: "/budgets", label: s.plan.nav, icon: PiggyBank },
   { to: "/rules", label: s.rules.nav, icon: WandSparkles },
   { to: "/accounts", label: s.nav.accounts, icon: Landmark },
 ];
