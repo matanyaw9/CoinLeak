@@ -91,7 +91,7 @@ export function InsideNote({ line }: { line: BudgetPlanLine }) {
   return <div className={cn("text-xs", left !== null && left < 0 ? "text-status-over" : "text-muted-foreground")}>{text}</div>;
 }
 
-/** The inline offer. It takes focus: Enter raises, Esc cancels, and its two buttons do the same. */
+/** The inline offer. It takes focus: Enter raises, Esc cancels, and its two buttons do the same. Up and Down stay put. */
 function RaiseOffer({
   problem,
   child,
@@ -120,6 +120,10 @@ function RaiseOffer({
     } else if (e.key === "Enter" && e.target === e.currentTarget && !busy) {
       e.preventDefault();
       onRaise();
+    } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      // Else the list moves to another line and leaves this offer open behind it.
+      e.preventDefault();
+      e.stopPropagation();
     }
   };
   return (
