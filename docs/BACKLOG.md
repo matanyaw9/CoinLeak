@@ -13,7 +13,7 @@ Nothing open.
   Categories so that a budget no longer fits is allowed, with a warning
   (owner, 2026-11-25); built in spec 40 A (move warning).
 - A category's own rows open Transactions for the whole category: there
-  is no "only this level" filter.
+  is no "only this level" filter. The chooser needs it too, for an "Other in <parent>" line (spec 42 B).
 - Tab out of the Transactions and Trash lists relies on Chromium carrying
   Tab on from an invisible stop (`lib/roving.ts` guards); owner to confirm
   (OWNER-TESTS 10.8). The Menu key is caught on keydown; on Windows the

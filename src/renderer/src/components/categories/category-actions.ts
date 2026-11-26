@@ -4,12 +4,12 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { BudgetPlan, CategoryChange, CategoryDeleteResult, CategoryInput, CategoryKind, CategoryPatch } from "@shared/types";
+import type { BudgetPlan, Category, CategoryChange, CategoryDeleteResult, CategoryInput, CategoryKind, CategoryPatch } from "@shared/types";
 import { s } from "@/strings";
 import { showFailure } from "@/lib/failure";
 import { call } from "@/lib/api";
 import { usePeriod } from "@/lib/month-context";
-import { refreshCategories } from "@/lib/query-keys";
+import { queryKey, refreshCategories } from "@/lib/query-keys";
 import { money } from "@/components/budgets/offer-words";
 import { newlyOver } from "./newly-over";
 
@@ -27,11 +27,11 @@ export const problemText = (problem: string): string =>
 const showError = (e: unknown) => showFailure(e, s.errors.failed.categories);
 
 /** Warns when the plan now has a budget over that fitted `before` the move. */
-async function warnIfNewlyOver(before: BudgetPlan): Promise<void> {
+async function warnIfNewlyOver(before: BudgetPlan, categories: Category[]): Promise<void> {
   const over = newlyOver(before, await call("budgets:plan", { month: before.month }));
   if (!over) return;
   if (over.categoryId === null) return void toast.warning(s.catBudgets.totalOver(money(over.over)));
-  const name = (await call("categories:list", undefined)).find((c) => c.id === over.categoryId)?.name ?? "";
+  const name = categories.find((c) => c.id === over.categoryId)?.name ?? "";
   toast.warning(s.catBudgets.nowOver(name, money(over.over)));
 }
 
@@ -49,7 +49,9 @@ export function useCategoryActions() {
       // The move saves whether or not the budgets can be read.
       const before = await call("budgets:plan", { month }).catch(() => null);
       const result = await call("categories:update", args);
-      if (before && result.ok) await warnIfNewlyOver(before).catch(() => undefined);
+      // The list on screen has the names: a move changes none of the ones above it.
+      const categories = client.getQueryData<Category[]>(queryKey("categories:list")) ?? [];
+      if (before && result.ok) await warnIfNewlyOver(before, categories).catch(() => undefined);
       return result;
     },
     ...settle,

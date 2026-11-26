@@ -1325,6 +1325,11 @@ export const s = {
     license: "CoinLeak is free and open source (MIT).",
     failed: "Failed to open the page.",
   },
+
+  // spec 42 B
+  chooserOwnRows: {
+    notCounted: (name: string) => `${name}'s own rows are not counted`,
+  },
 };
 
 export type Strings = typeof s;

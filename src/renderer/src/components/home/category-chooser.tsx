@@ -14,7 +14,7 @@ import { useRoving } from "@/lib/roving";
 import { TreeGuides } from "@/components/categories/tree-guides";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { chooserItems, chooserLabel, nameOf, smallest, tickDraft, tickState, type ChooserItem } from "./chooser";
+import { chooserItems, chooserLabel, nameOf, partlyTicked, smallest, tickDraft, tickState, type ChooserItem } from "./chooser";
 import type { TrendTicks } from "./trend-filter";
 
 /** Screenshot runs: open by itself with a search typed and some lines ticked. */
@@ -263,6 +263,7 @@ function Chips({
 
   if (ticks.length === 0) return <p className="py-1 text-xs text-muted-foreground">{s.chooserChips.nothing(none)}</p>;
 
+  const partly = partlyTicked(ticks, index);
   const clear = () => {
     onChange([]);
     onEmpty();
@@ -315,6 +316,14 @@ function Chips({
       <Button variant="ghost" size="xs" className="mt-1" onClick={clear}>
         {s.chooserChips.clear}
       </Button>
+      {partly.length > 0 && (
+        // Capped like the chips, so many notes never push Apply off the screen.
+        <div className="mt-1.5 max-h-20 w-full overflow-y-auto text-xs text-muted-foreground">
+          {partly.map((id) => (
+            <p key={id}>{s.chooserOwnRows.notCounted(nameOf(index, id))}</p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
