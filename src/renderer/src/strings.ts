@@ -1275,6 +1275,8 @@ export const s = {
   // spec 40 A
   catBudgets: {
     intro: "Budgets stay the same every month.",
+    nowOver: (name: string, amount: string) => `${name}'s budgets are now ${amount} over`,
+    totalOver: (amount: string) => `Your category budgets are now ${amount} over the total`,
   },
 };
 
