@@ -22,12 +22,13 @@ export function parseShekels(text: string): Agorot | null {
   return Number.isSafeInteger(agorot) ? agorot : null;
 }
 
-/** Agorot as an amount to edit, without a sign: "45", "12.50", "0.07". */
+/** Agorot as an amount to edit, without a sign: "45", "12.50", "16,000" (F89). parseShekels reads the commas back. */
 export function shekelText(amount: Agorot): string {
   const abs = Math.abs(amount);
   const whole = Math.floor(abs / 100);
   const rest = abs % 100;
-  return rest === 0 ? String(whole) : `${whole}.${String(rest).padStart(2, "0")}`;
+  const grouped = String(whole).replace(/\B(?=(\d{3})+$)/g, ",");
+  return rest === 0 ? grouped : `${grouped}.${String(rest).padStart(2, "0")}`;
 }
 
 export function formatIls(amount: Agorot, opts: { sign?: boolean; decimals?: boolean } = {}): string {

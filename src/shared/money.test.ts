@@ -49,6 +49,15 @@ describe("shekelText", () => {
     ]);
   });
 
+  it("puts a comma every three digits (F89)", () => {
+    expect([shekelText(1_600_000), shekelText(100_000), shekelText(99_900), shekelText(123_456_789)]).toEqual([
+      "16,000",
+      "1,000",
+      "999",
+      "1,234,567.89",
+    ]);
+  });
+
   it("reads back what it wrote", () => {
     for (const agorot of [0, 7, 99, 100, 1250, 64050, 123456789]) expect(parseShekels(shekelText(agorot))).toBe(agorot);
   });

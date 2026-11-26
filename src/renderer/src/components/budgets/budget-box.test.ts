@@ -17,8 +17,8 @@ describe("readBudget", () => {
 });
 
 describe("budgetText", () => {
-  it("shows a saved amount as typed, and none as an empty box", () => {
-    expect(budgetText(120000)).toBe("1200");
+  it("shows a saved amount with thousands separators (F89), and none as an empty box", () => {
+    expect(budgetText(120000)).toBe("1,200");
     expect(budgetText(1250)).toBe("12.50");
     expect(budgetText(null)).toBe("");
   });
