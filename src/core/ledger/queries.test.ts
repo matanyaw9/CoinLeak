@@ -479,7 +479,7 @@ describe("listCategories", () => {
   it("returns the seeded tree, each parent followed by its children", () => {
     const db = newDb();
     const cats = listCategories(db);
-    expect(cats).toHaveLength(46); // 31 from 0002, 3 transfer from 0006, 5 from 0009, 7 from 0015
+    expect(cats).toHaveLength(44); // 31 from 0002, 3 transfer from 0006, 5 from 0009, 7 from 0015, less Bus and Train in 0017
     const byId = new Map(cats.map((c) => [c.id, c]));
     for (const c of cats) {
       expect(c.emoji, c.name).toBeTruthy();
@@ -492,9 +492,8 @@ describe("listCategories", () => {
       expect(parent?.kind, c.name).toBe(c.kind);
     }
     expect(cats.slice(0, 4).map((c) => c.name)).toEqual(["Food", "Groceries", "Restaurants", "Coffee & Cafes"]);
-    // Transport holds the level 3 defaults (spec 34), right after it.
-    const at = (name: string) => cats.findIndex((c) => c.name === name);
-    expect([at("Bus"), at("Train")]).toEqual([at("Transport") + 1, at("Transport") + 2]);
+    // A new profile starts with two levels (F94).
+    expect(cats.filter((c) => c.parentId !== null && byId.get(c.parentId)?.parentId != null)).toEqual([]);
     expect(cats.filter((c) => c.parentId === null && c.kind === "expense")).toHaveLength(6);
     expect(cats.slice(-4).map((c) => [c.name, c.kind])).toEqual([
       ["Salary", "income"],

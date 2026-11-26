@@ -17,6 +17,7 @@ import m0013 from "./migrations/0013_routine_treat_categories.sql?raw";
 import m0014 from "./migrations/0014_paid_back.sql?raw";
 import m0015 from "./migrations/0015_nested_categories.sql?raw";
 import m0016 from "./migrations/0016_rule_exceptions.sql?raw";
+import m0017 from "./migrations/0017_two_level_defaults.sql?raw";
 
 export interface Migration {
   version: number;
@@ -40,4 +41,5 @@ export const MIGRATIONS: Migration[] = [
   { version: 14, sql: m0014 },
   { version: 15, sql: m0015 },
   { version: 16, sql: m0016 },
+  { version: 17, sql: m0017 },
 ];

@@ -60,6 +60,16 @@ export function seedDemo(db: Db, today: Date): void {
   const drafts = makeDrafts(todayIso);
 
   createCategory(db, { name: "Rent", kind: "expense", parentId: categoryId(db, "Home & Bills"), emoji: "🔑", color: "#9CBF7C" });
+  // spec 34: level 3 examples. New profiles no longer get these (F94), so the Demo makes its own.
+  for (const [parent, name, emoji, color] of [
+    ["Groceries", "Weekly shop", "🥦", "#74AC76"],
+    ["Groceries", "Top-up", "🥛", "#96C696"],
+    ["Groceries", "Specialty food", "🧀", "#A9BE78"],
+    ["Transport", "Bus", "🚍", "#5BA4CC"],
+    ["Transport", "Train", "🚆", "#74BEDA"],
+  ] as const) {
+    createCategory(db, { name, kind: "expense", parentId: categoryId(db, parent), emoji, color });
+  }
 
   // A pending bank line the next download no longer has turns "gone".
   const firstDay = `${todayIso.slice(0, 7)}-01`;

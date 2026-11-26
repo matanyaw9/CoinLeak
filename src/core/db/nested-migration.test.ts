@@ -9,12 +9,12 @@ import { MIGRATIONS } from "./migrations";
 
 const all = (db: DatabaseSync, sql: string): unknown[] => db.prepare(sql).all();
 
-/** A database as it stood before 0015. */
-function databaseBefore15(): DatabaseSync {
+/** A database as it stood before migration `version`. */
+function databaseBefore(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
-  for (const m of MIGRATIONS.filter((x) => x.version < 15)) {
+  for (const m of MIGRATIONS.filter((x) => x.version < version)) {
     db.exec(m.sql);
     db.prepare("INSERT INTO schema_migrations (version, applied_at) VALUES (?, '')").run(m.version);
   }
@@ -40,7 +40,7 @@ const move = (db: DatabaseSync, id: number, parentId: number | null): void => {
 
 describe("migration 0015 (nested categories)", () => {
   it("leaves existing two-level data, rows and rules as they were", () => {
-    const db = databaseBefore15();
+    const db = databaseBefore(15);
     db.exec(`INSERT INTO accounts (provider, kind, account_number, created_at) VALUES ('discount', 'bank', '1', '')`);
     const groceries = idOf(db, "Groceries");
     db.prepare(
@@ -137,7 +137,8 @@ describe("migration 0015 (nested categories)", () => {
   });
 
   it("adds the new defaults on a fresh database, in order, each with its own emoji and color", () => {
-    const db = openDatabase(":memory:");
+    // Up to 0015 only: 0017 takes level 3 off a new profile again (F94).
+    const db = databaseBefore(16);
     const children = (name: string, parent: string) =>
       db
         .prepare("SELECT name, emoji, color, essential FROM categories WHERE parent_id = ? ORDER BY sort_order")
@@ -169,7 +170,7 @@ describe("migration 0015 (nested categories)", () => {
   });
 
   it("adds defaults only where the parent still looks default, skips names already there, and moves no row", () => {
-    const db = databaseBefore15();
+    const db = databaseBefore(15);
     // Groceries renamed, Tolls of the user's own (any case) under Transportation.
     db.prepare("UPDATE categories SET name = 'Supermarket' WHERE id = ?").run(idOf(db, "Groceries", "Groceries & Shop"));
     insert(db, idOf(db, "Transportation"), "TOLLS");
@@ -196,7 +197,7 @@ describe("migration 0015 (nested categories)", () => {
   });
 
   it("gives a renamed or moved parent none of the defaults", () => {
-    const db = databaseBefore15();
+    const db = databaseBefore(15);
     db.prepare("UPDATE categories SET name = 'Getting around' WHERE id = ?").run(idOf(db, "Transportation"));
     // Groceries back under another group: not where the default sits.
     db.prepare("UPDATE categories SET parent_id = ? WHERE id = ?").run(idOf(db, "Eating out & Treats"), idOf(db, "Groceries"));
@@ -210,5 +211,46 @@ describe("migration 0015 (nested categories)", () => {
     const once = all(db, "SELECT * FROM categories ORDER BY id");
     migrate(db);
     expect(all(db, "SELECT * FROM categories ORDER BY id")).toEqual(once);
+  });
+});
+
+describe("migration 0017 (two levels for new profiles, F94)", () => {
+  const levelThree = (db: DatabaseSync) =>
+    (
+      db
+        .prepare(
+          `SELECT c.name FROM categories c JOIN categories p ON p.id = c.parent_id
+           WHERE p.parent_id IS NOT NULL ORDER BY c.name`,
+        )
+        .all() as { name: string }[]
+    ).map((r) => r.name);
+
+  it("a new profile has no level 3 categories", () => {
+    expect(levelThree(openDatabase(":memory:"))).toEqual([]);
+  });
+
+  it("a profile with rows keeps them all", () => {
+    const db = databaseBefore(17);
+    db.exec(`INSERT INTO accounts (provider, kind, account_number, created_at) VALUES ('discount', 'bank', '1', '')`);
+    db.exec(
+      `INSERT INTO transactions (account_id, date, amount, description, status, dedup_hash, dedup_seq, created_at, updated_at)
+       VALUES (1, '2026-03-01', -100, 'row', 'completed', 'h', 0, 'c', 'u')`,
+    );
+    migrate(db);
+    expect(levelThree(db)).toEqual(["Bus", "Specialty food", "Top-up", "Train", "Weekly shop"]);
+  });
+
+  it("an empty profile keeps them when it has a rule, and keeps one with a budget", () => {
+    const withRule = databaseBefore(17);
+    withRule
+      .prepare("INSERT INTO rules (name, set_category_id, position, created_at, updated_at) VALUES ('Bus', ?, 1, '', '')")
+      .run(idOf(withRule, "Bus"));
+    migrate(withRule);
+    expect(levelThree(withRule)).toHaveLength(5);
+
+    const withBudget = databaseBefore(17);
+    withBudget.prepare("UPDATE categories SET monthly_budget = 10000 WHERE id = ?").run(idOf(withBudget, "Train"));
+    migrate(withBudget);
+    expect(levelThree(withBudget)).toEqual(["Train"]);
   });
 });
