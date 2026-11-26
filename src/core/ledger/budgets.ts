@@ -267,16 +267,20 @@ export function budgetPlan(db: Db, args: { month: IsoMonth; today: IsoDate }): B
     left: tree.total === null ? null : tree.total - split,
     averageIncome: past?.income ?? null,
     averageSpending: past?.spending ?? null,
-    lines: tree.nodes.map((n) => ({
-      categoryId: n.id,
-      depth: n.depth,
-      budget: n.budget,
-      weekly: n.budget === null ? null : weeklyBudget(n.budget),
-      usual: past ? (past.usual.get(n.id) ?? 0) : null,
-      spent: spent.get(n.id) ?? 0,
-      inside: insideOf(tree, n.id),
-      room: roomOf(tree, n.id).room,
-    })),
+    lines: tree.nodes.map((n) => {
+      const inside = insideOf(tree, n.id);
+      return {
+        categoryId: n.id,
+        depth: n.depth,
+        budget: n.budget,
+        weekly: n.budget === null ? null : weeklyBudget(n.budget),
+        usual: past ? (past.usual.get(n.id) ?? 0) : null,
+        spent: spent.get(n.id) ?? 0,
+        inside,
+        leftInside: n.budget === null ? null : n.budget - inside,
+        room: roomOf(tree, n.id).room,
+      };
+    }),
   };
 }
 

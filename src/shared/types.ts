@@ -855,6 +855,8 @@ export interface BudgetPlanLine {
   spent: Agorot;
   /** The sum of the nearest budgeted categories under it; 0 with none. */
   inside: Agorot;
+  /** `budget - inside`: what is not yet split inside it, negative when the budgets inside are over. Null with no budget. */
+  leftInside: Agorot | null;
   /**
    * The most its budget may be: its nearest budgeted parent's budget minus
    * that parent's other budgeted children, or the total minus the other top

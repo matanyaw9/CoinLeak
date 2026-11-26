@@ -358,7 +358,8 @@ describe("budgetPlan", () => {
     // Lifestyle has no budget: Shopping would sit inside it.
     expect(planLine(db, "Lifestyle")).toMatchObject({ budget: null, inside: 100_000, room: 300_000 });
     // Food less its other budgeted children.
-    expect(planLine(db, "Groceries")).toMatchObject({ budget: 120_000, weekly: 30_000, inside: 50_000, room: 170_000 });
+    expect(planLine(db, "Groceries")).toMatchObject({ budget: 120_000, weekly: 30_000, inside: 50_000, leftInside: 70_000, room: 170_000 });
+    expect(planLine(db, "Transportation")).toMatchObject({ leftInside: null });
     expect(planLine(db, "Restaurants")).toMatchObject({ budget: 30_000, room: 80_000 });
     expect(planLine(db, "Coffee & Cafes")).toMatchObject({ budget: null, weekly: null, room: 50_000 });
     // Groceries less nothing else.
@@ -473,6 +474,7 @@ describe("the budget rules (spec 37)", () => {
     db.prepare("UPDATE categories SET monthly_budget = ? WHERE id = ?").run(80_000, categoryId(db, "Groceries"));
     db.prepare("UPDATE categories SET monthly_budget = ? WHERE id = ?").run(60_000, categoryId(db, "Restaurants"));
     expect(setBudget(db, categoryId(db, "Restaurants"), 50_000)).toEqual(ok);
+    expect(planLine(db, "Food")).toMatchObject({ inside: 130_000, leftInside: -30_000 });
     expect(setBudget(db, categoryId(db, "Restaurants"), 50_001)).toMatchObject({ ok: false, problem: { code: "over_parent" } });
   });
 

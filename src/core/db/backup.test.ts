@@ -272,7 +272,8 @@ describe("checkBackup refuses", () => {
     const dir = tempDir();
     const path = join(dir, "renamed.coinleak");
     writeBackup(fullDatabase(dir), path);
-    const raw = new DatabaseSync(path, { defensive: false });
+    // `defensive` is newer than our Node typings; writable_schema needs it off.
+    const raw = new DatabaseSync(path, { defensive: false } as ConstructorParameters<typeof DatabaseSync>[1]);
     raw.exec(
       "CREATE TRIGGER evil AFTER INSERT ON transactions BEGIN UPDATE transactions SET excluded = 1 WHERE id = NEW.id; END",
     );
