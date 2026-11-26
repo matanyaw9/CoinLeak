@@ -119,6 +119,8 @@ export function CategoriesPage() {
   const dragProps = (c: Category) => ({
     draggable: true,
     onDragStart: (e: DragEvent) => {
+      // Selected text dragged out of a budget box bubbles here: not a category move.
+      if (e.target !== e.currentTarget) return;
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", String(c.id));
       setDragging(c);
