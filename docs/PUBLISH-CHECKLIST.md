@@ -25,7 +25,7 @@ From `docs/FEATURES.md`, wave 10 ("the first public version"):
 
 - [ ] F56 Export a copy of my data (backup). Promised in
       `REQUIREMENTS.md` section 6, not built.
-- [ ] F57 Banks not tested live are labeled "experimental" in the app.
+- [x] F57 Banks not tested live are labeled "experimental" in the app.
       Only Discount and Cal are verified.
 - [ ] F28 step 1: Settings shows the version and a "Check for updates"
       button that opens the GitHub Releases page. No auto-updater.
