@@ -263,7 +263,6 @@ export const s = {
     privacyTitle: "Privacy",
     privacy:
       "CoinLeak has no account, no cloud and no tracking. It only goes online while you sync, and then only to your bank.",
-    about: "About",
     aboutBody:
       "Design and ideas from Spent by Shaya16. Transactions are downloaded with israeli-bank-scrapers.",
   },
@@ -1312,6 +1311,19 @@ export const s = {
         : `${names.length} rules decide whether ${n} of these rows count`,
     moreOverridden: (n: number) => `And ${plural(n, "more rule", "more rules")}`,
     setByYouHint: "You ignored it or counted it again by hand, so this rule leaves it as it is.",
+  },
+
+  // spec 42 A
+  about: {
+    title: "About CoinLeak",
+    version: (version: string) => `Version ${version}`,
+    updates: "Check for updates",
+    updatesHint: "Download the newest installer and run it. Your data stays.",
+    feedback: "Report a bug or an idea",
+    feedbackHint: "Opens a new issue on GitHub in your browser. Nothing from the app is sent.",
+    star: "Star CoinLeak on GitHub",
+    license: "CoinLeak is free and open source (MIT).",
+    failed: "Failed to open the page.",
   },
 };
 
