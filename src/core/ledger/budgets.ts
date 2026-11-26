@@ -145,12 +145,18 @@ function raisesFor(tree: Tree, id: number, value: Agorot): BudgetRaise[] {
 
 type CategoryBudgetProblem = Exclude<BudgetProblem, { code: "under_split" }>;
 
-/** Why `id` cannot have `value` as things stand, or null when it can. */
+/**
+ * Why `id` cannot have `value` as things stand, or null when it can. A parent
+ * or total may already be over (old budgets, a moved category): a value that
+ * puts no more under it than `id` does now always saves.
+ */
 function budgetProblem(tree: Tree, id: number, value: Agorot): CategoryBudgetProblem | null {
   const inside = insideOf(tree, id);
   if (value < inside) return { code: "under_children", inside };
   const { parent, room } = roomOf(tree, id);
   if (room === null || value <= room) return null;
+  const now = tree.byId.get(id)?.budget ?? inside;
+  if (value <= now) return null;
   const raises = raisesFor(tree, id, value);
   return parent ? { code: "over_parent", parentId: parent.id, room, raises } : { code: "over_total", room, raises };
 }

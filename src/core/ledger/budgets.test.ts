@@ -466,6 +466,26 @@ describe("the budget rules (spec 37)", () => {
     });
   });
 
+  it("a parent already over (old budgets, or a moved category) still lets a child go down, not up", () => {
+    const db = planLedger();
+    setBudget(db, categoryId(db, "Food"), 100_000);
+    // Spec 27 allowed this: children 800 + 600 under Food 1,000.
+    db.prepare("UPDATE categories SET monthly_budget = ? WHERE id = ?").run(80_000, categoryId(db, "Groceries"));
+    db.prepare("UPDATE categories SET monthly_budget = ? WHERE id = ?").run(60_000, categoryId(db, "Restaurants"));
+    expect(setBudget(db, categoryId(db, "Restaurants"), 50_000)).toEqual(ok);
+    expect(setBudget(db, categoryId(db, "Restaurants"), 50_001)).toMatchObject({ ok: false, problem: { code: "over_parent" } });
+  });
+
+  it("a total already over still lets a top budget go down, not up", () => {
+    const db = planLedger();
+    expect(setBudgetTotal(db, 150_000)).toEqual(ok);
+    setBudget(db, categoryId(db, "Shopping"), 50_000);
+    // As if a budgeted category moved to the top: the split is 2,100 under a total of 1,500.
+    db.prepare("UPDATE categories SET monthly_budget = ? WHERE id = ?").run(160_000, categoryId(db, "Food"));
+    expect(setBudget(db, categoryId(db, "Shopping"), 40_000)).toEqual(ok);
+    expect(setBudget(db, categoryId(db, "Shopping"), 40_001)).toMatchObject({ ok: false, problem: { code: "over_total" } });
+  });
+
   it("over_total: top budgets more than the total", () => {
     const db = planLedger();
     budgeted(db);

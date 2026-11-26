@@ -9,8 +9,9 @@ Nothing open.
 
 ## From wave 14 (specs 34 and 36) and its merge
 
-- A budget can sit inside another budget's category (both count the same
-  rows). The Demo avoids it; decide whether the window should warn.
+- Nesting budgets is the design now (spec 37). Moving a category on
+  Categories so that a budget no longer fits is allowed, with a warning
+  (owner, 2026-11-25); building that warning is in spec 40.
 - A category's own rows open Transactions for the whole category: there
   is no "only this level" filter.
 - Tab out of the Transactions and Trash lists relies on Chromium carrying
