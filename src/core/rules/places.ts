@@ -1,14 +1,14 @@
 // Known places (spec 13, F29): a category's list rules seen as its list of
 // shops. A list rule is an enabled rule with one text condition on the
 // description (not a pattern) and one action, set a category. Adding a place
-// appends to the category's first list rule, or makes one.
+// appends to the category's first list rule, or makes one on top (spec 41).
 
 import type { KnownPlaceAdded, KnownPlaces, Rule, RuleInput } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { check, isId } from "../ledger/validate";
 import { runRules } from "./engine";
 import { normalizeText } from "./match";
-import { insertRule, loadRules, nextPosition, writeRule } from "./store";
+import { insertRule, insertRuleOnTop, loadRules, nextPosition, writeRule } from "./store";
 import { cleanValue, MAX_NAME, MAX_VALUES } from "./validate";
 
 /** A list rule with its one text condition, values and category at hand. */
@@ -47,12 +47,16 @@ export function knownPlaces(db: Db): KnownPlaces[] {
   return [...byCategory.values()].sort((a, b) => a.categoryId - b.categoryId);
 }
 
-/** Appends `names` to the category's first list rule, or makes one. Inside a transaction; no reapplying. */
+/**
+ * Appends `names` to the category's first list rule, or makes one, first or
+ * last in the order as `place` says. Inside a transaction; no reapplying.
+ */
 export function appendPlaces(
   db: Db,
   categoryId: number,
   names: string[],
   at: string,
+  place: "top" | "bottom",
 ): { ruleId: number; created: boolean; added: number } {
   const lists = loadListRules(db).filter((l) => l.categoryId === categoryId);
   const known = new Set(lists.flatMap((l) => l.values).map(normalizeText));
@@ -83,7 +87,8 @@ export function appendPlaces(
     setCategoryId: categoryId,
     setExcluded: null,
   };
-  return { ruleId: insertRule(db, rule, nextPosition(db), at), created: true, added: fresh.length };
+  const ruleId = place === "top" ? insertRuleOnTop(db, rule, at) : insertRule(db, rule, nextPosition(db), at);
+  return { ruleId, created: true, added: fresh.length };
 }
 
 /** "Add <business> to the known places of <category>", then reapplies all rules. */
@@ -93,7 +98,7 @@ export function addKnownPlace(db: Db, args: { categoryId: unknown; name: unknown
   check(isId(categoryId) && db.prepare("SELECT 1 FROM categories WHERE id = ?").get(categoryId) !== undefined);
   const name = cleanValue(args.name);
   return transaction(db, () => {
-    const { ruleId, created, added } = appendPlaces(db, categoryId, [name], now.toISOString());
+    const { ruleId, created, added } = appendPlaces(db, categoryId, [name], now.toISOString(), "top");
     const { changed } = runRules(db, "all", now);
     return { ruleId, created, added: added > 0, changed };
   });

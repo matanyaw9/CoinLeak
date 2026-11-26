@@ -69,7 +69,7 @@ export function addStarters(db: Db, args: { keys: unknown }, now = new Date()): 
     const at = now.toISOString();
     let rules = 0;
     for (const [categoryId, names] of byCategory) {
-      if (appendPlaces(db, categoryId, names, at).added > 0) rules++;
+      if (appendPlaces(db, categoryId, names, at, "bottom").added > 0) rules++;
     }
     const { changed } = runRules(db, "all", now);
     return { rules, changed };
