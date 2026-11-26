@@ -65,7 +65,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "categories", group: "anywhere", key: "c", to: "/categories" },
   { id: "budgets", group: "anywhere", key: "u", to: "/budgets" },
   { id: "rules", group: "anywhere", key: "r", to: "/rules" },
-  { id: "accounts", group: "anywhere", key: "b", to: "/accounts" },
+  { id: "accounts", group: "anywhere", key: "a", to: "/accounts" },
   { id: "trash", group: "anywhere", key: "x", to: "/trash" },
   { id: "settings", group: "anywhere", key: "s", to: "/settings" },
   { id: "help", group: "anywhere", key: "?" },

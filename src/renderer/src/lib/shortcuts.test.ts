@@ -20,7 +20,7 @@ describe("keys on the window", () => {
       ["c", "/categories"],
       ["u", "/budgets"],
       ["r", "/rules"],
-      ["b", "/accounts"],
+      ["a", "/accounts"],
       ["x", "/trash"],
       ["s", "/settings"],
     ]);
@@ -79,8 +79,8 @@ describe("keys on the window", () => {
     expect(shortcutFor(press("/"), pc)).toBeNull();
   });
 
-  it("uses no letter twice", () => {
-    const letters = SHORTCUTS.flatMap((k) => (k.key && /^[a-z]$/.test(k.key) ? [k.key] : []));
+  it("uses no letter twice (Ctrl+A and A are two keys)", () => {
+    const letters = SHORTCUTS.flatMap((k) => (k.key && /^[a-z]$/.test(k.key) ? [`${k.mod ? "mod+" : ""}${k.key}`] : []));
     expect(new Set(letters).size).toBe(letters.length);
     const ids = SHORTCUTS.map((k) => k.id);
     expect(new Set(ids).size).toBe(ids.length);
