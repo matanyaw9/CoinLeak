@@ -1,6 +1,8 @@
 // Categories: the tree (three levels, spec 34) with emoji, color and this
 // month's amount, and the editor (spec 15): add, rename, recolor, move by drag
 // or button, delete, and each category's known places from its list rule.
+// Spec 40: spending is also where budgets are planned (spec 37): the total
+// card, then each line's usual month and budget box.
 // Spec 21: Ctrl+F searches names and known places, highlighting what matched.
 // Look adapted from Spent (github.com/Shaya16/Spent), settings categories screen.
 
@@ -8,30 +10,30 @@ import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "re
 import { FolderPlus, Plus, Shapes } from "lucide-react";
 import type { Category, CategoryKind } from "@shared/types";
 import { s } from "@/strings";
-import { useBudgetStatus, useCategories } from "@/lib/hooks";
+import { useBudgetPlan, useCategories } from "@/lib/hooks";
 import { usePeriod } from "@/lib/month-context";
 import { monthRange } from "@/lib/month";
 import { usePeriodSummary } from "@/components/home/period-data";
 import { formatMonth } from "@/lib/format";
 import { useShot } from "@/lib/shot";
+import { useRoving } from "@/lib/roving";
 import { cn } from "@/lib/utils";
-import { colorOf, depthOf, indexCategories, MAX_LEVELS, parentChoices } from "@/lib/categories";
+import { depthOf, indexCategories, MAX_LEVELS, parentChoices } from "@/lib/categories";
 import { Page } from "@/components/layout/page";
 import { Skeleton } from "@/components/ui/misc";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/common/segmented";
 import { EmptyState, QueryError } from "@/components/common/empty-state";
-import { ColorDot } from "@/components/common/chips";
 import { Card } from "@/components/common/card";
 import { KINDS, kindLabel } from "@/components/categories/category-actions";
 import { CategoryEditor, type EditorRequest } from "@/components/categories/category-editor";
-import { CategoryLine, GroupActions } from "@/components/categories/category-line";
-import { BudgetLink } from "@/components/categories/budget-field";
+import { CategoryLine } from "@/components/categories/category-line";
+import { TotalCard } from "@/components/budgets/total-card";
 import { DeleteDialog } from "@/components/categories/delete-dialog";
 import { MoveDialog, useMoveCategory } from "@/components/categories/move-dialog";
 import { useKnownPlaces } from "@/components/categories/known-places";
 import { hitsElsewhere, searchCategories } from "@/components/categories/category-search";
-import { FindBox, Highlight, NoMatches } from "@/components/layout/find-box";
+import { FindBox, NoMatches } from "@/components/layout/find-box";
 
 type OpenRequest =
   | { name: "editor"; request: EditorRequest }
@@ -46,11 +48,9 @@ export function CategoriesPage() {
   const categories = useCategories();
   const summary = usePeriodSummary(monthRange(month));
   const places = useKnownPlaces();
-  const budgets = useBudgetStatus(month);
-  const budgetOf = (id: number) => budgets.data?.lines.find((l) => l.categoryId === id);
-  // spec 37: spending categories show their budget as text, opening the Budgets page at that line.
-  const budgetField = (c: Category) =>
-    c.kind === "expense" && budgets.data ? <BudgetLink category={c} budget={budgetOf(c.id)?.monthlyBudget ?? null} /> : undefined;
+  // Budgets are standing monthly amounts; only what was spent follows the month.
+  const plan = useBudgetPlan(month);
+  const lines = useMemo(() => new Map(plan.data?.lines.map((l) => [l.categoryId, l])), [plan.data]);
   const index = useMemo(() => indexCategories(categories.data), [categories.data]);
   const all = useMemo(() => (categories.data ?? []).filter((c) => !c.archived), [categories.data]);
   const [dialog, setDialog] = useState<Open | null>(null);
@@ -75,6 +75,11 @@ export function CategoriesPage() {
   const elsewhere = q && groups.length === 0 ? hitsElsewhere(index, kind, q, placeNames) : [];
   const loose = groups.filter((g) => (index.children.get(g.root.id) ?? []).length === 0);
   const trees = groups.filter((g) => (index.children.get(g.root.id) ?? []).length > 0);
+  const spending = kind === "expense";
+  const nameOf = (id: number) => index.byId.get(id)?.name ?? "";
+  // Every line shown, top to bottom: one list, one Tab stop (F83).
+  const rows = [...trees.flatMap((g) => [g.root, ...g.kids]), ...loose.map((g) => g.root)];
+  const { list, item, guard } = useRoving(rows.map((c) => c.id));
 
   // spec 34: where the dragged category may go, by the same rule as the editor's chooser.
   const dropIds = useMemo(
@@ -128,6 +133,7 @@ export function CategoriesPage() {
     // spec 34: levels 1 and 2 hold categories; level 3 holds none.
     const depth = depthOf(index, c);
     const holds = depth < MAX_LEVELS;
+    const planned = spending ? lines.get(c.id) : undefined;
     return (
       <CategoryLine
         key={c.id}
@@ -144,7 +150,8 @@ export function CategoriesPage() {
         onAdd={holds ? () => add(c.id, false) : undefined}
         dragProps={dragProps(c)}
         dropProps={holds ? dropProps(c) : undefined}
-        budget={budgetField(c)}
+        budget={planned && { line: planned, nameOf }}
+        roving={item(rows.indexOf(c))}
       />
     );
   };
@@ -154,6 +161,7 @@ export function CategoriesPage() {
       <div className="mx-auto max-w-4xl">
         <p className="text-[15px] text-muted-foreground">
           {s.nested.intro} <span className="text-foreground">{formatMonth(month)}</span>.
+          {spending && ` ${s.catBudgets.intro}`}
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Segmented
@@ -171,9 +179,23 @@ export function CategoriesPage() {
             {s.catEdit.add}
           </Button>
         </div>
-        <p className="mt-3 px-1 text-xs text-muted-foreground">{s.catEdit.dragHint}</p>
+        {spending && plan.isError && (
+          <Card className="mt-6">
+            <QueryError error={plan.error} />
+          </Card>
+        )}
+        {spending && plan.data && plan.data.lines.length > 0 && (
+          <div className="mt-6">
+            <TotalCard plan={plan.data} />
+          </div>
+        )}
+        <p className="mt-6 px-1 text-xs text-muted-foreground">
+          {s.catEdit.dragHint}
+          {spending && ` ${s.plan.keysHint}`}
+        </p>
 
-        <div className="mt-6 space-y-8">
+        {rows.length > 0 && <span {...guard("before")} />}
+        <div ref={list} className="mt-6 space-y-8">
           {categories.isError ? (
             <Card>
               <QueryError error={categories.error} />
@@ -204,17 +226,7 @@ export function CategoriesPage() {
                     over === root.id && "bg-primary/[0.07] outline-primary/60",
                   )}
                 >
-                  <div className="group/head mb-2.5 flex min-h-7 items-center gap-2 px-1">
-                    <ColorDot color={colorOf(root)} className="size-2" />
-                    <span dir="auto" className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-                      <Highlight text={root.name} query={q} />
-                    </span>
-                    <span className="text-[11px] text-muted-foreground/70">{root.emoji}</span>
-                    {over === root.id && <span className="text-xs text-primary">{s.catEdit.dropHere}</span>}
-                    <GroupActions group={root} onEdit={() => edit(root)} onAdd={() => add(root.id, false)} />
-                    {budgetField(root)}
-                  </div>
-                  <List>{kids.map(line)}</List>
+                  <List>{[root, ...kids].map(line)}</List>
                 </section>
               ))}
               {loose.length > 0 && <List>{loose.map((g) => line(g.root))}</List>}
@@ -232,6 +244,7 @@ export function CategoriesPage() {
             </>
           )}
         </div>
+        {rows.length > 0 && <span {...guard("after")} />}
       </div>
 
       {dialog?.name === "editor" && (

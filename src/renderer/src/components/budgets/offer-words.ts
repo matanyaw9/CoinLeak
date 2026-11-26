@@ -1,4 +1,4 @@
-// spec 37: the words on the Budgets page. Money shows whole shekels unless
+// spec 37 and 40: the words of budgets on Categories. Money shows whole shekels unless
 // it has agorot; the raise offer says who has how much left, what raising
 // would set, and what its button is called.
 

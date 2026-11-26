@@ -1038,7 +1038,13 @@ export const s = {
     intro: "Letters work when you are not typing in a box and no window is open.",
     link: "Keyboard shortcuts",
     close: "Close",
-    groups: { anywhere: "Anywhere", transactions: "Transactions", dialogs: "In a dialog" } as Record<string, string>,
+    groups: {
+      anywhere: "Anywhere",
+      transactions: "Transactions",
+      dialogs: "In a dialog",
+      // spec 40 A
+      budgets: "Budgets on Categories",
+    } as Record<string, string>,
     goTo: (page: string) => `Go to ${page}`,
     okLine: (key: string) => `OK, when it is not greyed out; ${key} for delete`,
     does: {
@@ -1050,6 +1056,12 @@ export const s = {
       toggleClick: "Add or remove one row",
       dialogSubmit: "OK, also from a text box or to delete",
       dialogCancel: "Cancel",
+      // spec 40 A
+      budgetMove: "Move between budget boxes",
+      budgetSave: "Save the budget",
+      budgetRevert: "Put the saved amount back",
+      budgetRaise: "Budget does not fit: raise",
+      budgetCancel: "Budget does not fit: cancel",
     } as Record<string, string>,
   },
   listHeader: {
@@ -1193,9 +1205,6 @@ export const s = {
 
   // spec 37
   plan: {
-    nav: "Budgets",
-    title: "Budgets",
-    intro: "Plan a month: set the total first, then split it across your categories. Budgets stay the same every month; spent is for",
     totalLabel: "Monthly total",
     totalField: "Total budget for a month",
     totalPlaceholder: "No total",
@@ -1209,10 +1218,7 @@ export const s = {
     overSplit: (percent: number, over: string) => `${percent}% set · ${over} more than the total`,
     splitOnly: (split: string) => `${split} split across categories`,
     noTotal: "Set a total to see how much is left to split.",
-    shareLabel: "How much of the total is split",
     usually: (amount: string) => `Usually ${amount}`,
-    noUsual: "No usual month yet",
-    spent: (amount: string) => `${amount} spent`,
     leftInside: (amount: string) => `${amount} left inside`,
     allSplit: "All split",
     budgetedInside: (amount: string) => `${amount} budgeted inside`,
@@ -1232,12 +1238,7 @@ export const s = {
     underSplit: (amount: string) => `Your category budgets add up to ${amount}. The total cannot be less.`,
     saveFailed: "Failed to save the budget.",
     keysHint: "Each box saves on Enter or when you leave it. ↑ ↓ move between boxes, Esc puts the saved amount back.",
-    emptyTitle: "No spending categories yet",
-    emptyBody: "Add spending categories on the Categories page, then plan their budgets here.",
-    // On Categories and Home
-    budgetText: (amount: string) => `Budget ${amount}`,
-    noBudget: "No budget",
-    openLine: (name: string) => `Plan ${name}'s budget on the Budgets page`,
+    // On Home
     cardLink: "Plan budgets",
   },
 
@@ -1277,6 +1278,13 @@ export const s = {
       restore: "Failed to restore the backup.",
       csv: "Failed to export the transactions.",
     },
+  },
+
+  // spec 40 A
+  catBudgets: {
+    intro: "Budgets stay the same every month.",
+    nowOver: (name: string, amount: string) => `${name}'s budgets are now ${amount} over`,
+    totalOver: (amount: string) => `Your category budgets are now ${amount} over the total`,
   },
 };
 

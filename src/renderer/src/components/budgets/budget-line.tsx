@@ -1,35 +1,33 @@
-// spec 37: one spending category on the Budgets page: emoji and name, its
-// usual month, what it spent in the chosen month, and its budget box with the
-// weekly figure. A budget too big for its parent or the total shows the raise
-// offer right under the line; one below the budgets inside says so.
+// spec 37 and 40: the budget part of a spending line on Categories: its usual
+// month and its budget box with the weekly figure, between what the line shows
+// before and after them. A budget too big for its parent or the total shows
+// the raise offer right under the line; one below the budgets inside says so.
 
-import { useEffect, useRef, type KeyboardEvent, type RefObject } from "react";
-import type { BudgetPlanLine, Category } from "@shared/types";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import type { BudgetPlanLine } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { useSetBudget } from "@/lib/hooks";
 import { useShot } from "@/lib/shot";
 import { Button } from "@/components/ui/button";
-import { CategoryBubble } from "@/components/common/chips";
 import { BudgetBox, budgetText, useBudgetEdit } from "./budget-box";
-import { money, offerWords, shekels, type OverProblem } from "./offer-words";
-
-const PAD = ["ps-4", "ps-4", "ps-12", "ps-20"];
-const BUBBLE = [36, 36, 32, 28];
+import { money, offerWords, type OverProblem } from "./offer-words";
 
 export function BudgetLine({
   line,
-  category,
+  name,
   nameOf,
-  focus,
+  children,
+  actions,
 }: {
   line: BudgetPlanLine;
-  category: Category | undefined;
+  name: string;
   nameOf: (id: number) => string;
-  /** Opened from Categories at this line: its box takes focus. */
-  focus: boolean;
+  /** The start of the line: the category itself. */
+  children: ReactNode;
+  /** The end of the line, after the budget box. */
+  actions: ReactNode;
 }) {
-  const name = category?.name ?? "";
   const box = useRef<HTMLInputElement>(null);
   const setBudget = useSetBudget();
   const edit = useBudgetEdit(line.budget, (monthlyBudget, raiseParents) =>
@@ -37,12 +35,6 @@ export function BudgetLine({
   );
   const problem = edit.refused?.problem;
   const over = problem?.code === "over_parent" || problem?.code === "over_total" ? problem : null;
-
-  useEffect(() => {
-    if (!focus) return;
-    box.current?.focus();
-    box.current?.scrollIntoView({ block: "center" });
-  }, [focus]);
   useRaiseShot(name, line, box, edit.onText, edit.submit);
 
   const backToBox = () => box.current?.focus();
@@ -53,28 +45,13 @@ export function BudgetLine({
   };
 
   return (
-    <div className={cn("transition-colors", focus && "bg-primary/[0.04]")}>
-      <div className={cn("flex items-center gap-4 py-3 pe-5", PAD[line.depth])}>
-        <CategoryBubble category={category} size={BUBBLE[line.depth]} />
-        <div className="min-w-0 flex-1">
-          <div dir="auto" className={cn("truncate text-[15px]", line.depth === 1 ? "font-semibold" : "font-medium")}>
-            {name}
-          </div>
-          <InsideNote line={line} />
-        </div>
-        <div className="w-32 shrink-0 text-end text-sm text-muted-foreground tabular-nums">
+    <>
+      <div className="flex items-center gap-2 py-2.5 pe-5">
+        {children}
+        <div className="w-28 shrink-0 text-end text-sm text-muted-foreground tabular-nums">
           {line.usual !== null && line.usual !== 0 && s.plan.usually(money(line.usual))}
         </div>
-        <div
-          className={cn(
-            "w-32 shrink-0 text-end text-sm tabular-nums",
-            line.spent === 0 && "text-muted-foreground",
-            line.budget !== null && line.spent > line.budget && "text-status-over",
-          )}
-        >
-          {s.plan.spent(shekels(line.spent))}
-        </div>
-        <div className="w-36 shrink-0">
+        <div className="w-32 shrink-0">
           <BudgetBox
             ref={box}
             text={edit.text}
@@ -84,11 +61,13 @@ export function BudgetLine({
             invalid={edit.invalid}
             label={s.budgets.fieldLabel(name)}
             placeholder={s.budgets.fieldPlaceholder}
+            className="[&_input]:scroll-mt-24 [&_input]:scroll-mb-4"
           />
           <p className={cn("mt-1 h-4 truncate text-end text-[11px]", edit.invalid ? "text-status-over" : "text-muted-foreground")}>
             {edit.invalid ? s.budgets.invalid : line.weekly !== null && s.budgets.perWeek(money(line.weekly))}
           </p>
         </div>
+        {actions}
       </div>
       {over && <RaiseOffer problem={over} child={name} nameOf={nameOf} busy={setBudget.isPending} onRaise={raise} onCancel={cancel} />}
       {problem?.code === "under_children" && (
@@ -96,20 +75,20 @@ export function BudgetLine({
           {s.plan.underChildren(money(problem.inside))}
         </p>
       )}
-    </div>
+    </>
   );
 }
 
-/** "₪600 left inside", "All split", or how much is budgeted inside a category with no budget. */
-function InsideNote({ line }: { line: BudgetPlanLine }) {
+/** "₪600 left inside", "All split", over, or how much is budgeted inside a category with no budget. */
+export function InsideNote({ line }: { line: BudgetPlanLine }) {
   if (line.inside === 0) return null;
+  const left = line.leftInside;
   let text: string;
-  if (line.budget === null) text = s.plan.budgetedInside(money(line.inside));
-  else if (line.budget > line.inside) text = s.plan.leftInside(money(line.budget - line.inside));
-  else if (line.budget === line.inside) text = s.plan.allSplit;
-  else text = s.plan.overInside(money(line.inside - line.budget));
-  const wrong = line.budget !== null && line.inside > line.budget;
-  return <div className={cn("text-xs", wrong ? "text-status-over" : "text-muted-foreground")}>{text}</div>;
+  if (left === null) text = s.plan.budgetedInside(money(line.inside));
+  else if (left > 0) text = s.plan.leftInside(money(left));
+  else if (left === 0) text = s.plan.allSplit;
+  else text = s.plan.overInside(money(-left));
+  return <div className={cn("text-xs", left !== null && left < 0 ? "text-status-over" : "text-muted-foreground")}>{text}</div>;
 }
 
 /** The inline offer. It takes focus: Enter raises, Esc cancels, and its two buttons do the same. */

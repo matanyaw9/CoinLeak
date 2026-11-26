@@ -1,4 +1,4 @@
-// spec 37: a monthly shekel box on the Budgets page, for the total and for
+// spec 37 and 40: a monthly shekel box on Categories, for the total and for
 // each category. Enter saves and keeps focus, leaving saves, Esc puts the
 // saved amount back, and Up and Down move to the box above or below.
 

@@ -9,7 +9,6 @@ export type ShortcutId =
   | "home"
   | "transactions"
   | "categories"
-  | "budgets"
   | "rules"
   | "accounts"
   | "trash"
@@ -34,10 +33,15 @@ export type ShortcutId =
   | "dialogCancel"
   | "chartMonth"
   | "chooserTick"
-  | "chooserApply";
+  | "chooserApply"
+  | "budgetMove"
+  | "budgetSave"
+  | "budgetRevert"
+  | "budgetRaise"
+  | "budgetCancel";
 
 /** Where a key works. `rows`: the rows of Transactions and of Trash. */
-export type ShortcutGroup = "anywhere" | "lists" | "rows" | "transactions" | "trash" | "dialogs" | "charts";
+export type ShortcutGroup = "anywhere" | "lists" | "rows" | "transactions" | "trash" | "dialogs" | "charts" | "budgets";
 
 export interface Shortcut {
   id: ShortcutId;
@@ -63,7 +67,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "home", group: "anywhere", key: "h", to: "/" },
   { id: "transactions", group: "anywhere", key: "t", to: "/transactions" },
   { id: "categories", group: "anywhere", key: "c", to: "/categories" },
-  { id: "budgets", group: "anywhere", key: "u", to: "/budgets" },
   { id: "rules", group: "anywhere", key: "r", to: "/rules" },
   { id: "accounts", group: "anywhere", key: "a", to: "/accounts" },
   { id: "trash", group: "anywhere", key: "x", to: "/trash" },
@@ -91,6 +94,12 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "chartMonth", group: "charts", listed: true, label: "← →" },
   { id: "chooserTick", group: "charts", listed: true, label: "Space" },
   { id: "chooserApply", group: "charts", listed: true, label: "Enter" },
+  // spec 40: the budget boxes and the raise offer on Categories handle these themselves.
+  { id: "budgetMove", group: "budgets", listed: true, label: "↑ ↓" },
+  { id: "budgetSave", group: "budgets", listed: true, label: "Enter" },
+  { id: "budgetRevert", group: "budgets", listed: true, label: "Esc" },
+  { id: "budgetRaise", group: "budgets", listed: true, label: "Enter" },
+  { id: "budgetCancel", group: "budgets", listed: true, label: "Esc" },
 ];
 
 export const PAGE_KEYS = SHORTCUTS.filter((k): k is Shortcut & { key: string; to: string } => k.to !== undefined && k.key !== undefined);

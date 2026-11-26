@@ -1,4 +1,4 @@
-// spec 37: the Budgets page's top card. The month's total box, beside it the
+// spec 37 and 40: the top card of the Spending side. The total box, beside it the
 // average income over the last full months (with "Use this") and the average
 // spending, and under it the bar of how much of the total is split.
 
@@ -21,6 +21,8 @@ export function TotalCard({ plan }: { plan: BudgetPlan }) {
   const edit = useBudgetEdit(plan.total, (total) => setTotal.mutateAsync({ total }));
   const problem = edit.refused?.problem;
   const income = plan.averageIncome;
+  // Spec 40: an average income of nothing is not worth putting in the box.
+  const useIncome = income && income.amount > 0 ? income.amount : null;
 
   const fillIncome = (amount: number) => {
     edit.onText(budgetText(amount));
@@ -50,9 +52,11 @@ export function TotalCard({ plan }: { plan: BudgetPlan }) {
             <>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 <span className="text-[15px]">{s.plan.averageIncome(span(income), money(income.amount))}</span>
-                <Button size="xs" variant="outline" onClick={() => fillIncome(income.amount)} aria-label={s.plan.useThisLabel(money(income.amount))}>
-                  {s.plan.useThis}
-                </Button>
+                {useIncome !== null && (
+                  <Button size="xs" variant="outline" onClick={() => fillIncome(useIncome)} aria-label={s.plan.useThisLabel(money(useIncome))}>
+                    {s.plan.useThis}
+                  </Button>
+                )}
               </div>
               {plan.averageSpending && (
                 <p className="mt-1.5 text-xs text-muted-foreground">{s.plan.averageSpending(money(plan.averageSpending.amount))}</p>

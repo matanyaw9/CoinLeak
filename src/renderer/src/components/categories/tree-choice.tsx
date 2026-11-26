@@ -1,4 +1,4 @@
-// One category out of a list shown as the tree (spec 34): indented by level,
+// One category out of a list shown as the tree (spec 34): guide lines by level (F88),
 // scrolling when long. Works as a radio group on lib/roving.ts: one Tab stop
 // (the chosen line), the arrow keys move and choose, Home and End jump.
 
@@ -7,8 +7,7 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRoving } from "@/lib/roving";
 import type { TreeEntry } from "@/lib/categories";
-
-const INDENT = ["", "ps-3", "ps-8", "ps-13"];
+import { TreeGuides } from "./tree-guides";
 
 export function TreeChoice({
   value,
@@ -70,14 +69,15 @@ export function TreeChoice({
             {...item(i)}
             onClick={() => onChange(o.id)}
             className={cn(
-              "flex w-full items-center gap-2 rounded-xl py-1.5 pe-3 text-start text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
-              INDENT[o.depth] ?? "ps-13",
+              // No vertical padding here, so the guide lines join from row to row.
+              "flex w-full items-center gap-2 rounded-xl px-3 text-start text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
               o.id === null && "text-muted-foreground",
               on && "bg-primary/10 text-foreground",
             )}
           >
+            <TreeGuides depth={o.depth} />
             <span className="w-5 shrink-0 text-center leading-none">{o.emoji}</span>
-            <span dir="auto" className={cn("min-w-0 flex-1 truncate", o.depth === 1 && o.id !== null && "font-medium")}>
+            <span dir="auto" className={cn("min-w-0 flex-1 truncate py-1.5", o.depth === 1 && o.id !== null && "font-medium")}>
               {o.name}
             </span>
             {on && <Check className="size-3.5 shrink-0 text-primary" />}
