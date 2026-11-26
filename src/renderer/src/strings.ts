@@ -1285,6 +1285,27 @@ export const s = {
     nowOver: (name: string, amount: string) => `${name}'s budgets are now ${amount} over`,
     totalOver: (amount: string) => `Your category budgets are now ${amount} over the total`,
   },
+
+  // spec 41 B
+  restoreChoice: {
+    title: "What to bring over",
+    parts: {
+      transactions: { label: "Transactions", hint: "With their accounts, notes and balances" },
+      rules: { label: "Rules", hint: "With their exceptions" },
+      budgets: { label: "Budgets", hint: "Each category's and the monthly total" },
+    },
+    categories: "Categories always come: your rows and rules use them.",
+    cancel: "Cancel",
+    next: "Continue",
+    done: (brought: { transactions: number | null; rules: number | null; budgets: boolean }) => {
+      const parts = [
+        brought.transactions === null ? null : plural(brought.transactions, "transaction", "transactions"),
+        brought.rules === null ? null : plural(brought.rules, "rule", "rules"),
+        brought.budgets ? "budgets" : null,
+      ];
+      return `Restored: ${parts.filter((p) => p !== null).join(", ")}`;
+    },
+  },
 };
 
 export type Strings = typeof s;

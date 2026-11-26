@@ -911,3 +911,27 @@ export interface FileSaved {
   /** Transactions in the file (Trash not counted). */
   transactions: number;
 }
+
+// ---- spec 41 B: restore, choose what to keep (F93) ----
+
+/** The parts of a backup the user brings over. Categories always come. */
+export interface RestoreKeep {
+  /** With their accounts, notes and balances. */
+  transactions: boolean;
+  /** With their exceptions. */
+  rules: boolean;
+  /** Each category's and the monthly total. */
+  budgets: boolean;
+}
+
+/** What came over: counts after trimming (Trash not counted), null for a part left out. */
+export interface RestoreCounts {
+  transactions: number | null;
+  rules: number | null;
+  budgets: boolean;
+}
+
+/** The new profile a restore made, and what it brought over. */
+export interface RestoredProfile extends Profile {
+  brought: RestoreCounts;
+}

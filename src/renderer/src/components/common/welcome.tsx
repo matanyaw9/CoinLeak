@@ -1,7 +1,7 @@
 // First run: a warm hello on Home and Transactions before any account is
 // synced. Says what CoinLeak does, the self-login promise, and opens the
 // Sync panel, or the Add picker when no bank or card has been added yet.
-// Moving from another computer, it restores a backup instead (spec 39).
+// Moving from another computer, it restores a backup instead (specs 39, 41).
 
 import { useState } from "react";
 import { ChartPie, Coins, LoaderCircle, Lock, Plus, RefreshCw, ShieldCheck, type LucideIcon } from "lucide-react";
@@ -9,7 +9,7 @@ import { s } from "@/strings";
 import { useSync } from "@/lib/sync";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/layout/logo";
-import { restoreBackup } from "@/components/settings/backup-section";
+import { RestoreDialog, restoreBackup } from "@/components/settings/backup-section";
 import { Card } from "./card";
 
 const ICONS: LucideIcon[] = [RefreshCw, Coins, ChartPie];
@@ -19,6 +19,7 @@ export function Welcome({ onAddCash }: { onAddCash?: () => void }) {
   const sync = useSync();
   const busy = sync.provider != null && sync.stage != null;
   const [restoring, setRestoring] = useState(false);
+  const [choosing, setChoosing] = useState(false);
 
   return (
     <Card className="mx-auto max-w-4xl px-12 pt-11 pb-10">
@@ -59,15 +60,22 @@ export function Welcome({ onAddCash }: { onAddCash?: () => void }) {
         <button
           type="button"
           disabled={restoring}
-          onClick={() => {
-            setRestoring(true);
-            void restoreBackup().finally(() => setRestoring(false));
-          }}
+          onClick={() => setChoosing(true)}
           className="rounded-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60"
         >
           {s.backup.welcomeLink}
         </button>
       </p>
+      {choosing && (
+        <RestoreDialog
+          onClose={() => setChoosing(false)}
+          onContinue={(keep) => {
+            setChoosing(false);
+            setRestoring(true);
+            void restoreBackup(keep).finally(() => setRestoring(false));
+          }}
+        />
+      )}
 
       <div className="mt-9 flex gap-4 rounded-3xl border border-primary/20 bg-primary/[0.06] p-5">
         <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" strokeWidth={1.75} />
