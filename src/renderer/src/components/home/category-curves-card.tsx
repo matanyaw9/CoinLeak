@@ -171,6 +171,8 @@ export function CategoryCurvesCard({
               onClick={() => openLine(sumLine)}
               onMouseEnter={() => setLit(sumLine.key)}
               onMouseLeave={() => setLit(null)}
+              onFocus={() => setLit(sumLine.key)}
+              onBlur={() => setLit(null)}
               className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-foreground transition-colors outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <span className="size-2.5 rounded-full" style={{ backgroundColor: sumLine.color }} />
