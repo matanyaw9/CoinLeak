@@ -9,8 +9,10 @@ Status: early development. See `REQUIREMENTS.md` for the plan.
 
 ## Install on Windows
 
-1. Get `CoinLeak-Setup-<version>.exe` from whoever built it (see
-   `docs/RELEASE.md`).
+1. Download `CoinLeak-Setup-<version>.exe` from the
+   [Releases page](https://github.com/matanyaw9/CoinLeak/releases).
+   Optional: check it in PowerShell with `Get-FileHash` against
+   `SHA256SUMS.txt` on the same page.
 2. Double click it. It installs for your Windows user only, with no admin
    prompt, and adds CoinLeak to the Start menu and the desktop.
 3. The installer is not code-signed, so Windows shows "Windows protected
@@ -20,6 +22,19 @@ Status: early development. See `REQUIREMENTS.md` for the plan.
 
 Your data lives in `%APPDATA%\CoinLeak\data`. Uninstalling from Windows
 Settings keeps it.
+
+**Updates:** Settings, About, "Check for updates" opens the Releases page.
+Download the newer installer and run it over the old one; your data stays.
+CoinLeak never downloads or installs anything by itself.
+
+**Banks:** Discount Bank and Cal are tested with real accounts. The other
+banks and cards are marked "Experimental" in the app: they work against
+test pages but nobody has confirmed them with a real account yet. If one
+works (or not) for you, "Report a bug or an idea" in Settings opens a
+GitHub issue.
+
+**Back up:** Settings, Backup and export, "Back up now" saves one file you
+can restore on another computer.
 
 ## Privacy
 

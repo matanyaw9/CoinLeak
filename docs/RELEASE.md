@@ -59,3 +59,28 @@ The installer then runs without more questions: it installs for that
 Windows user only (no admin prompt), adds CoinLeak to the Start menu and the
 desktop, and opens it. Uninstall from Settings, Apps; it keeps the data
 folder.
+
+## Publish a version (GitHub Releases)
+
+Releases come from tagged versions on `main`, never from every push (F28).
+The app's "Check for updates" button (Settings, About) opens
+`https://github.com/matanyaw9/CoinLeak/releases`; there is no updater.
+
+1. `dev` is tested by the owner and merged into `main`.
+2. Set the version in `package.json` (for example `0.1.0`), commit
+   `chore: version 0.1.0` on `main`.
+3. Re-run the secrets scan (`docs/PUBLISH-CHECKLIST.md` section 1).
+4. `npm run dist:win`. It prints the installer's SHA-256 and writes
+   `release/SHA256SUMS.txt`.
+5. Check the fuses and the asar contents (above).
+6. `git tag v0.1.0` and push the tag.
+7. On GitHub, Releases, "Draft a new release" from the tag. Upload
+   `release/CoinLeak-Setup-0.1.0.exe` and `release/SHA256SUMS.txt`. Notes
+   in plain words: what is new, which banks are verified (Discount, Cal)
+   and which are experimental, and the SmartScreen steps below. Tick
+   "Set as a pre-release" until a friend has used it for a while.
+8. Publish. The friend's "Check for updates" now lands on it.
+
+To check a download on Windows (PowerShell):
+`Get-FileHash .\CoinLeak-Setup-0.1.0.exe` must match the line in
+`SHA256SUMS.txt`.

@@ -13,3 +13,7 @@ fi
 
 npm run build
 npx electron-builder --win --publish never
+
+# A checksum beside the installer, so anyone can check the file was not swapped.
+sha256sum release/CoinLeak-Setup-*.exe | sed 's|release/||' > release/SHA256SUMS.txt
+cat release/SHA256SUMS.txt
