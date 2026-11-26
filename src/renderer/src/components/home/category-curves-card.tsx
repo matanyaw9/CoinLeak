@@ -20,7 +20,7 @@ import { Card, CardHeader } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
 import { chartAnimation, ChartTooltip, type TooltipRow } from "@/components/charts/chart-tooltip";
 import { CategoryChooser, type ChooserDemo } from "./category-chooser";
-import { chooserItems, nameOf } from "./chooser";
+import { chooserItems, tickDraft } from "./chooser";
 import { liveChoice, sumName, type CurveChoice } from "./curve-selection";
 import { shotCompare, useCurveCategories, useCurveCompare, usePeriodCurveSum, usePeriodCurves } from "./period-data";
 import { axisOf } from "./period-axis";
@@ -157,7 +157,7 @@ export function CategoryCurvesCard({
               onApply={setSaved}
               none={s.curvePick.top}
               icon={<Tag className="size-3.5 text-muted-foreground" />}
-              demo={shot === "curves-picker" ? demoSearch(index) : undefined}
+              demo={shot === "curves-picker" ? demoSearch(index) : shot === "curves-partly" ? demoPartly(index) : undefined}
             />
           }
         />
@@ -165,10 +165,17 @@ export function CategoryCurvesCard({
 
         <div className="mb-4 flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
           {summed ? (
-            <span title={chosen.map((id) => nameOf(index, id)).join(", ")} className="flex items-center gap-1.5 px-1.5 py-1 text-foreground">
+            <button
+              type="button"
+              title={s.curves.hint}
+              onClick={() => openLine(sumLine)}
+              onMouseEnter={() => setLit(sumLine.key)}
+              onMouseLeave={() => setLit(null)}
+              className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-foreground transition-colors outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
               <span className="size-2.5 rounded-full" style={{ backgroundColor: sumLine.color }} />
               {sumLine.name}
-            </span>
+            </button>
           ) : (
             <div ref={legendList} role="group" aria-label={s.trendClick.legendLabel} className="contents">
               {series.map((x, i) => {
@@ -313,4 +320,14 @@ function demoSearch(index: CategoryIndex): ChooserDemo {
   const search = "groc";
   const leaves = chooserItems(index, search).filter((x) => x.id !== null && !index.children.get(x.id)?.length);
   return { search, ticks: leaves.slice(0, 3).map((x) => x.id) };
+}
+
+/** Demo screenshots (`?shot=curves-partly`): the first group with children ticked, then its first child unticked, and another group. */
+function demoPartly(index: CategoryIndex): ChooserDemo {
+  const groups = index.roots.filter((r) => r.kind === "expense");
+  const parent = groups.find((r) => (index.children.get(r.id)?.length ?? 0) > 1);
+  const child = parent && index.children.get(parent.id)?.[0];
+  const other = groups.find((r) => r !== parent);
+  const clicks = [parent?.id, child?.id, other?.id].filter((id) => id !== undefined);
+  return { search: "", ticks: clicks.reduce<CurveChoice>((ticks, id) => tickDraft(ticks, id, index), []) };
 }

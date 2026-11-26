@@ -1241,6 +1241,14 @@ export const s = {
     cardLink: "Plan budgets",
   },
 
+  // spec 40 B
+  chooserChips: {
+    selected: "Selected",
+    clear: "Clear all",
+    remove: (name: string) => `Remove ${name}`,
+    nothing: (shows: string) => `Nothing ticked, so the chart shows: ${shows}`,
+  },
+
   // spec 39
   backup: {
     title: "Backup and export",
