@@ -430,3 +430,28 @@ Restart `npm run dev` first. Demo profile first.
    it is there. Nothing ticked: Continue is greyed out.
 5. **Rules dropped, categories stay.** Restore with Rules unticked: rows
    your rules had sorted keep their categories, also after a Sync.
+
+## 14. Wave 16: ready for Windows (spec 42, lead)
+
+Restart `npm run dev` first.
+
+1. **About (F27, F28 step 1).** Settings, scroll to the bottom: "About
+   CoinLeak", the version, and three buttons. Tab to each, press Enter:
+   "Check for updates" opens the GitHub Releases page in your browser,
+   "Report a bug or an idea" a new empty issue, "Star CoinLeak on GitHub"
+   the repository. Nothing else opens, and the app window stays.
+2. **Chooser note.** Home, the chooser: tick a group, untick one child.
+   The Selected row says "<group>'s own rows are not counted".
+3. **Budget boxes.** Categories: select the digits in a budget box and
+   drag them onto another group: nothing moves. Drag a category by its
+   handle: it moves. Type a budget too big for its parent, Enter, then Up,
+   Down, Home, End: focus stays on the offer; Esc leaves it.
+4. **Restore without transactions** (adds to 13.4): the new profile's
+   Finance accounts shows no banks, except one a kept rule is limited to.
+5. **Installer.** `npm run dist:win` prints one SHA-256 line and writes
+   `release/SHA256SUMS.txt` for this version only. Lead built it at
+   8387f66: fuses and `app.asar` as `docs/RELEASE.md` requires.
+6. **Windows VM, short re-run** (section 7's list, from a draft GitHub
+   pre-release so SmartScreen shows for real): install, open, About
+   buttons open Edge, Restore a backup with choices, uninstall keeps the
+   data folder.
