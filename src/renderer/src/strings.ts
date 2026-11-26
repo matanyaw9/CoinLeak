@@ -1305,6 +1305,19 @@ export const s = {
       return `Restored: ${parts.filter((p) => p !== null).join(", ")}`;
     },
   },
+
+  // spec 42 A
+  about: {
+    title: "About CoinLeak",
+    version: (version: string) => `Version ${version}`,
+    updates: "Check for updates",
+    updatesHint: "Download the newest installer and run it. Your data stays.",
+    feedback: "Report a bug or an idea",
+    feedbackHint: "Opens a new issue on GitHub in your browser. Nothing from the app is sent.",
+    star: "Star CoinLeak on GitHub",
+    license: "CoinLeak is free and open source (MIT).",
+    failed: "Failed to open the page.",
+  },
 };
 
 export type Strings = typeof s;

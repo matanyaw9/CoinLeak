@@ -1,5 +1,5 @@
 // Settings: theme (kept in localStorage), profiles, how far back to sync, where
-// the data lives, backup and export, the danger zone (delete data), and about.
+// the data lives, backup and export, the danger zone (delete data), and About.
 
 import { Check, Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { s } from "@/strings";
@@ -8,6 +8,7 @@ import { useAppInfo } from "@/lib/hooks";
 import { setTheme, THEMES, useTheme, type ThemeSetting } from "@/lib/theme";
 import { Page } from "@/components/layout/page";
 import { ProfilesSection } from "@/components/layout/profiles-section";
+import { AboutSection } from "@/components/settings/about-section";
 import { BackupSection } from "@/components/settings/backup-section";
 import { DangerZone } from "@/components/settings/danger-zone";
 import { SyncRangeSection } from "@/components/settings/sync-range-section";
@@ -63,12 +64,9 @@ export function SettingsPage() {
 
         <BackupSection />
 
-        <Card className="p-7">
-          <Label>{s.settings.about}</Label>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.settings.aboutBody}</p>
-        </Card>
-
         <DangerZone />
+
+        <AboutSection />
       </div>
     </Page>
   );
