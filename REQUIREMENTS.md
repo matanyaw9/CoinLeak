@@ -70,7 +70,7 @@ website on this laptop.
 | Data sent somewhere | No AI, no telemetry, no update checks, no remote fonts or images. App window network is blocked (D9). Sync browser may only reach the bank's domains. |
 | Leaks through errors and logs | Fixed error codes (D11). Logs never contain transaction text, amounts, account numbers, or library error messages. No failure screenshots. |
 | Another program talking to the app | No server and no port (D3). IPC checks every request comes from our own page. |
-| Malicious web content in the window | Sandbox, context isolation, no Node in the page, strict CSP, no navigation, no new windows, no webviews, all permissions denied. |
+| Malicious web content in the window | Sandbox, context isolation, no Node in the page, strict CSP, no navigation, no new windows, no webviews, all permissions denied. Links out: only three fixed GitHub pages (feedback, star, releases), opened in the browser by name; the window never sends an address (`src/main/links.ts`, F27, F28). |
 | Data on disk | SQLite file 0600 in a 0700 folder. Full-disk encryption is the user's protection against laptop theft. |
 | Malicious dependency | D15. The scraper package is the most trusted piece: pinned and reviewed. |
 | Malicious app build | Fuses on packaged builds: no run-as-Node, no `NODE_OPTIONS`, no inspector flags, asar integrity. |

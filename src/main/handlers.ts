@@ -46,6 +46,7 @@ import { createDemoDatabase } from "@core/demo";
 import { CodedError } from "@shared/errors";
 import type { Channel } from "@shared/ipc";
 import { backupHandlers, electronDialogs, type FileDialogs } from "./backup";
+import { openAppLink } from "./links";
 import type { Handlers } from "./ipc";
 import {
   addDemoProfile,
@@ -79,6 +80,8 @@ export interface HandlerDeps {
   now?: () => Date;
   /** Spec 39: the native save and open dialogs; Electron's unless a test passes fakes. */
   dialogs?: FileDialogs;
+  /** F27, F28: opens a page in the browser; Electron's unless a test passes a fake. */
+  openExternal?: (url: string) => Promise<void>;
 }
 
 export function createHandlers(deps: HandlerDeps): Handlers {
@@ -96,6 +99,7 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       now,
     }),
     "app:info": () => ({ version, dataDir, dev }),
+    "app:openLink": (args) => openAppLink(args?.link, deps.openExternal),
     "accounts:list": () => listAccounts(getDb()),
     "accounts:setCardMode": ({ accountId, mode }) => {
       setCardMode(getDb(), accountId, mode);

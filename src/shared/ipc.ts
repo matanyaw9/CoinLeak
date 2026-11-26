@@ -5,6 +5,7 @@ import type {
   Account,
   Agorot,
   AppInfo,
+  AppLink,
   BudgetChange,
   BudgetPlan,
   BudgetStatus,
@@ -61,6 +62,8 @@ import type { Result } from "./errors";
 
 export interface IpcContract {
   "app:info": { args: undefined; result: AppInfo };
+  /** F27, F28: opens a fixed GitHub page in the browser. */
+  "app:openLink": { args: { link: AppLink }; result: null };
   "accounts:list": { args: undefined; result: Account[] };
   "categories:list": { args: undefined; result: Category[] };
   /** The rows, plus each of their days' spending and income for the day headers. */
@@ -238,6 +241,7 @@ export type Res<C extends Channel> = IpcContract[C]["result"];
 
 export const CHANNELS = [
   "app:info",
+  "app:openLink",
   "accounts:list",
   "categories:list",
   "transactions:list",

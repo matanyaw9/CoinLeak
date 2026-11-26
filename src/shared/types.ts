@@ -226,6 +226,9 @@ export interface SyncProgress {
   scope?: SyncScope;
 }
 
+/** The fixed pages the app may open in the browser (F27, F28). */
+export type AppLink = "feedback" | "star" | "releases";
+
 export interface AppInfo {
   version: string;
   dataDir: string;
