@@ -43,3 +43,7 @@ Builders: Sonnet 5.5 at high effort in herdr tab 2, tight specs, 40-line reports
 ## Night log
 - 01:45 round 2 merged, check green (1298 tests). Sleep block `coinleak-awake5` on until about 06:30.
 - 01:55 spec 41 agents `round3-rules`, `round3-restore` (Sonnet) and `round2-review` (Opus) started in tab 2.
+- 02:10 round 2 review (Opus, `docs/reviews/2026-11-27-round2-review.md`): good to merge after owner tests; should 1 (chooser drops a parent's own rows when partly ticked: note now, "Other in <parent>" later is the owner's call) and nice 1 to 4 sent to spec 42 B; should 2 (REQUIREMENTS row) done by the lead.
+- 02:20 spec 41 B (restore choices, F93) merged; lead fix `302490c`: the copy is trimmed before it becomes a profile.
+- 02:30 owner: F1 not tonight (new scrapers only ship in releases); focus on Windows download and use. Lead: `app:openLink` (`7d03552`, three fixed GitHub pages by name), README install/update/banks, RELEASE.md publish steps, SHA256SUMS in `dist:win`, spec 42 (About section, round 2 polish) to `wave16-about` and `wave16-polish`.
+- 02:40 spec 41 A (newer rules win, hints, "Set by you", F92) merged; check green, 1324 tests. Trial `dist:win` build running.
