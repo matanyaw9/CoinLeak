@@ -24,13 +24,16 @@ Because the repo is already public, anything it finds is already out:
 From `docs/FEATURES.md`, wave 10 ("the first public version"):
 
 - [ ] F56 Export a copy of my data (backup). Promised in
-      `REQUIREMENTS.md` section 6, not built.
+      `REQUIREMENTS.md` section 6. Built (spec 39, restore choices spec 41 B);
+      tick after the owner tests it.
 - [x] F57 Banks not tested live are labeled "experimental" in the app.
       Only Discount and Cal are verified.
 - [ ] F28 step 1: Settings shows the version and a "Check for updates"
-      button that opens the GitHub Releases page. No auto-updater.
+      button that opens the GitHub Releases page. No auto-updater. Built
+      (spec 42 A); tick after the owner tests it.
 - [ ] F27 "Report a bug" and "Star us on GitHub" buttons (open GitHub in
-      the normal browser; nothing is sent from the app).
+      the normal browser; nothing is sent from the app). Built (spec 42 A);
+      tick after the owner tests it.
 - [ ] Specs 27 (budgets) and 28 (categories and fixes) merged, tested by
       the owner, and in the installer.
 - [ ] Owner decides: anything else in `docs/BACKLOG.md` that must be

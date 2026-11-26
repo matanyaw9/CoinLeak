@@ -146,8 +146,9 @@ export function BackupSection() {
 
 /**
  * "What to bring over" (spec 41 B), before the file picker; Settings and the
- * Welcome screen. Shown only while open, so everything starts ticked. Enter
- * continues, Esc cancels.
+ * Welcome screen. Shown only while open, so everything starts ticked. Space
+ * or Enter on a tick box ticks it (the dialog rule), Enter on Continue continues,
+ * Esc cancels.
  */
 export function RestoreDialog(props: { onClose: () => void; onContinue: (keep: RestoreKeep) => void }) {
   const [keep, setKeep] = useState<RestoreKeep>({ transactions: true, rules: true, budgets: true });

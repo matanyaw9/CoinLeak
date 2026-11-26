@@ -14,6 +14,9 @@ fi
 npm run build
 npx electron-builder --win --publish never
 
-# A checksum beside the installer, so anyone can check the file was not swapped.
-sha256sum release/CoinLeak-Setup-*.exe | sed 's|release/||' > release/SHA256SUMS.txt
+# A checksum for this version's installer only (older ones may still sit in
+# release/). It shows a download arrived complete and unchanged on the way;
+# it cannot prove the release itself was not swapped.
+installer="CoinLeak-Setup-$(node -p "require('./package.json').version").exe"
+sha256sum "release/$installer" | sed 's|release/||' > release/SHA256SUMS.txt
 cat release/SHA256SUMS.txt

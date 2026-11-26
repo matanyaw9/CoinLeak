@@ -48,6 +48,7 @@ function dropTransactions(db: Db): void {
     DELETE FROM trash_tombstones;
     DELETE FROM transactions;
     DELETE FROM sync_runs;
+    DELETE FROM settings WHERE key = 'addedProviders';
     DELETE FROM accounts
       WHERE kind <> 'cash' AND id NOT IN (SELECT account_id FROM rule_conditions WHERE account_id IS NOT NULL);
     UPDATE accounts SET balance = NULL, last_synced_at = NULL;

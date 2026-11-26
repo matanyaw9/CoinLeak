@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { seedDemo } from "@core/demo";
 import { setBudget, updateTransactions } from "@core/ledger";
 import { applyAllRules, createRule } from "@core/rules";
-import { getSetting } from "@core/settings";
+import { getSetting, setSetting } from "@core/settings";
 import { categoryId, NOW } from "@core/testing/ledger";
 import { ruleInput } from "@core/testing/rules";
 import type { RestoreKeep } from "@shared/types";
@@ -38,6 +38,7 @@ function fullDatabase(): { db: Db; path: string } {
   db.prepare("INSERT INTO rule_exceptions (rule_id, transaction_id) SELECT MIN(id), ? FROM rules").run(second as number);
   db.exec("INSERT INTO trash_tombstones SELECT account_id, 'gone-for-good', 0, '2026-01-01' FROM transactions LIMIT 1");
   setBudget(db, categoryId(db, "Groceries"), 150_000, { raiseParents: true });
+  setSetting(db, { key: "addedProviders", value: ["discount", "visaCal"] });
   applyAllRules(db, NOW);
   return { db, path };
 }
@@ -67,6 +68,7 @@ function parts(db: Db) {
     conditions: count(db, "rule_conditions"),
     categoryBudgets: count(db, "categories WHERE monthly_budget IS NOT NULL"),
     total: getSetting(db, "budgetTotal"),
+    addedBanks: getSetting(db, "addedProviders").length,
   };
 }
 
@@ -104,6 +106,8 @@ describe("trimRestored", () => {
       conditions: r ? before.conditions : 0,
       categoryBudgets: keep.budgets ? before.categoryBudgets : 0,
       total: keep.budgets ? before.total : null,
+      // The banks the user added go with their accounts; a kept rule's account shows without it.
+      addedBanks: t ? before.addedBanks : 0,
     });
     expect(categories(db)).toEqual(cats);
     expect(db.prepare("SELECT id, name FROM accounts WHERE kind = 'cash'").get()).toEqual(wallet);
