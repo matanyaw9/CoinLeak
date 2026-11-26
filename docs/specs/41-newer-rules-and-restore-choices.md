@@ -93,7 +93,8 @@ the files under your part's Owns and what they import.
    already on):
    - no transactions: every transaction, balance, sync run, trash
      tombstone and rule exception; the accounts too, except the cash
-     wallet (keep its row, drop its transactions).
+     wallet and any account a kept rule is limited to (keep the row, drop
+     its transactions and balance).
    - no rules: every rule (conditions and exceptions go with them). Rows a
      rule had sorted or ignored keep their category and ignore state as
      set by the user (`category_source` / `excluded_source` `'user'`,
