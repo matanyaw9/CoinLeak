@@ -40,3 +40,6 @@ export function formatIls(amount: Agorot, opts: { sign?: boolean; decimals?: boo
   });
   return fmt.format(amount / 100);
 }
+
+/** The largest budget or budget total: ten million shekels, far above any real one, still a safe integer. */
+export const BUDGET_MAX: Agorot = 1_000_000_000;

@@ -17,6 +17,7 @@ import type {
   IsoDate,
   IsoMonth,
 } from "@shared/types";
+import { BUDGET_MAX } from "@shared/money";
 import { transaction, type Db } from "../db";
 import { getSetting, setSetting } from "../settings";
 import { averageMonths, firstMonth } from "./average";
@@ -25,8 +26,7 @@ import { monthRange, spendingByCategory, spendingUnder, totals } from "./period"
 import { listCategories } from "./queries";
 import { check, isId } from "./validate";
 
-/** Ten million shekels, in agorot: far above any real budget, still a safe integer. */
-export const BUDGET_MAX: Agorot = 1_000_000_000;
+export { BUDGET_MAX } from "@shared/money";
 
 /** The full months before this one that "usual" and the averages look at. */
 const PLAN_MONTHS = 3;

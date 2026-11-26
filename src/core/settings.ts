@@ -3,6 +3,7 @@
 // BAD_REQUEST; a stored value that no longer validates reads as the default.
 
 import { CodedError } from "@shared/errors";
+import { BUDGET_MAX } from "@shared/money";
 import { isEnabledProvider } from "@shared/providers";
 import type { AppSettings, SettingEntry, SettingKey } from "@shared/types";
 import type { Db } from "./db";
@@ -13,8 +14,6 @@ interface SettingSpec<K extends SettingKey> {
   valid: (value: unknown) => value is AppSettings[K];
 }
 
-/** The same as BUDGET_MAX in ledger/budgets.ts (that file reads this one, so it cannot be imported here). */
-const BUDGET_TOTAL_MAX = 1_000_000_000;
 
 const SPECS: { [K in SettingKey]: SettingSpec<K> } = {
   addedProviders: {
@@ -41,7 +40,7 @@ const SPECS: { [K in SettingKey]: SettingSpec<K> } = {
   budgetTotal: {
     fallback: null,
     valid: (v): v is AppSettings["budgetTotal"] =>
-      v === null || (typeof v === "number" && Number.isSafeInteger(v) && v > 0 && v <= BUDGET_TOTAL_MAX),
+      v === null || (typeof v === "number" && Number.isSafeInteger(v) && v > 0 && v <= BUDGET_MAX),
   },
 };
 

@@ -256,6 +256,8 @@ describe("sync range (spec 23)", () => {
     await ask("settings:set", { key: "syncFrom", value: "2025-09-01" });
     expect((await discount())?.from).toBe("2025-09-01");
     expect(await code(ask("settings:set", { key: "syncFrom", value: "1999-01-01" }))).toBe("BAD_REQUEST");
+    // The budget total only goes through budgets:setTotal (wave 15 review).
+    expect(await code(ask("settings:set", { key: "budgetTotal", value: 100 }))).toBe("BAD_REQUEST");
   });
 });
 

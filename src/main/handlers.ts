@@ -155,6 +155,8 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "accounts:setSyncing": ({ ids, enabled }) => setAccountsSyncing(getDb(), ids, enabled),
     "settings:get": ({ key }) => getSetting(getDb(), key),
     "settings:set": (entry) => {
+      // The total has its own rules (under_split); only budgets:setTotal writes it.
+      if (entry.key === "budgetTotal") throw new CodedError("BAD_REQUEST");
       setSetting(getDb(), entry);
       return null;
     },
