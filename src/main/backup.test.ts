@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkBackup, openDatabase, writeBackup, type Db } from "@core/db";
 import { ingest } from "@core/ledger";
 import { bank, NOW, txn } from "@core/testing/ledger";
-import { backupHandlers, defaultName, electronDialogs, type FileDialogs } from "./backup";
+import { backupHandlers, defaultName, electronDialogs, type BackupDeps, type FileDialogs } from "./backup";
 import { currentProfile, databasePath, readProfiles } from "./profiles";
 
 const electron = vi.hoisted(() => ({
@@ -22,6 +22,9 @@ vi.mock("electron", () => ({
   BrowserWindow: { getFocusedWindow: () => null },
   dialog: { showSaveDialog: electron.showSaveDialog, showOpenDialog: electron.showOpenDialog },
 }));
+
+/** Everything ticked, as the dialog opens. */
+const ALL = { transactions: true, rules: true, budgets: true };
 
 let root: string;
 let dataDir: string;
@@ -51,7 +54,7 @@ function openCurrentDb(): void {
 }
 
 /** The "Me" profile open with two rows, and the three channels as the window calls them. */
-function setup() {
+function setup(overrides: Partial<BackupDeps> = {}) {
   openCurrentDb();
   ingest(
     getDb(),
@@ -63,7 +66,15 @@ function setup() {
     ],
     { now: NOW },
   );
-  return backupHandlers({ dataDir, dialogs, isSyncing: () => syncing, getDb, openCurrentDb, now: () => NOW });
+  return backupHandlers({
+    dataDir,
+    dialogs,
+    isSyncing: () => syncing,
+    getDb,
+    openCurrentDb,
+    now: () => NOW,
+    ...overrides,
+  });
 }
 
 /** A backup made on "another computer": its own database with one row. */
@@ -119,7 +130,7 @@ describe("Back up now", () => {
     const before = readdirSync(dataDir);
     expect(await ask["backup:create"](undefined)).toBeNull();
     expect(await ask["backup:exportCsv"](undefined)).toBeNull();
-    expect(await ask["backup:restore"](undefined)).toBeNull();
+    expect(await ask["backup:restore"](ALL)).toBeNull();
     expect(readdirSync(outside)).toEqual([]);
     expect(readdirSync(dataDir)).toEqual(before);
     expect(readProfiles(dataDir).profiles).toHaveLength(1);
@@ -141,7 +152,7 @@ describe("Restore from backup", () => {
     const sourceBytes = readFileSync(source);
     chosen = source;
 
-    const profile = await ask["backup:restore"](undefined);
+    const profile = await ask["backup:restore"](ALL);
     expect(profile).toMatchObject({ name: "Restored 2026-03-31", demo: false });
     const list = readProfiles(dataDir);
     expect(list.profiles.map((p) => p.name)).toEqual(["Me", "Restored 2026-03-31"]);
@@ -157,7 +168,7 @@ describe("Restore from backup", () => {
     expect(readdirSync(dataDir).filter((n) => n.startsWith("restore-"))).toEqual([]);
 
     // A second restore the same day gets its own name.
-    expect(await ask["backup:restore"](undefined)).toMatchObject({ name: "Restored 2026-03-31 (2)" });
+    expect(await ask["backup:restore"](ALL)).toMatchObject({ name: "Restored 2026-03-31 (2)" });
   });
 
   it("leaves nothing behind in the data folder for a refused file, and stays on the open profile", async () => {
@@ -189,7 +200,7 @@ describe("Restore from backup", () => {
     const before = readdirSync(dataDir).sort();
     for (const [name, expected] of Object.entries(files)) {
       chosen = join(outside, name);
-      expect(await code(ask["backup:restore"](undefined))).toBe(expected);
+      expect(await code(ask["backup:restore"](ALL))).toBe(expected);
       expect(readdirSync(dataDir).sort()).toEqual(before);
     }
     expect(readProfiles(dataDir).profiles.map((p) => p.name)).toEqual(["Me"]);
@@ -200,9 +211,54 @@ describe("Restore from backup", () => {
     const ask = setup();
     chosen = otherComputerBackup();
     syncing = true;
-    expect(await code(ask["backup:restore"](undefined))).toBe("SYNC_IN_PROGRESS");
+    expect(await code(ask["backup:restore"](ALL))).toBe("SYNC_IN_PROGRESS");
     expect(dialogs.openBackup).not.toHaveBeenCalled();
     expect(readProfiles(dataDir).profiles).toHaveLength(1);
+  });
+
+  it("brings over only what was chosen, and says how much", async () => {
+    const ask = setup();
+    chosen = otherComputerBackup();
+    expect((await ask["backup:restore"](ALL))?.brought).toEqual({ transactions: 1, rules: 0, budgets: true });
+    expect(descriptions(getDb())).toEqual(["Laptop row"]);
+
+    const rulesOnly = await ask["backup:restore"]({ transactions: false, rules: true, budgets: false });
+    expect(rulesOnly?.brought).toEqual({ transactions: null, rules: 0, budgets: false });
+    expect(readProfiles(dataDir).current).toBe(rulesOnly?.id);
+    expect(descriptions(getDb())).toEqual([]);
+  });
+
+  it("refuses a choice that is not three yes or no answers with one yes, before any dialog", async () => {
+    const ask = setup();
+    chosen = otherComputerBackup();
+    const bad = [
+      undefined,
+      null,
+      "all",
+      {},
+      { transactions: true, rules: true },
+      { transactions: 1, rules: true, budgets: true },
+      { transactions: false, rules: false, budgets: false },
+    ];
+    for (const args of bad) expect(await code(ask["backup:restore"](args as never))).toBe("BAD_REQUEST");
+    expect(dialogs.openBackup).not.toHaveBeenCalled();
+    expect(readProfiles(dataDir).profiles).toHaveLength(1);
+  });
+
+  it("leaves no new profile when the trimming fails, and goes back to the open one", async () => {
+    // The step after opening the restored database gets none to work on.
+    const ask = setup({
+      getDb: () => {
+        throw new Error("broken");
+      },
+    });
+    chosen = otherComputerBackup();
+    const before = readdirSync(dataDir).filter((n) => !/-(wal|shm)$/.test(n)).sort();
+    expect(await code(ask["backup:restore"](ALL))).toBe("DATABASE");
+    expect(readProfiles(dataDir).current).toBe("me");
+    expect(readProfiles(dataDir).profiles.map((p) => p.name)).toEqual(["Me"]);
+    expect(readdirSync(dataDir).filter((n) => !/-(wal|shm)$/.test(n)).sort()).toEqual(before);
+    expect(descriptions(getDb())).toEqual(["חנות", "Cafe"]);
   });
 });
 
@@ -230,10 +286,10 @@ describe("logs", () => {
     chosen = join(outside, "secret-name.csv");
     await ask["backup:exportCsv"](undefined);
     chosen = otherComputerBackup("secret-restore.coinleak");
-    await ask["backup:restore"](undefined);
+    await ask["backup:restore"](ALL);
     writeFileSync(join(outside, "secret-bad.coinleak"), "nope");
     chosen = join(outside, "secret-bad.coinleak");
-    await code(ask["backup:restore"](undefined));
+    await code(ask["backup:restore"](ALL));
 
     expect(lines.length).toBeGreaterThan(0);
     for (const line of lines) {

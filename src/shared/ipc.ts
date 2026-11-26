@@ -42,6 +42,8 @@ import type {
   StartersAdded,
   Profile,
   ProfileList,
+  RestoreKeep,
+  RestoredProfile,
   SyncProgress,
   SyncRange,
   SyncResult,
@@ -216,10 +218,11 @@ export interface IpcContract {
   "backup:create": { args: undefined; result: FileSaved | null };
   /**
    * Asks for a backup file, checks it, and opens it as a new profile (never over
-   * the open one). The window reloads itself after. Null when the user cancels.
+   * the open one), without the parts not chosen (spec 41 B; at least one must be).
+   * The window reloads itself after. Null when the user cancels.
    * Refused while a sync runs.
    */
-  "backup:restore": { args: undefined; result: Profile | null };
+  "backup:restore": { args: RestoreKeep; result: RestoredProfile | null };
   /** Asks where to save, then writes the profile's transactions as a CSV file. Null when the user cancels. */
   "backup:exportCsv": { args: undefined; result: FileSaved | null };
 }

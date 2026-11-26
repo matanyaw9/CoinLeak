@@ -7,10 +7,10 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, constants, copyFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { app, BrowserWindow, dialog, type FileFilter, type OpenDialogOptions, type SaveDialogOptions } from "electron";
-import { BACKUP_MAX_BYTES, checkBackup, writeBackup, type Db } from "@core/db";
+import { BACKUP_MAX_BYTES, checkBackup, trimRestored, writeBackup, type Db } from "@core/db";
 import { exportTransactionsCsv, israelToday } from "@core/ledger";
 import { CodedError } from "@shared/errors";
-import type { Profile, ProfileList } from "@shared/types";
+import type { ProfileList, RestoreCounts, RestoreKeep, RestoredProfile } from "@shared/types";
 import type { Handlers } from "./ipc";
 import {
   addRestoredProfile,
@@ -98,16 +98,18 @@ export function backupHandlers(deps: BackupDeps): Pick<Handlers, BackupChannel> 
       console.log(`[backup] exported ${rows} transactions as CSV`);
       return { fileName: basename(path), transactions: rows };
     },
-    "backup:restore": () => restore(deps),
+    "backup:restore": (keep) => restore(deps, keep),
   };
 }
 
 /**
  * Checks a copy of the chosen file in the data folder, then adds it as a new
- * profile and switches to it. The open profile's file is never written.
+ * profile, switches to it and takes out what was not chosen (spec 41 B). The
+ * open profile's file is never written.
  */
-async function restore(deps: BackupDeps): Promise<Profile | null> {
-  const { dataDir, isSyncing, openCurrentDb } = deps;
+async function restore(deps: BackupDeps, args: unknown): Promise<RestoredProfile | null> {
+  const { dataDir, isSyncing, openCurrentDb, getDb } = deps;
+  const keep = checkKeep(args);
   if (isSyncing()) throw new CodedError("SYNC_IN_PROGRESS");
   const source = await deps.dialogs.openBackup();
   if (!source) return null;
@@ -116,7 +118,7 @@ async function restore(deps: BackupDeps): Promise<Profile | null> {
 
   const copy = copyIntoDataFolder(dataDir, source);
   const list = readProfiles(dataDir);
-  let profile: Profile;
+  let profile;
   try {
     checkBackup(copy);
     // A read-only check of a WAL file can leave empty -wal and -shm files beside it.
@@ -128,18 +130,34 @@ async function restore(deps: BackupDeps): Promise<Profile | null> {
   }
 
   setCurrentProfile(dataDir, profile.id);
+  let brought: RestoreCounts;
   try {
     // Runs any migrations newer than the backup.
     openCurrentDb();
+    brought = trimRestored(getDb(), keep);
   } catch {
-    // It would not open: back to where we were, and the restored profile goes again.
+    // It would not open or trim: back to where we were, and the restored profile goes again.
     setCurrentProfile(dataDir, list.current);
-    deleteProfile(dataDir, profile.id);
-    openCurrentDb();
+    try {
+      // Closes the restored database before its files are deleted.
+      openCurrentDb();
+    } finally {
+      deleteProfile(dataDir, profile.id);
+    }
     throw new CodedError("DATABASE");
   }
   console.log("[backup] restored a backup as a new profile");
-  return profile;
+  return { ...profile, brought };
+}
+
+/** Three yes or no answers, at least one yes. */
+function checkKeep(args: unknown): RestoreKeep {
+  const { transactions, rules, budgets } = (args ?? {}) as Partial<Record<keyof RestoreKeep, unknown>>;
+  if (typeof transactions !== "boolean" || typeof rules !== "boolean" || typeof budgets !== "boolean") {
+    throw new CodedError("BAD_REQUEST");
+  }
+  if (!transactions && !rules && !budgets) throw new CodedError("BAD_REQUEST");
+  return { transactions, rules, budgets };
 }
 
 /** A private copy of the chosen file in the data folder. The user's own file is only read. */
