@@ -174,6 +174,15 @@ describe("exportTransactionsCsv", () => {
     expect(row?.["Note"]).toBe("'@note");
   });
 
+  it("neutralizes a formula in the date and charged-on columns too (a restored file is not checked)", () => {
+    const db = newDb();
+    ingest(db, [bank([txn({ date: "2026-03-10", amount: -4590, description: "Cafe" })])], { now: NOW });
+    db.exec(`UPDATE transactions SET date = '=HYPERLINK("x")', processed_date = '+1'`);
+    const [row] = records(db);
+    expect(row?.["Date"]).toBe(`'=HYPERLINK("x")`);
+    expect(row?.["Charged on"]).toBe("'+1");
+  });
+
   it("leaves out trashed and gone rows, and keeps ignored ones", () => {
     const rows = records(ledger());
     const names = rows.map((r) => r["Description"]);

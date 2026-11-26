@@ -25,8 +25,10 @@ const NEWEST = Math.max(...MIGRATIONS.map((m) => m.version));
 export function writeBackup(db: Db, path: string): { transactions: number } {
   const temp = join(dirname(path), `.${basename(path)}.${randomBytes(6).toString("hex")}.tmp`);
   try {
-    db.prepare("VACUUM INTO ?").run(temp);
+    // Private from the first byte: VACUUM INTO fills an existing empty file.
+    closeSync(openSync(temp, "wx", 0o600));
     if (process.platform !== "win32") chmodSync(temp, 0o600);
+    db.prepare("VACUUM INTO ?").run(temp);
     renameSync(temp, path);
   } catch {
     rmSync(temp, { force: true });
@@ -100,8 +102,8 @@ function checkSchema(db: DatabaseSync): void {
 
 /**
  * Every table, index, trigger and view: type, name, table and SQL, sorted.
- * Only SQLite's statistics tables are left out (ANALYZE may add them; they
- * hold no code). Its other own entries come from our migrations and are compared.
+ * Nothing is left out, not even names SQLite reserves: a crafted file can give
+ * a trigger such a name, and the app never runs ANALYZE, so no stat tables.
  */
 function schemaOf(db: DatabaseSync): string[] {
   const rows = db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master").all() as {
@@ -110,10 +112,7 @@ function schemaOf(db: DatabaseSync): string[] {
     tbl_name: string;
     sql: string | null;
   }[];
-  return rows
-    .filter((r) => !/^sqlite_stat\d$/.test(r.name))
-    .map((r) => [r.type, r.name, r.tbl_name, r.sql ?? ""].join("\n"))
-    .sort();
+  return rows.map((r) => [r.type, r.name, r.tbl_name, r.sql ?? ""].join("\n")).sort();
 }
 
 /**

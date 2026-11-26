@@ -50,14 +50,14 @@ export function exportTransactionsCsv(db: Db): { text: string; rows: number } {
     )
     .all() as unknown as Row[];
   const lines = rows.map((r) => [
-    r.date,
-    r.processed_date ?? "",
+    safeText(r.date),
+    safeText(r.processed_date ?? ""),
     safeText(accounts.get(r.account_id) ?? ""),
     safeText(r.description),
     shekels(r.amount),
     safeText(r.category_id === null ? "" : (categories.get(r.category_id) ?? "")),
     safeText(r.note ?? ""),
-    r.status,
+    safeText(r.status),
     r.excluded === 1 ? "yes" : "",
     r.internal === 1 ? "yes" : "",
     r.paid_back_for !== null ? "yes" : "",

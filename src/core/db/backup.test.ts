@@ -267,4 +267,18 @@ describe("checkBackup refuses", () => {
     });
     expect(refusal(path)).toBe("BACKUP_NOT_COINLEAK");
   });
+
+  it("a trigger renamed to look like SQLite's own statistics table", () => {
+    const dir = tempDir();
+    const path = join(dir, "renamed.coinleak");
+    writeBackup(fullDatabase(dir), path);
+    const raw = new DatabaseSync(path, { defensive: false });
+    raw.exec(
+      "CREATE TRIGGER evil AFTER INSERT ON transactions BEGIN UPDATE transactions SET excluded = 1 WHERE id = NEW.id; END",
+    );
+    raw.exec("PRAGMA writable_schema = ON");
+    raw.exec("UPDATE sqlite_master SET name = 'sqlite_stat1', sql = replace(sql, 'evil', 'sqlite_stat1') WHERE name = 'evil'");
+    raw.close();
+    expect(refusal(path)).toBe("BACKUP_NOT_COINLEAK");
+  });
 });
