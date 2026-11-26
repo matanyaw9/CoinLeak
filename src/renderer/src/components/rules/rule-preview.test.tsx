@@ -95,6 +95,34 @@ describe("the rule preview's tick boxes", () => {
   });
 });
 
+describe("hints about other rules (spec 41)", () => {
+  it("names the rules that decide rows and each rule overridden, three at most before the rest", () => {
+    const data: Preview = {
+      ...preview([row(3, "PAYBOX", "rule")]),
+      decidedHigher: 2,
+      higherNames: ["Cafes"],
+      overrides: ["Bakery", "Brunch", "Lunch", "Dinner", "Snacks"].map((name, i) => ({ name, rows: i + 1 })),
+    };
+    const html = render(data, {});
+    expect(html).toContain("Cafes decides 2 of these rows");
+    expect(html).toContain("Overrides Bakery on 1 row");
+    expect(html).toContain("Overrides Lunch on 3 rows");
+    expect(html).not.toContain("Overrides Dinner");
+    expect(html).toContain("And 2 more rules");
+    expect(html).toContain('title="Dinner, Snacks"');
+  });
+
+  it("a row ignored by hand under an ignore rule says Set by you, has no box and is not counted", () => {
+    const data = { ...preview([row(3, "PAYBOX", "rule"), row(9, "BIT", null)]), setByYou: [3] };
+    const html = render(data, { ticked: new Set([9]) });
+    expect(html).toContain('data-fixed="byYou"');
+    expect(html).toContain(s.ruleTicks.setByYou);
+    expect(html).toContain(s.ruleTicks.count(1, 1));
+    // The one row left, and the box above.
+    expect(html.match(/role="checkbox"/g)).toHaveLength(2);
+  });
+});
+
 describe("rows the rule would not change (wave 14 review)", () => {
   it("show a label instead of a box, and the count, the box above and the Tab order leave them out", () => {
     const rows = [row(3, "PAYBOX", "user"), row(9, "העברה ב-BIT", "rule"), row(14, "PAYBOX", null), row(20, "BIT", "rule")];

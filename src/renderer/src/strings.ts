@@ -1285,6 +1285,20 @@ export const s = {
     nowOver: (name: string, amount: string) => `${name}'s budgets are now ${amount} over`,
     totalOver: (amount: string) => `Your category budgets are now ${amount} over the total`,
   },
+
+  // spec 41 A
+  ruleHints: {
+    overrides: (names: string[], n: number) =>
+      `Overrides ${names.length === 1 ? names[0] : `${names.length} rules`} on ${plural(n, "row", "rows")}`,
+    decides: (names: string[], n: number) =>
+      names.length === 1 ? `${names[0]} decides ${n} of these rows` : `${names.length} rules decide ${n} of these rows`,
+    decidesCounting: (names: string[], n: number) =>
+      names.length === 1
+        ? `${names[0]} decides whether ${n} of these rows count`
+        : `${names.length} rules decide whether ${n} of these rows count`,
+    moreOverridden: (n: number) => `And ${plural(n, "more rule", "more rules")}`,
+    setByYouHint: "You ignored it or counted it again by hand, so this rule leaves it as it is.",
+  },
 };
 
 export type Strings = typeof s;

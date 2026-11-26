@@ -17,7 +17,8 @@ const rule: Rule = {
   conditions: [{ kind: "text", field: "description", mode: "contains", values: ["קפה"] }],
   setCategoryId: null,
   setExcluded: true,
-  overlaps: [{ action: "exclude", count: 12, winnerId: 2 }],
+  overlaps: [{ action: "exclude", count: 12, winnerId: 2, winnerNames: ["Fees"] }],
+  overrides: { names: ["Bakery", "Brunch"], rows: 3 },
 };
 
 function line(searching: boolean, armed = true) {
@@ -26,7 +27,6 @@ function line(searching: boolean, armed = true) {
     <RuleLine
       rule={rule}
       place={3}
-      placeOf={(id) => (id === 2 ? 2 : 3)}
       query={searching ? "קפה" : ""}
       index={indexCategories([])}
       context={{ category: () => undefined, account: () => undefined }}
@@ -48,10 +48,13 @@ function line(searching: boolean, armed = true) {
 }
 
 describe("a rule line", () => {
-  it("shows its place and what a higher rule decides", () => {
+  it("shows its place, which rule decides rows here, and which rules it overrides", () => {
     const html = line(false);
     expect(html).toContain(`aria-label="${s.ruleOrder.place(3)}"`);
-    expect(html).toContain(s.ruleOrder.alsoFitsExclude(12, 2));
+    expect(html).toContain("Fees decides whether 12 of these rows count");
+    // Several rules: a count in the line, the names in its title.
+    expect(html).toContain("Overrides 2 rules on 3 rows");
+    expect(html).toContain('title="Bakery, Brunch"');
   });
 
   it("can be dragged and moved without a search", () => {

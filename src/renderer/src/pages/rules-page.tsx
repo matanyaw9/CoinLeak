@@ -188,7 +188,6 @@ export function RulesPage() {
                       key={rule.id}
                       rule={rule}
                       place={placeOf(rule.id)}
-                      placeOf={placeOf}
                       query={query}
                       index={index}
                       context={context}

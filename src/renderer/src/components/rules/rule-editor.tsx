@@ -79,7 +79,7 @@ export function RuleEditor({
   const handOver = fresh && form.enabled;
   const tickRows = useMemo((): TickRows => {
     // Rows the rule would not change show no box, so they are never ticked or sent.
-    const fixed = new Set([...(listed?.alreadyHere ?? []), ...(listed?.higherRule ?? [])]);
+    const fixed = new Set([...(listed?.alreadyHere ?? []), ...(listed?.higherRule ?? []), ...(listed?.setByYou ?? [])]);
     return {
       shown: listed?.sample.map((row) => row.id).filter((id) => !fixed.has(id)) ?? [],
       exceptions: listed?.exceptions ?? [],

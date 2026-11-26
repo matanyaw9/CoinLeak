@@ -1,9 +1,9 @@
 // One rule on the Rules page: its place in the order, a drag grip and move
 // arrows (both hidden while searching, spec 21), its category, name and
-// sentence, what the search found, "also fits" lines from core, and the
-// switch, edit and delete.
+// sentence, what the search found, core's hints about other rules (spec 41),
+// and the switch, edit and delete.
 
-import { ChevronDown, ChevronUp, EyeOff, GripVertical, Layers, Pencil, Trash, WandSparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, EyeOff, GripVertical, Pencil, Trash, WandSparkles } from "lucide-react";
 import type { Rule } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Hint } from "@/components/ui/tooltip";
 import { CategoryBubble, IconBubble } from "@/components/common/chips";
 import { Highlight } from "@/components/layout/find-box";
+import { OrderHint } from "./order-hint";
 import { RuleSentence } from "./rule-sentence";
 import { valueHits } from "./rule-search";
 
@@ -23,7 +24,6 @@ const SENTENCE_VALUES = 6;
 export function RuleLine({
   rule,
   place,
-  placeOf,
   query,
   index,
   context,
@@ -43,8 +43,6 @@ export function RuleLine({
 }: {
   rule: Rule;
   place: number;
-  /** Any rule's place in the order, for "that rule 2 decides". */
-  placeOf: (id: number) => number;
   query: string;
   index: CategoryIndex;
   context: SentenceContext;
@@ -145,16 +143,18 @@ export function RuleLine({
             ))}
           </span>
         )}
+        {rule.enabled && rule.overrides && (
+          <OrderHint
+            className="mt-1"
+            text={s.ruleHints.overrides(rule.overrides.names, rule.overrides.rows)}
+            names={rule.overrides.names}
+          />
+        )}
         {rule.enabled &&
           rule.overlaps?.map((o) => {
-            const winner = o.winnerId === null ? null : placeOf(o.winnerId);
-            const text = o.action === "category" ? s.ruleOrder.alsoFits : s.ruleOrder.alsoFitsExclude;
-            return (
-              <span key={o.action} className="mt-1 flex items-center gap-1.5 text-xs text-status-heads-up">
-                <Layers className="size-3.5 shrink-0" />
-                {text(o.count, winner !== null && winner > 0 ? winner : null)}
-              </span>
-            );
+            const text = o.action === "category" ? s.ruleHints.decides : s.ruleHints.decidesCounting;
+            const names = o.winnerNames ?? [];
+            return <OrderHint key={o.action} className="mt-1" text={text(names, o.count)} names={names} />;
           })}
       </button>
 
