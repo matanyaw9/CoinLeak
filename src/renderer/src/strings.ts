@@ -1305,6 +1305,11 @@ export const s = {
       return `Restored: ${parts.filter((p) => p !== null).join(", ")}`;
     },
   },
+
+  // spec 42 B
+  chooserOwnRows: {
+    notCounted: (name: string) => `${name}'s own rows are not counted`,
+  },
 };
 
 export type Strings = typeof s;

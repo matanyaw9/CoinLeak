@@ -84,6 +84,16 @@ export function smallest(ticks: TrendTicks, index: CategoryIndex): TrendTicks {
   return out;
 }
 
+/**
+ * The categories with a dash, in tree order. Their own rows have no box, so
+ * the chart leaves them out and the chooser says so (spec 42 B).
+ */
+export function partlyTicked(draft: TrendTicks, index: CategoryIndex): number[] {
+  return treeOf(index, "expense")
+    .map((e) => e.category.id)
+    .filter((id) => tickState(draft, id, index) === "partly");
+}
+
 /** The chooser button: `none` when nothing is ticked, the name of one, or "3 categories". */
 export function chooserLabel(ticks: TrendTicks, index: CategoryIndex, none: string): string {
   if (ticks.length === 0) return none;

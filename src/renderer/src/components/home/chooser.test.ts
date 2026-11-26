@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { Category } from "@shared/types";
 import { idsUnder, indexCategories } from "@/lib/categories";
-import { chooserItems, chooserLabel, smallest, tickDraft, tickState, tickedAbove } from "./chooser";
+import { chooserItems, chooserLabel, partlyTicked, smallest, tickDraft, tickState, tickedAbove } from "./chooser";
 import type { TrendTicks } from "./trend-filter";
 
 const cat = (id: number, name: string, parentId: number | null, kind: Category["kind"] = "expense"): Category =>
@@ -128,6 +128,25 @@ describe("tick boxes", () => {
     expect(tickedAbove([2], 4, index)).toBe(2);
     expect(tickedAbove([3], 2, index)).toBeNull();
     expect(tickedAbove([1], null, index)).toBeNull();
+  });
+});
+
+describe("parents whose own rows are not counted", () => {
+  it("names a parent once one of its children is unticked", () => {
+    expect(partlyTicked(click([1], 5), index)).toEqual([1]);
+  });
+
+  it("names every partly ticked parent above an unticked line, top first", () => {
+    expect(partlyTicked(click([1], 3), index)).toEqual([1, 2]);
+    expect(partlyTicked([3], index)).toEqual([1, 2]);
+  });
+
+  it("names none when every parent is fully ticked or empty", () => {
+    expect(partlyTicked([], index)).toEqual([]);
+    expect(partlyTicked([1, 6, null], index)).toEqual([]);
+    expect(partlyTicked([6], index)).toEqual([]);
+    // A ticked child is whole; only what is above it is partly.
+    expect(partlyTicked([2], index)).toEqual([1]);
   });
 });
 
