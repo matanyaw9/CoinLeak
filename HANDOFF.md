@@ -1,34 +1,41 @@
 # Handoff: CoinLeak
-_Last session: 2026-11-27 (night, owner asleep; new session at 06:10) · branch: dev · not pushed (nothing pushed since d837cdd)_
+_Last session: 2026-11-27 (night, owner asleep; new session at 06:10) · branch: dev · last commit: this handoff · not pushed (nothing pushed since d837cdd)_
 
 ## Tonight in one line
-Wave 15 round 2 done and merged (lead fixes + spec 40 by two Sonnet agents); spec 41 (F92 rules, F93 restore) and an Opus review of round 2 running overnight.
+Wave 15 rounds 2 and 3 and wave 16 ("ready for Windows") built, merged, reviewed by Opus twice, review fixes done: `dev` is green (1332 tests) and waits for the owner's tests.
 
 ## How we work now (owner, 2026-11-27)
-Builders: Sonnet 5.5 at high effort in herdr tab 2, tight specs, 40-line reports. Lead does small precise fixes itself. One Opus review per round, in its own pane. One combined screenshot pass after merging. (Memory: pro-plan-model-choice.)
+Builders: Sonnet 5.5 at high effort in herdr tab 2, tight specs, short reports (each agent took 5 to 10 minutes). The lead does small precise and security fixes itself. One Opus review per round in its own pane. One combined screenshot pass after merging. (Memory: pro-plan-model-choice.)
 
 ## What we did
-- **Lead fixes on dev:** review must 1 (`622e517`, restore check compares every schema entry; temp file 0600 first; CSV guards every text column), must 2 (`5f72f7e`, a budget can always go down), nice 2 (`5666dd4`, `settings:set` refuses `budgetTotal`; one `BUDGET_MAX` in `@shared/money`), should 2 core (`526d73c`, `leftInside`), F90 (`7af8fde`, `A` opens Finance accounts), F94 (`bd474bb`, migration 0017: new empty profiles get no level 3 defaults; Demo makes its own), F89 (`533774e`, `shekelText` writes "16,000"), nice 5 (backlog line).
-- **Spec 40** (`docs/specs/40-wave15-round2.md`), merged: A budgets on Categories, Budgets page and `U` gone, guide lines, move warning (F87, F88); B tick-box chooser with Selected chips and Clear all, summed line name as a button (F91, F88). Lead merge fixes `4841035`: budgets and chooser keys in `?`, stale strings. Check green, 1298 tests. Screenshots `.claude/shots/round2/`.
-- **Spec 41** (`docs/specs/41-newer-rules-and-restore-choices.md`) written; owner confirmed the F92 and F93 readings.
+- **Lead fixes** (wave 15 review): restore check compares every schema entry, a budget can always go down, `settings:set` refuses `budgetTotal`, backup temp file private first, CSV guards every text column, core sends `leftInside`; F89 "16,000" in money boxes; F90 `A` opens Finance accounts; F94 migration 0017 (new empty profiles get no level 3 defaults).
+- **Spec 40** (round 2): budgets on the Categories page, Budgets page and `U` gone (F87); tree guide lines (F88); tick-box chooser with Selected chips and Clear all (F91); summed line name as a button.
+- **Spec 41** (round 3): a new rule goes on top and wins; hints "Overrides X on N rows" / "X decides N of these rows"; "Set by you" (F92). Restore asks what to bring over: transactions, rules, budgets; categories always (F93). Lead: the copy is trimmed before it becomes a profile.
+- **Spec 42 + lead** (wave 16, ready for Windows): About CoinLeak in Settings with version, Check for updates, Report a bug, Star (F27, F28 step 1) through `app:openLink` (three fixed GitHub pages by name, `src/main/links.ts`); README install, update and banks steps; `docs/RELEASE.md` publish steps; `SHA256SUMS.txt` from `npm run dist:win`; round 2 review polish. F57 was already built. Trial installer build: fuses and asar as required.
+- **Reviews:** `docs/reviews/2026-11-27-round2-review.md`, `docs/reviews/2026-11-27-round3-wave16-review.md`: both "good to merge into `main` once the owner has tested it"; every should-fix and nice-to-have done.
+- Screenshots: `.claude/shots/round2/` and `.claude/shots/night/`.
 
 ## Where we stopped
-(updated through the night; see the end of this file)
+- `dev` clean, committed, `npm run check` green (1332 tests). **Not pushed.** `main` untouched.
+- herdr tab 2: finished agents `round2-budgets`, `round2-chooser`, `round3-rules`, `round3-restore`, `wave16-about`, `wave16-polish`, `round2-review` (Opus). All merged; panes can be closed.
+- Worktrees under `.claude/worktrees/` (wave14-*, wave15-*, round2-*, round3-*, wave16-*, night-shots) are all merged and can be removed (lead was not allowed to delete them unattended). `round2-shots/release/` holds a trial 0.0.1 installer (not for sharing).
+- Sleep block `coinleak-awake5` ends by itself about 06:30.
 
 ## Open questions for the owner
-- Chooser (spec 40 B): (1) a parent's own rows (not in any child) count when the parent is fully ticked, not when partly ticked; with one child, ticking it ticks the parent. OK? (2) The footer "Top 5" / "All spending" applies at once, next to "Clear all" that only unticks until Apply. Keep both?
-- Budgets on Categories (spec 40 A): group headings now have their own budget box, drag handle and Move button; the list is now on `lib/roving.ts`. Please try mouse drag-and-drop, and selecting digits in a budget box (the line must not start dragging): OWNER-TESTS 12.4.
-- F28 update button for the friend: step 1 (opens GitHub Releases) or step 2 (in-app download)?
+- Chooser: a group's own rows (not in any subcategory) count when the group is fully ticked, not when partly ticked; the chooser now says so. Want an "Other in <group>" line later (needs the "only this level" filter, backlog)?
+- Chooser footer: "Top 5" / "All spending" applies at once, next to "Clear all" that only unticks until Apply. Keep both?
+- Restore: an account a kept rule is limited to stays (emptied) when transactions are left out. OK?
+- First release: version `0.1.0`, GitHub pre-release, unsigned (PUBLISH-CHECKLIST section 4 recommendations). Say go.
 - Section 8 tests (waves 10 to 12) before `dev` goes to `main`; section 10 partly open.
 
 ## Next steps
-1. Owner tests OWNER-TESTS section 12 (round 2) and, once merged, section 13 (spec 41).
-2. Push `dev` when the owner says.
-3. Release prep for the friend (0.1.0, F28, F57, pre-release).
-4. Later: rethink default categories (F94), F67 net worth design note.
+1. Owner tests `docs/OWNER-TESTS.md` sections 12, 13, 14 (round 2, spec 41, wave 16). Mouse items to try: 12.4, 14.3.
+2. Push `dev` when the owner says; merge into `main` after the tests.
+3. First release: bump to 0.1.0 on `main`, secrets re-scan, `npm run dist:win`, tag, draft GitHub pre-release with the installer and `SHA256SUMS.txt` (`docs/RELEASE.md`), then the short Windows VM re-run from that draft (14.6), then publish for the friend.
+4. Later: rethink default categories (F94), F67 net worth design note, F1 scraper review routine (owner: new scrapers only ever ship inside a release), Linux AppImage (F55).
 
 ## History
-- 2026-11-27 (night): round 2 (lead fixes, spec 40) merged; spec 41 and the round 2 review overnight; not pushed.
+- 2026-11-27 (night): wave 15 rounds 2 and 3 (specs 40, 41) and wave 16 (spec 42, ready for Windows) built by Sonnet agents, merged, two Opus reviews, all fixes done; not pushed.
 - 2026-11-25 (evening, night): wave 14 review fixes merged; wave 15 (specs 37 to 39) built, merged, reviewed; owner tested and sent F87 to F94; not pushed.
 - 2026-11-25 (overnight, morning-lead): wave 13 code review and its two fixes; wave 14 (specs 34 to 36) merged; not pushed.
 - 2026-11-25: Sure comparison; feedback F67 to F86; wave 13 (specs 31 to 33) merged, owner tested, pushed.
@@ -39,11 +46,3 @@ Builders: Sonnet 5.5 at high effort in herdr tab 2, tight specs, 40-line reports
 - 2026-11-16: shipping plan; Windows VM test passed.
 - 2026-11-15: wave 11 merged; repo is public.
 - 2026-11-14: wave 10 started; Windows installer merged.
-
-## Night log
-- 01:45 round 2 merged, check green (1298 tests). Sleep block `coinleak-awake5` on until about 06:30.
-- 01:55 spec 41 agents `round3-rules`, `round3-restore` (Sonnet) and `round2-review` (Opus) started in tab 2.
-- 02:10 round 2 review (Opus, `docs/reviews/2026-11-27-round2-review.md`): good to merge after owner tests; should 1 (chooser drops a parent's own rows when partly ticked: note now, "Other in <parent>" later is the owner's call) and nice 1 to 4 sent to spec 42 B; should 2 (REQUIREMENTS row) done by the lead.
-- 02:20 spec 41 B (restore choices, F93) merged; lead fix `302490c`: the copy is trimmed before it becomes a profile.
-- 02:30 owner: F1 not tonight (new scrapers only ship in releases); focus on Windows download and use. Lead: `app:openLink` (`7d03552`, three fixed GitHub pages by name), README install/update/banks, RELEASE.md publish steps, SHA256SUMS in `dist:win`, spec 42 (About section, round 2 polish) to `wave16-about` and `wave16-polish`.
-- 02:40 spec 41 A (newer rules win, hints, "Set by you", F92) merged; check green, 1324 tests. Trial `dist:win` build running.
