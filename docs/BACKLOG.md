@@ -21,7 +21,7 @@ Nothing open.
 - New screenshot hooks sit in product components (`emoji-grid.tsx`,
   `trash-page.tsx`, `transactions-page.tsx`, `rules/tick-shot.ts`; wave 15 added `useRaiseShot` in
   `budgets/budget-line.tsx` (one router subscription per line), `useFirstRun` in `lib/hooks.ts`, the
-  `trend-legend` effect in `home/trend-card.tsx`, and `settings/backup-section.tsx`), as finding 6 of the
+  `trend-legend` effect in `home/trend-card.tsx`, `settings/backup-section.tsx`, and `rules/order-shot.ts` from spec 41), as finding 6 of the
   2026-11-08 review describes; `demo-shot.ts` is a better home.
 - Lead, at merge: two bugs came only from specs 34 and 35 together and
   were fixed on `fix/picker-outside-router` (the rule editor crashed: a

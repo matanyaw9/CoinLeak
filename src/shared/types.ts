@@ -284,6 +284,17 @@ export interface Rule extends RuleInput {
    * Absent when there are none.
    */
   overlaps?: RuleOverlap[];
+  /**
+   * spec 41, only on `rules:list`: the lower rules this one contradicts and
+   * wins over (different category, or ignore against count). Absent when none.
+   */
+  overrides?: RuleHint;
+}
+
+/** spec 41: the other rules a hint is about, by name in rule order, and on how many rows. */
+export interface RuleHint {
+  names: string[];
+  rows: number;
 }
 
 /** First match wins per action, so a rule can lose its category rows but not its exclude rows. */
@@ -293,11 +304,13 @@ export interface RuleOverlap {
   count: number;
   /** The higher rule that decides all of them, or null when several do. */
   winnerId: number | null;
+  /** spec 41: names of the higher rules that decide them, in rule order. */
+  winnerNames?: string[];
 }
 
 /** What `rules:preview` takes: the rule as typed, and the saved rule it edits, if any. */
 export type RulePreviewArgs = RuleInput & {
-  /** spec 21: rules above this one count as higher. Absent for a new rule, which goes last. */
+  /** spec 21: rules above this one count as higher. Absent for a new rule, which goes on top (spec 41). */
   ruleId?: number;
 };
 
@@ -329,6 +342,12 @@ export interface RulePreview {
    */
   alreadyHere: number[];
   higherRule: number[];
+  /** spec 41: the same, for an ignore (or always count) rule over a row the user ignored or counted by hand. */
+  setByYou?: number[];
+  /** spec 41: names of the higher rules behind `decidedHigher`, in rule order. */
+  higherNames?: string[];
+  /** spec 41: per lower rule this one contradicts and wins over, on how many matching rows. */
+  overrides?: { name: string; rows: number }[];
 }
 
 // ---- Rules v2 (spec 13) ----

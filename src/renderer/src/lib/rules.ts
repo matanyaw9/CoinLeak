@@ -6,10 +6,11 @@ import type { Rule, RuleInput } from "@shared/types";
 import { call } from "./api";
 
 export function toInput(rule: Rule): RuleInput {
-  const { id, position, overlaps, ...input } = rule;
+  const { id, position, overlaps, overrides, ...input } = rule;
   void id;
   void position;
   void overlaps;
+  void overrides;
   return input;
 }
 

@@ -1,11 +1,11 @@
 // The editor's live preview: how many transactions the rule fits today and
-// the newest 500 of them, each with the category it has now, and (spec 21)
-// how many of them a higher rule decides. Spec 35: each row has a tick box,
+// the newest 500 of them, each with the category it has now, and which rules
+// decide some of them or are overridden (spec 21, 41). Spec 35: each row has a tick box,
 // ticked means "this rule changes it", with one box above to tick them all.
 // Rows the rule would not change have a short label instead of a box. The
 // rows are one Tab stop: Up and Down move, Space ticks (F83).
 
-import { Check, CircleSlash, Hand, Layers, LoaderCircle, SearchCheck, TextCursorInput, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Check, CircleSlash, Hand, LoaderCircle, SearchCheck, TextCursorInput, TriangleAlert, type LucideIcon } from "lucide-react";
 import type { RulePreview as Preview, TransactionRow } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,10 @@ import { Money } from "@/components/common/money";
 import { CategoryBubble } from "@/components/common/chips";
 import { Label } from "@/components/common/card";
 import { allState } from "./rule-ticks";
+import { OrderHint } from "./order-hint";
+
+/** Overridden rules named one per line before "And n more rules". */
+const OVERRIDE_LINES = 3;
 
 /** The list's tick boxes: what is ticked now, and the clicks. */
 export interface PreviewTicks {
@@ -77,12 +81,7 @@ export function RulePreview({
         </div>
         <div className="mt-3 text-[13px]">{children}</div>
         {data && data.matches > 0 && !waiting && !broken && <p className="mt-2 text-xs text-muted-foreground">{p.yours}</p>}
-        {data && (data.decidedHigher ?? 0) > 0 && !waiting && !broken && (
-          <p className="mt-2 flex items-start gap-1.5 text-xs text-status-heads-up">
-            <Layers className="mt-px size-3.5 shrink-0" />
-            {s.ruleOrder.previewHigher(data.decidedHigher ?? 0)}
-          </p>
-        )}
+        {data && !waiting && !broken && <OtherRules data={data} />}
         {listed && ticks.movesHandSet > 0 && (
           <p data-hand-set className="mt-2 flex items-start gap-1.5 text-xs text-status-heads-up">
             <Hand className="mt-px size-3.5 shrink-0" />
@@ -146,13 +145,31 @@ export function RulePreview({
   );
 }
 
-type FixedWhy = "here" | "higher";
+/** spec 41: the higher rules that decide some of the rows, and the lower rules this one overrides. */
+function OtherRules({ data }: { data: Preview }) {
+  const h = s.ruleHints;
+  const higher = data.higherNames ?? [];
+  const overrides = data.overrides ?? [];
+  const rest = overrides.slice(OVERRIDE_LINES);
+  return (
+    <>
+      {higher.length > 0 && <OrderHint className="mt-2" text={h.decides(higher, data.decidedHigher ?? 0)} names={higher} />}
+      {overrides.slice(0, OVERRIDE_LINES).map((o, i) => (
+        <OrderHint key={i} className="mt-2" text={h.overrides([o.name], o.rows)} names={[o.name]} />
+      ))}
+      {rest.length > 0 && <OrderHint className="mt-2" text={h.moreOverridden(rest.length)} names={rest.map((o) => o.name)} />}
+    </>
+  );
+}
+
+type FixedWhy = "here" | "higher" | "byYou";
 
 /** Per row id, why the rule would not change it (from the preview), for rows shown without a box. */
 function fixedRows(data: Preview | undefined): Map<number, FixedWhy> {
   const out = new Map<number, FixedWhy>();
   for (const id of data?.alreadyHere ?? []) out.set(id, "here");
   for (const id of data?.higherRule ?? []) out.set(id, "higher");
+  for (const id of data?.setByYou ?? []) out.set(id, "byYou");
   return out;
 }
 
@@ -202,9 +219,14 @@ function SampleRow({
 /** A row the rule would not change: no box, and a short muted label saying why. */
 function FixedRow({ row, index, why }: { row: TransactionRow; index: CategoryIndex; why: FixedWhy }) {
   const t = s.ruleTicks;
+  const [text, hint] = {
+    here: [t.alreadyHere, t.alreadyHereHint],
+    higher: [t.higherRule, t.higherRuleHint],
+    byYou: [t.setByYou, s.ruleHints.setByYouHint],
+  }[why];
   const label = (
-    <span title={why === "here" ? t.alreadyHereHint : t.higherRuleHint} className="text-[11px] leading-4 whitespace-nowrap text-muted-foreground">
-      {why === "here" ? t.alreadyHere : t.higherRule}
+    <span title={hint} className="text-[11px] leading-4 whitespace-nowrap text-muted-foreground">
+      {text}
     </span>
   );
   return (

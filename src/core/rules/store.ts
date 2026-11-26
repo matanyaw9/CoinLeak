@@ -96,6 +96,12 @@ export function nextPosition(db: Db): number {
   return last + 1;
 }
 
+/** spec 41: adds the rule first in the order, so it wins; every other rule moves down one. */
+export function insertRuleOnTop(db: Db, rule: RuleInput, at: string): number {
+  db.prepare("UPDATE rules SET position = position + 1").run();
+  return insertRule(db, rule, 1, at);
+}
+
 function writeConditions(db: Db, ruleId: number, conditions: RuleCondition[]): void {
   db.prepare("DELETE FROM rule_conditions WHERE rule_id = ?").run(ruleId);
   const insert = db.prepare(

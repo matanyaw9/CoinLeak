@@ -406,3 +406,27 @@ Screenshots of the merged app: `.claude/shots/round2/`.
 10. **New profile, two levels (F94).** Make a new empty profile: Groceries
     and Transport have no Weekly shop, Top-up, Bus or Train under them.
     Your own profile keeps its categories.
+
+## 13. Spec 41: newer rules win, restore choices
+
+Restart `npm run dev` first. Demo profile first.
+
+1. **A new rule goes on top (F92).** Make a rule for a shop another rule
+   already sorts: every row has a tick box, and the editor says
+   "Overrides <rule> on N rows". Save: it is rule 1 on the Rules page.
+   Starter lists you add later go to the bottom. Dragging rules by hand
+   works as before.
+2. **Hints on the Rules page.** A rule that loses rows to a higher one
+   says "<rule> decides N of these rows"; the higher one says "Overrides
+   <rule> on N rows".
+3. **Set by you.** Ignore one row by hand, then start a "Don't count it"
+   rule for that shop: that row shows "Set by you" with no tick box and is
+   not in "Changes N of M".
+4. **Restore, choose what to keep (F93).** Settings, Back up now. Then
+   Restore from backup: "What to bring over" with three tick boxes. Untick
+   Transactions and Budgets, Continue, pick the file: a new profile with
+   your categories and rules, no transactions, no budgets; the message
+   says "Restored: N rules". Restore again with everything ticked: all of
+   it is there. Nothing ticked: Continue is greyed out.
+5. **Rules dropped, categories stay.** Restore with Rules unticked: rows
+   your rules had sorted keep their categories, also after a Sync.

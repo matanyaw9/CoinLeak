@@ -895,15 +895,9 @@ export const s = {
   ruleOrder: {
     header: "Checked from the top. When two rules fit a transaction, the higher one wins.",
     place: (n: number) => `Rule ${n}`,
-    alsoFits: (n: number, winner: number | null) =>
-      `Also fits ${plural(n, "transaction", "transactions")} that ${winner === null ? "higher rules decide" : `rule ${winner} decides`}`,
-    alsoFitsExclude: (n: number, winner: number | null) =>
-      `Also fits ${plural(n, "transaction", "transactions")} whose counting ${winner === null ? "higher rules decide" : `rule ${winner} decides`}`,
     moved: (place: number) => `Rule moved to position ${place}`,
     runsBefore: (name: string) => `It now runs before ${name}.`,
     runsLast: "It now runs last.",
-    previewHigher: (n: number) =>
-      `${plural(n, "of these is", "of these are")} decided by a higher rule, so this rule won't change ${n === 1 ? "it" : "them"}.`,
   },
 
   // spec 24
@@ -1304,6 +1298,20 @@ export const s = {
       ];
       return `Restored: ${parts.filter((p) => p !== null).join(", ")}`;
     },
+  },
+
+  // spec 41 A
+  ruleHints: {
+    overrides: (names: string[], n: number) =>
+      `Overrides ${names.length === 1 ? names[0] : `${names.length} rules`} on ${plural(n, "row", "rows")}`,
+    decides: (names: string[], n: number) =>
+      names.length === 1 ? `${names[0]} decides ${n} of these rows` : `${names.length} rules decide ${n} of these rows`,
+    decidesCounting: (names: string[], n: number) =>
+      names.length === 1
+        ? `${names[0]} decides whether ${n} of these rows count`
+        : `${names.length} rules decide whether ${n} of these rows count`,
+    moreOverridden: (n: number) => `And ${plural(n, "more rule", "more rules")}`,
+    setByYouHint: "You ignored it or counted it again by hand, so this rule leaves it as it is.",
   },
 };
 

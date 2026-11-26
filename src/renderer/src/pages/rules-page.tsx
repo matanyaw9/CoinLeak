@@ -30,6 +30,7 @@ import { StarterListsDialog } from "@/components/rules/starter-lists";
 import { ruleHits } from "@/components/rules/rule-search";
 import { FindBox, NoMatches } from "@/components/layout/find-box";
 import { RuleLine } from "@/components/rules/rule-line";
+import { runOrderShot } from "@/components/rules/order-shot";
 import { useDragAutoScroll } from "./rules-drag-scroll";
 
 type Drag = { id: number; order: number[] };
@@ -188,7 +189,6 @@ export function RulesPage() {
                       key={rule.id}
                       rule={rule}
                       place={placeOf(rule.id)}
-                      placeOf={placeOf}
                       query={query}
                       index={index}
                       context={context}
@@ -239,6 +239,7 @@ export function RulesPage() {
  * hand (spec 35: they show in the preview list, no scrolling needed),
  * `?shot=starters` the starter lists. Spec 21: `?shot=find-<text>` searches,
  * `?shot=move` moves the last rule up one (a real reorder) to show its toast.
+ * Spec 41: `?shot=hints`, `overrides` and `setbyyou` (see order-shot.ts).
  */
 function useDemoShot(
   rules: Rule[],
@@ -262,6 +263,7 @@ function useDemoShot(
       if (shot === "starters") openStarters();
       if (shot.startsWith("find-")) setSearch(shot.slice("find-".length));
       if (shot === "move") moveLast(-1);
+      void runOrderShot(shot, openEditor, () => refreshRules(client));
       if (shot === "handset") {
         void call("categories:list", undefined).then((all) => {
           openEditor({

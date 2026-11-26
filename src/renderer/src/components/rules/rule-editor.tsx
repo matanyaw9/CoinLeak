@@ -60,7 +60,9 @@ export function RuleEditor({
   const actions = useRuleActions();
 
   const check = useMemo(() => checkForm(form), [form]);
-  const previewKey = useDebounced(JSON.stringify(check.preview), 250);
+  // The form's preview leaves "don't count" out; the hints about it need it (spec 41).
+  const wanted = JSON.stringify(check.preview && { ...check.preview, setExcluded: check.draft.setExcluded });
+  const previewKey = useDebounced(wanted, 250);
   // spec 21: a saved rule's id lets the preview count rows the rules above it decide.
   const editingId = editing?.id;
   const previewInput = useMemo((): RulePreviewArgs | null => {
@@ -79,7 +81,7 @@ export function RuleEditor({
   const handOver = fresh && form.enabled;
   const tickRows = useMemo((): TickRows => {
     // Rows the rule would not change show no box, so they are never ticked or sent.
-    const fixed = new Set([...(listed?.alreadyHere ?? []), ...(listed?.higherRule ?? [])]);
+    const fixed = new Set([...(listed?.alreadyHere ?? []), ...(listed?.higherRule ?? []), ...(listed?.setByYou ?? [])]);
     return {
       shown: listed?.sample.map((row) => row.id).filter((id) => !fixed.has(id)) ?? [],
       exceptions: listed?.exceptions ?? [],
@@ -188,7 +190,7 @@ export function RuleEditor({
             <RulePreview
               waiting={previewInput === null}
               data={previewInput ? preview.data : undefined}
-              loading={preview.isFetching || JSON.stringify(check.preview) !== previewKey}
+              loading={preview.isFetching || wanted !== previewKey}
               broken={broken}
               index={index}
               ticks={{

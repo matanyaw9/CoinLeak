@@ -15,6 +15,7 @@ import {
   addExceptions,
   exceptionsAmong,
   insertRule,
+  insertRuleOnTop,
   loadRule,
   loadRules,
   nextPosition,
@@ -28,7 +29,7 @@ import { cleanConditions, cleanRuleInput } from "./validate";
 export const PREVIEW_ROWS = 500;
 
 export interface SaveRequest {
-  /** null creates the rule, last in the order. */
+  /** null creates the rule, first in the order (spec 41: the newest rule wins). */
   id: number | null;
   rule: unknown;
   /**
@@ -50,14 +51,11 @@ export interface SaveRequest {
   ticked?: unknown;
 }
 
-/** Every rule in order, each with what higher rules decide among the rows it fits (spec 21). */
+/** Every rule in order, each with its hints about other rules (spec 21, spec 41). */
 export function listRules(db: Db): Rule[] {
   const rules = loadRules(db);
-  const overlaps = ruleOverlaps(db, rules);
-  return rules.map((r) => {
-    const found = overlaps.get(r.id);
-    return found ? { ...r, overlaps: found } : r;
-  });
+  const hints = ruleOverlaps(db, rules);
+  return rules.map((r) => ({ ...r, ...hints.get(r.id) }));
 }
 
 /** Creates or updates a rule, reapplies all rules, and says what that did. */
@@ -73,7 +71,7 @@ export function saveRule(db: Db, req: SaveRequest, now = new Date()): RuleSaved 
   const at = now.toISOString();
   return transaction(db, () => {
     let id: number;
-    if (req.id === null) id = insertRule(db, rule, nextPosition(db), at);
+    if (req.id === null) id = insertRuleOnTop(db, rule, at);
     else {
       // Before the rule changes: what it sorts now is what unticked rows keep.
       keepForUser(db, req.id, unticked, at);
@@ -88,9 +86,17 @@ export function saveRule(db: Db, req: SaveRequest, now = new Date()): RuleSaved 
   });
 }
 
-/** Adds the rule last in the order. */
+/**
+ * Adds the rule last in the order: Undo of a delete (the window then moves it
+ * back to its place) and the Demo's rules. The editor saves with `saveRule`.
+ */
 export function createRule(db: Db, input: unknown, now = new Date()): Rule {
-  return saveRule(db, { id: null, rule: input }, now).rule;
+  const rule = cleanRuleInput(db, input);
+  return transaction(db, () => {
+    const id = insertRule(db, rule, nextPosition(db), now.toISOString());
+    runRules(db, "all", now);
+    return loadRule(db, id) as Rule;
+  });
 }
 
 /** Replaces the rule's fields; its place in the order stays. */
@@ -137,7 +143,8 @@ export function applyAllRules(db: Db, now = new Date()): RulesApplied {
  * needed, so a half-written rule can be previewed while it is edited; with a
  * category, `handSet` lists the matching rows the user sorted elsewhere.
  * For a saved rule, `exceptions` names the shown rows it skips (spec 35);
- * `alreadyHere` and `higherRule` the shown rows it would not change.
+ * `alreadyHere`, `higherRule` and `setByYou` the shown rows it would not
+ * change. A new rule is previewed on top of every other (spec 41).
  */
 export function previewRule(db: Db, input: unknown): RulePreview {
   const conditions = cleanConditions(db, input);
@@ -153,11 +160,11 @@ export function previewRule(db: Db, input: unknown): RulePreview {
     setCategoryId === null
       ? []
       : rows.filter((t) => t.categorySource === "user" && (t.categoryId === null || !inside.has(t.categoryId)));
-  const higher = rulesAbove(db, raw.ruleId);
+  const others = rulesAround(db, raw.ruleId);
   const shown = rows.slice(0, PREVIEW_ROWS);
   const shownIds = shown.map((t) => t.id);
   const exceptions = raw.ruleId === undefined ? [] : exceptionsAmong(db, raw.ruleId, shownIds);
-  const reach = draftReach(db, { ...conditions, setCategoryId, setExcluded }, higher, inside, raw.ruleId);
+  const reach = draftReach(db, { ...conditions, setCategoryId, setExcluded }, others, inside, raw.ruleId);
   return {
     matches: rows.length,
     sample: shown,
@@ -165,16 +172,19 @@ export function previewRule(db: Db, input: unknown): RulePreview {
     exceptions,
     handSet,
     decidedHigher: reach.decidedHigher,
+    higherNames: reach.higherNames,
+    overrides: reach.overrides,
     alreadyHere: shownIds.filter((id) => reach.alreadyHere.has(id)),
     higherRule: shownIds.filter((id) => reach.higherRule.has(id)),
+    setByYou: shownIds.filter((id) => reach.setByYou.has(id)),
   };
 }
 
-/** The rules checked before rule `id`; every rule when `id` is absent (a new rule goes last). */
-function rulesAbove(db: Db, id: number | undefined): Rule[] {
+/** The rules checked before and after rule `id`. Without one the draft is new, so all come after. */
+function rulesAround(db: Db, id: number | undefined): { higher: Rule[]; lower: Rule[] } {
   const rules = loadRules(db);
   const at = rules.findIndex((r) => r.id === id);
-  return id === undefined || at === -1 ? rules : rules.slice(0, at);
+  return at === -1 ? { higher: [], lower: rules } : { higher: rules.slice(0, at), lower: rules.slice(at + 1) };
 }
 
 /**
