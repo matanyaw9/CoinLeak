@@ -9,6 +9,7 @@ import { MIGRATIONS, type Migration } from "./migrations";
 export type Db = DatabaseSync;
 export { MIGRATIONS, type Migration } from "./migrations";
 export { BACKUP_MAX_BYTES, checkBackup, writeBackup } from "./backup";
+export { trimRestored } from "./restore";
 
 export function openDatabase(path: string): Db {
   if (path !== ":memory:") ensurePrivateDir(dirname(path));
