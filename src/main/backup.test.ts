@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkBackup, openDatabase, writeBackup, type Db } from "@core/db";
+import { checkBackup, openDatabase, trimRestored, writeBackup, type Db } from "@core/db";
 import { ingest } from "@core/ledger";
 import { bank, NOW, txn } from "@core/testing/ledger";
 import { backupHandlers, defaultName, electronDialogs, type BackupDeps, type FileDialogs } from "./backup";
@@ -22,6 +22,11 @@ vi.mock("electron", () => ({
   BrowserWindow: { getFocusedWindow: () => null },
   dialog: { showSaveDialog: electron.showSaveDialog, showOpenDialog: electron.showOpenDialog },
 }));
+// The real trimming, which one test makes fail.
+vi.mock("@core/db", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@core/db")>();
+  return { ...real, trimRestored: vi.fn(real.trimRestored) };
+});
 
 /** Everything ticked, as the dialog opens. */
 const ALL = { transactions: true, rules: true, budgets: true };
@@ -245,12 +250,10 @@ describe("Restore from backup", () => {
     expect(readProfiles(dataDir).profiles).toHaveLength(1);
   });
 
-  it("leaves no new profile when the trimming fails, and goes back to the open one", async () => {
-    // The step after opening the restored database gets none to work on.
-    const ask = setup({
-      getDb: () => {
-        throw new Error("broken");
-      },
+  it("leaves no new profile when the trimming fails, and the open one stays open", async () => {
+    const ask = setup();
+    vi.mocked(trimRestored).mockImplementationOnce(() => {
+      throw new Error("broken");
     });
     chosen = otherComputerBackup();
     const before = readdirSync(dataDir).filter((n) => !/-(wal|shm)$/.test(n)).sort();

@@ -1268,7 +1268,6 @@ export const s = {
       "Anyone who opens it can read your transactions. Keep it on your own drive or a USB stick. Do not email it or put it in a shared folder.",
     saved: (n: number) => `Backed up ${plural(n, "transaction", "transactions")}`,
     exported: (n: number) => `Exported ${plural(n, "transaction", "transactions")}`,
-    restored: "Restored.",
     restoredBody: "Sync once to log in to your banks on this computer.",
     welcomeAsk: "Moving from another computer?",
     welcomeLink: "Restore a backup",

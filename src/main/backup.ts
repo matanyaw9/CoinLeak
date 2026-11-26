@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, constants, copyFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { app, BrowserWindow, dialog, type FileFilter, type OpenDialogOptions, type SaveDialogOptions } from "electron";
-import { BACKUP_MAX_BYTES, checkBackup, trimRestored, writeBackup, type Db } from "@core/db";
+import { BACKUP_MAX_BYTES, checkBackup, openDatabase, trimRestored, writeBackup, type Db } from "@core/db";
 import { exportTransactionsCsv, israelToday } from "@core/ledger";
 import { CodedError } from "@shared/errors";
 import type { ProfileList, RestoreCounts, RestoreKeep, RestoredProfile } from "@shared/types";
@@ -108,7 +108,7 @@ export function backupHandlers(deps: BackupDeps): Pick<Handlers, BackupChannel> 
  * open profile's file is never written.
  */
 async function restore(deps: BackupDeps, args: unknown): Promise<RestoredProfile | null> {
-  const { dataDir, isSyncing, openCurrentDb, getDb } = deps;
+  const { dataDir, isSyncing, openCurrentDb } = deps;
   const keep = checkKeep(args);
   if (isSyncing()) throw new CodedError("SYNC_IN_PROGRESS");
   const source = await deps.dialogs.openBackup();
@@ -119,24 +119,24 @@ async function restore(deps: BackupDeps, args: unknown): Promise<RestoredProfile
   const copy = copyIntoDataFolder(dataDir, source);
   const list = readProfiles(dataDir);
   let profile;
+  let brought: RestoreCounts;
   try {
     checkBackup(copy);
     // A read-only check of a WAL file can leave empty -wal and -shm files beside it.
     for (const side of [`${copy}-wal`, `${copy}-shm`]) rmSync(side, { force: true });
+    // Trimmed before it becomes a profile: what was left out is never in one, even if the app stops here.
+    brought = trimCopy(copy, keep);
     profile = addRestoredProfile(dataDir, restoredName(list, israelToday(deps.now())), copy);
   } catch (e) {
     removeDatabaseFiles(copy);
-    throw e;
+    throw e instanceof CodedError ? e : new CodedError("DATABASE");
   }
 
   setCurrentProfile(dataDir, profile.id);
-  let brought: RestoreCounts;
   try {
-    // Runs any migrations newer than the backup.
     openCurrentDb();
-    brought = trimRestored(getDb(), keep);
   } catch {
-    // It would not open or trim: back to where we were, and the restored profile goes again.
+    // It would not open: back to where we were, and the restored profile goes again.
     setCurrentProfile(dataDir, list.current);
     try {
       // Closes the restored database before its files are deleted.
@@ -222,5 +222,15 @@ function writeWholeFile(path: string, text: string): void {
   } catch {
     rmSync(temp, { force: true });
     throw new CodedError("FILE_NOT_SAVED");
+  }
+}
+
+/** Opens the checked copy (running any migrations newer than the backup), takes out what was not kept, closes it. */
+function trimCopy(path: string, keep: RestoreKeep): RestoreCounts {
+  const db = openDatabase(path);
+  try {
+    return trimRestored(db, keep);
+  } finally {
+    db.close();
   }
 }
