@@ -517,7 +517,6 @@ export const s = {
   catEdit: {
     add: "New category",
     addMeta: "New group",
-    addIn: (group: string) => `Add a category to ${group}`,
     edit: (name: string) => `Edit ${name}`,
     move: (name: string) => `Move ${name}`,
     newTitle: "New category",
@@ -1168,6 +1167,7 @@ export const s = {
       chartMonth: "Month by month: pick a month (Enter opens its transactions)",
       chooserTick: "Category chooser: tick or untick",
       chooserApply: "Category chooser: apply",
+      chooserRemove: "Category chooser: remove the focused chip",
     } as Record<string, string>,
   },
   trashSelect: {
@@ -1186,7 +1186,6 @@ export const s = {
     apply: "Apply",
     count: (n: number) => `${n} categories`,
     limit: (max: number) => `Up to ${max} categories at once`,
-    included: (name: string) => `Counted in ${name}`,
     keys: "Space ticks, Enter applies",
     /** "Groceries", "Groceries and Coffee", "Groceries, Coffee and Fuel", "Groceries and 4 more". */
     names: (names: string[]) =>

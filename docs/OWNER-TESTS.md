@@ -327,6 +327,8 @@ merged app: `.claude/shots/wave14/`.
 
 Restart `npm run dev` first. Try each item on the Demo profile first, then
 on your own. Screenshots of the merged app: `.claude/shots/wave15/`.
+Since round 2 (section 12), items 1 to 3 live on the Categories page and
+the Budgets page and `U` are gone.
 
 1. **Budgets page (F73).** Sidebar: Budgets (or press `U`). Set the
    monthly total; next to it "Average income, <months>: ₪X" and "Use this"
@@ -369,3 +371,38 @@ on your own. Screenshots of the merged app: `.claude/shots/wave15/`.
    shows as text.
 9. **Keyboard list.** Press `?`: Budgets (`U`) and a new "Home charts"
    group are listed.
+
+## 12. Wave 15 round 2 (spec 40, lead fixes)
+
+Restart `npm run dev` first. Demo profile first, then your own.
+Screenshots of the merged app: `.claude/shots/round2/`.
+
+1. **Budgets on Categories (F87).** Sidebar has no Budgets entry and `U`
+   does nothing. Categories, Spending: the total card and split bar sit at
+   the top; each line shows its usual month and its budget box. Up and
+   Down between boxes, Enter saves, Esc puts it back. Home's "Plan
+   budgets" opens Categories.
+2. **Raise offer and lowering.** Give a child more than its parent has
+   left: "Raise <parent> to ₪X too?" (Enter or Esc). Lowering a budget
+   always saves now, even when its parent is already over.
+3. **Move warning.** Move a budgeted category into another budgeted group
+   so it no longer fits: the move saves, and a message says "<group>'s
+   budgets are now ₪X over"; the group's line shows it in red.
+4. **Please try with the mouse:** drag a category onto another group, and
+   select the digits in a budget box (the line must not start dragging).
+5. **Nesting is obvious (F88).** Categories, the category pickers and the
+   chart chooser show thin guide lines for each level.
+6. **Thousands (F89).** A saved budget shows "16,000", not "16000". The
+   same in the manual transaction and rule amount boxes.
+7. **Tick-box chooser (F91).** Home, "Spending by category through the
+   month", open the chooser: tick a group (all under it ticked), untick one
+   child (the group shows a dash, the rest stay ticked), click a ticked
+   line (only it unticks). The Selected chips row shows what is chosen; x
+   or Delete removes one; Clear all unticks everything, then Apply.
+8. **Summed line name.** On that card, the summed line's name is a button:
+   Tab to it and press Enter, it opens Transactions as a dot click does.
+9. **`A` opens Finance accounts (F90).** `?` lists it, plus the Budgets and
+   chooser keys.
+10. **New profile, two levels (F94).** Make a new empty profile: Groceries
+    and Transport have no Weekly shop, Top-up, Bus or Train under them.
+    Your own profile keeps its categories.

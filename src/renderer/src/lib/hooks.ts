@@ -79,7 +79,7 @@ export function useSetBudget() {
   });
 }
 
-/** spec 37: the Budgets page. Spent follows the month; budgets, usual and the averages do not. */
+/** spec 37, on Categories since spec 40: spent follows the month; budgets, usual and the averages do not. */
 export const useBudgetPlan = (month: IsoMonth) =>
   useQuery({
     queryKey: queryKey("budgets:plan", { month }),

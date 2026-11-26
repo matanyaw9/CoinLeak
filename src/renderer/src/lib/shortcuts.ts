@@ -34,6 +34,7 @@ export type ShortcutId =
   | "chartMonth"
   | "chooserTick"
   | "chooserApply"
+  | "chooserRemove"
   | "budgetMove"
   | "budgetSave"
   | "budgetRevert"
@@ -94,6 +95,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "chartMonth", group: "charts", listed: true, label: "← →" },
   { id: "chooserTick", group: "charts", listed: true, label: "Space" },
   { id: "chooserApply", group: "charts", listed: true, label: "Enter" },
+  { id: "chooserRemove", group: "charts", listed: true, label: "Delete / Backspace" },
   // spec 40: the budget boxes and the raise offer on Categories handle these themselves.
   { id: "budgetMove", group: "budgets", listed: true, label: "↑ ↓" },
   { id: "budgetSave", group: "budgets", listed: true, label: "Enter" },
