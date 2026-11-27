@@ -2,8 +2,9 @@
 // and links (specs 14 and 16). Income on the left, categories, savings and
 // what was left on the right; spending beyond income is its own warning node.
 // Clicking a category that holds others opens it one level down (spec 34,
-// down to level 3, with Back one level up); its own rows show as "Other in
-// <name>". Clicking any other category opens its transactions.
+// down to level 3, with Back one level up and, two levels in, Show all to the
+// top, spec 43); its own rows show as "Other in <name>". Clicking any other
+// category opens its transactions.
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -81,7 +82,7 @@ export function MoneyFlowCard({
 }) {
   const { range } = usePeriod();
   const shot = useShot();
-  // The categories opened, top level first (spec 34): Back goes up one.
+  // The categories opened, top level first (spec 34): Back goes up one, Show all to the top.
   const [path, setPath] = useState<number[]>(() => demoPath(shot, flow, index));
   const group = path.at(-1) ?? null;
   const opened = useGroupFlow(range, group);
@@ -110,10 +111,18 @@ export function MoneyFlowCard({
             <CardHeader
               label={s.periodHome.flowGroupTitle(pathOf(index, groupCat))}
               action={
-                <Button variant="outline" className="h-8 rounded-xl px-3" onClick={() => setPath(path.slice(0, -1))}>
-                  <ArrowLeft />
-                  {upCat ? s.nested.flowUp(upCat.name) : s.periodHome.flowBack}
-                </Button>
+                <span className="flex items-center gap-2">
+                  <Button variant="outline" className="h-8 rounded-xl px-3" onClick={() => setPath(path.slice(0, -1))}>
+                    <ArrowLeft />
+                    {upCat ? s.nested.flowUp(upCat.name) : s.periodHome.flowBack}
+                  </Button>
+                  {/* One level in, Back already goes to the top. */}
+                  {path.length > 1 && (
+                    <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.showAll.flowHint} onClick={() => setPath([])}>
+                      {s.showAll.button}
+                    </Button>
+                  )}
+                </span>
               }
             />
             <GroupBody
