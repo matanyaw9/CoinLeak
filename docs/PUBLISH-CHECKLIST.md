@@ -18,6 +18,12 @@ Because the repo is already public, anything it finds is already out:
 - [ ] If a real secret or real transaction turns up: treat it as leaked.
       Change the password or key first, then clean the history.
 - [ ] Re-scan right before tagging the first release.
+- Lead, 2026-11-27: a light scan with git over every branch and commit
+  found nothing: no AWS, GitHub, OpenAI, Anthropic, Slack or Google keys, no
+  private keys, no hard-coded passwords or tokens (one false hit: the
+  `INVALID_PASSWORD` error code), and no database, backup, `.env`, key or
+  bank export file ever committed. A real scanner (gitleaks) was not
+  installed; run it once before the tag if you want a second opinion.
 
 ## 2. The app is finished enough for strangers
 
