@@ -1,8 +1,9 @@
 // Reading and writing the `rules`, `rule_conditions` and (spec 35)
-// `rule_exceptions` tables, and their mapping to the shared `Rule`. No
-// checks and no reapplying here: `queries.ts` does both.
+// `rule_exceptions` tables (and the row links Undo needs, spec 43), and their
+// mapping to the shared `Rule`. No checks and no reapplying: `queries.ts` does both.
 
 import type {
+  DeletedRule,
   Rule,
   RuleCondition,
   RuleDirection,
@@ -59,13 +60,14 @@ export function loadRule(db: Db, id: number): Rule | undefined {
   return toRule(row, conditions.map(toCondition));
 }
 
-export function insertRule(db: Db, rule: RuleInput, position: number, at: string): number {
+/** `oldId` is only for a deleted rule coming back under its own id; null picks a new one. */
+export function insertRule(db: Db, rule: RuleInput, position: number, at: string, oldId: number | null = null): number {
   const res = db
     .prepare(
-      `INSERT INTO rules (name, position, enabled, join_mode, set_category_id, set_excluded, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO rules (id, name, position, enabled, join_mode, set_category_id, set_excluded, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(rule.name, position, ...ruleValues(rule), at, at);
+    .run(oldId, rule.name, position, ...ruleValues(rule), at, at);
   const id = Number(res.lastInsertRowid);
   writeConditions(db, id, rule.conditions);
   return id;
@@ -202,4 +204,44 @@ export function removeExceptions(db: Db, ruleId: number, ids: number[]): void {
     `DELETE FROM rule_exceptions WHERE rule_id = ? AND transaction_id IN (
        SELECT id FROM transactions WHERE trashed_at IS NULL AND id IN (SELECT value FROM json_each(?)))`,
   ).run(ruleId, JSON.stringify(ids));
+}
+
+// ---- Undo of a delete (spec 43) ----
+
+/** Every row the rule never matches, rows in Trash too. */
+export function exceptionsOf(db: Db, ruleId: number): number[] {
+  const rows = db
+    .prepare("SELECT transaction_id FROM rule_exceptions WHERE rule_id = ? ORDER BY transaction_id")
+    .all(ruleId) as unknown as { transaction_id: number }[];
+  return rows.map((r) => r.transaction_id);
+}
+
+/** Puts a deleted rule's exceptions back, rows now in Trash too. Rows deleted since are skipped. */
+export function restoreExceptions(db: Db, ruleId: number, ids: number[]): void {
+  db.prepare(
+    `INSERT OR IGNORE INTO rule_exceptions (rule_id, transaction_id)
+     SELECT ?, id FROM transactions WHERE id IN (SELECT value FROM json_each(?))`,
+  ).run(ruleId, JSON.stringify(ids));
+}
+
+// Rows whose `rule_id` a rule run would not give back: those in Trash (a run
+// skips them), and those with a field the user set, which keep an old link
+// from a hand edit until the next run.
+const HELD = `(trashed_at IS NOT NULL OR category_source IS 'user' OR excluded_source IS 'user'
+  OR (excluded = 1 AND excluded_source IS NULL))`;
+
+export function heldLinks(db: Db): DeletedRule["links"] {
+  return db
+    .prepare(
+      `SELECT id AS transactionId, rule_id AS ruleId FROM transactions WHERE rule_id IS NOT NULL AND ${HELD} ORDER BY id`,
+    )
+    .all() as unknown as DeletedRule["links"];
+}
+
+/** Writes the links back on rows still held, for rules that exist. */
+export function restoreLinks(db: Db, links: DeletedRule["links"]): void {
+  const stmt = db.prepare(
+    `UPDATE transactions SET rule_id = ? WHERE id = ? AND ${HELD} AND EXISTS (SELECT 1 FROM rules WHERE id = ?)`,
+  );
+  for (const { transactionId, ruleId } of links) stmt.run(ruleId, transactionId, ruleId);
 }

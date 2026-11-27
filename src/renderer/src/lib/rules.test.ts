@@ -1,7 +1,7 @@
-// The rule editor's form and the calls behind the rules screen: amounts in
-// shekels, suggestions opt-in, and Undo putting a rule back in its place.
+// The rule editor's form and the rules screen helpers: amounts in shekels,
+// suggestions opt-in, and moving a rule in the order.
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Rule, RuleInput } from "@shared/types";
 import {
   addValues,
@@ -14,7 +14,7 @@ import {
   type FormCondition,
   type RuleForm,
 } from "./rule-form";
-import { moveId, placeAfterMove, restoreRule, toInput } from "./rules";
+import { moveId, placeAfterMove, toInput } from "./rules";
 
 const draft: RuleInput = {
   name: "שופרסל",
@@ -106,9 +106,7 @@ describe("rule form", () => {
   });
 });
 
-describe("rules calls", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
+describe("rules helpers", () => {
   it("moves a rule within the order", () => {
     expect(moveId([1, 2, 3, 4], 3, 0)).toEqual([4, 1, 2, 3]);
     expect(moveId([1, 2, 3, 4], 0, 2)).toEqual([2, 3, 1, 4]);
@@ -124,22 +122,5 @@ describe("rules calls", () => {
   it("sends no overlap counts back when a listed rule is saved again", () => {
     const listed: Rule = { ...draft, id: 2, position: 2, overlaps: [{ action: "category", count: 3, winnerId: 1 }] };
     expect(toInput(listed)).toEqual(draft);
-  });
-
-  it("Undo recreates a deleted rule and moves it back to its old place", async () => {
-    const deleted: Rule = { ...draft, id: 2, position: 2 };
-    const invoke = vi.fn(async (channel: string) => {
-      if (channel === "rules:create") return { ok: true, value: { ...deleted, id: 9, position: 4 } };
-      if (channel === "rules:list") return { ok: true, value: [{ id: 1 }, { id: 3 }, { id: 4 }, { id: 9 }] };
-      return { ok: true, value: null };
-    });
-    vi.stubGlobal("window", { coinleak: { invoke, on: vi.fn() } });
-
-    await restoreRule(deleted);
-    expect(invoke.mock.calls).toEqual([
-      ["rules:create", toInput(deleted)],
-      ["rules:list", undefined],
-      ["rules:reorder", { ids: [1, 9, 3, 4] }],
-    ]);
   });
 });
