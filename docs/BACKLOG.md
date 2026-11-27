@@ -29,10 +29,8 @@ Nothing open.
 
 ## From spec 35 (rule tick boxes)
 
-- Undo after deleting a rule makes a new rule without its exceptions
-  (`lib/rules.ts` `restoreRule`): an unticked row the rule never sorted
-  could be picked up again. Fix: `rules:delete` returns the exceptions and
-  the undo sends them back as `unticked`.
+- Money flow: open a category from the keyboard (`flow-sankey.tsx` has mouse clicks only; found in spec 43 A).
+
 - The editor lists at most 500 matching rows. Hand-set rows past the 500
   are not shown, so saving never moves them (user edits win); before spec
   35 every hand-set row was listed and moved.
@@ -49,8 +47,8 @@ Full review: `docs/reviews/2026-11-25-wave13-review.md`.
   Ignore Enter until the search caught up. Moved into spec 36 (wave 14).
 - **Owner question:** when a purchase's category changes, should its
   pay-backs follow? Today they keep the old category. In HANDOFF.
-- Nice to have: move `isMac` and `isFindKey` from
-  `components/transactions/find.ts` into `lib/shortcuts.ts`; take the
+- Nice to have (the `isMac` / `isFindKey` move is done, spec 43 C; drop the re-export in `find.ts`):
+  take the
   screenshot-only hook out of every row's `category-cell.tsx` (with finding
   6 of the 2026-11-08 review); hide "Paid back for a purchase..." on an
   ignored row; mark a dialog's OK explicitly instead of "the last solid

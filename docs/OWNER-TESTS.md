@@ -455,3 +455,16 @@ Restart `npm run dev` first.
    pre-release so SmartScreen shows for real): install, open, About
    buttons open Edge, Restore a backup with choices, uninstall keeps the
    data folder.
+
+## 15. Wave 17 (spec 43)
+
+1. **Show all (F61).** Home, Where the money went: open a group, then a
+   category inside it. "Back to <group>" goes up one, "Show all" goes to
+   the top. Month by month: tick a category, "All spending" brings back
+   everything.
+2. **Rule undo is exact.** Rules: open a rule in the middle of the list
+   that has an unticked row, delete it, press Undo: it is back in the same
+   place, sorting the same rows, and the unticked row is still not sorted.
+3. **Demo profile.** Rules has one more rule ("Phone", under Bills) and
+   the starter banner says it sorts 2. Last month has one savings move you
+   ignored by hand.
