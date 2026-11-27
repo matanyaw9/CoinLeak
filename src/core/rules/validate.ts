@@ -7,7 +7,7 @@ import { MAX_CONDITIONS, MAX_NAME, MAX_TEXT, MAX_VALUES } from "@shared/limits";
 import type { RuleCondition, RuleDirection, RuleInput, RuleJoin, RuleMatchField, RuleMatchMode } from "@shared/types";
 import type { Db } from "../db";
 import { check, isId } from "../ledger/validate";
-import { cleanText, compileRegex, normalizeText, type Conditions } from "./match";
+import { cleanText, compileRegex, hasNestedRepeat, normalizeText, type Conditions } from "./match";
 
 const FIELDS: readonly RuleMatchField[] = ["description", "memo"];
 const MODES: readonly RuleMatchMode[] = ["contains", "starts_with", "equals", "regex"];
@@ -88,7 +88,8 @@ function cleanTextCondition(c: Record<string, unknown>): RuleCondition {
     // A regex is kept as typed: its spaces and escapes are the user's syntax.
     const value = mode === "regex" ? raw : cleanText(raw);
     check(value.trim() !== "" && value.length <= MAX_TEXT);
-    if (mode === "regex") check(compileRegex(value) !== null);
+    // A pattern that could hang the app is refused here, when saved (not when a saved rule runs).
+    if (mode === "regex") check(compileRegex(value) !== null && !hasNestedRepeat(value));
     // The same name twice adds nothing, so it is kept once.
     const key = mode === "regex" ? value : normalizeText(value);
     if (seen.has(key)) continue;

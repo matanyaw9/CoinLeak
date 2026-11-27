@@ -5,7 +5,7 @@ import { ingest } from "../ledger/ingest";
 import { updateTransactions } from "../ledger/queries";
 import { NOW, accountId, bank, card, categoryId, charge, idOf, newDb, snapshot, stored, txn } from "../testing/ledger";
 import { ruleFields, ruleInput, textValues } from "../testing/rules";
-import { createRule, deleteRule, listRules, previewRule, reorderRules, updateRule } from "./queries";
+import { createRule, deleteRule, listRules, previewRule, reorderRules, saveRule, updateRule } from "./queries";
 
 const out = (date: string, amount: number, description: string) => txn({ date, amount, description });
 
@@ -308,5 +308,8 @@ describe("previewRule", () => {
     const cheap = { ...ruleInput({ matchText: "קפה", amountMax: 2000 }), name: "" };
     expect(previewRule(db, cheap).sample.map((t) => t.description)).toEqual(["קפה הפינה"]);
     expect(() => previewRule(db, ruleInput({ matchMode: "regex", matchText: "(" }))).toThrow("BAD_REQUEST");
+    // A pattern that could hang the app is refused when typed or saved (review 2026-11-27).
+    expect(() => previewRule(db, ruleInput({ matchMode: "regex", matchText: "(\\d+)+$" }))).toThrow("BAD_REQUEST");
+    expect(() => saveRule(db, { rule: ruleInput({ matchMode: "regex", matchText: "(\\d+)+$" }), id: null })).toThrow("BAD_REQUEST");
   });
 });

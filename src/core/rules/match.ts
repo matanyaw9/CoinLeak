@@ -49,9 +49,8 @@ export function prepareRow(row: MatchFacts): PreparedRow {
   };
 }
 
-/** Case-insensitive, like the other modes. `null` when it does not compile or could hang the app. */
+/** Case-insensitive, like the other modes. `null` when it does not compile. */
 export function compileRegex(pattern: string): RegExp | null {
-  if (hasNestedRepeat(pattern)) return null;
   try {
     return new RegExp(pattern, "i");
   } catch {
@@ -60,12 +59,14 @@ export function compileRegex(pattern: string): RegExp | null {
 }
 
 /**
- * A repeat of a group that already repeats, such as `(\d+)+`. On a long text
- * that does not match it can take minutes, and rules run on the main process.
- * A repeat is `+`, `*` or `{`; escaped characters and `[...]` are plain text.
+ * An open-ended repeat of a group that already repeats open-endedly, such as
+ * `(\d+)+`: on a long text that does not match it can take minutes, and
+ * rules run on the main process. Checked when a rule is saved, never when it
+ * runs, so a rule saved before keeps working. Open-ended: `+`, `*`, `{n,}`.
+ * A fixed count like `{3}` or `{2,4}` is fine. Escapes and `[...]` are text.
  */
-function hasNestedRepeat(pattern: string): boolean {
-  // One entry for the whole pattern and one per open group: does it hold a repeat?
+export function hasNestedRepeat(pattern: string): boolean {
+  // One entry for the whole pattern and one per open group: does it hold an open-ended repeat?
   const repeats = [false];
   let inClass = false;
   let closedRepeatingGroup = false;
@@ -73,6 +74,15 @@ function hasNestedRepeat(pattern: string): boolean {
     const c = pattern.charAt(i);
     const afterRepeatingGroup = closedRepeatingGroup;
     closedRepeatingGroup = false;
+    let openEnded = c === "+" || c === "*";
+    if (c === "{" && !inClass) {
+      const end = pattern.indexOf("}", i);
+      const count = end === -1 ? "" : pattern.slice(i + 1, end);
+      if (/^\d+(,\d*)?$/.test(count)) {
+        openEnded = count.endsWith(",");
+        i = end;
+      }
+    }
     if (c === "\\") i++;
     else if (inClass) inClass = c !== "]";
     else if (c === "[") inClass = true;
@@ -81,7 +91,7 @@ function hasNestedRepeat(pattern: string): boolean {
       closedRepeatingGroup = repeats.pop() === true;
       // Then the group around it holds a repeat too.
       if (closedRepeatingGroup) repeats[repeats.length - 1] = true;
-    } else if (c === "+" || c === "*" || c === "{") {
+    } else if (openEnded) {
       if (afterRepeatingGroup) return true;
       repeats[repeats.length - 1] = true;
     }

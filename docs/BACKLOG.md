@@ -47,7 +47,7 @@ Full review: `docs/reviews/2026-11-25-wave13-review.md`.
   Ignore Enter until the search caught up. Moved into spec 36 (wave 14).
 - **Owner question:** when a purchase's category changes, should its
   pay-backs follow? Today they keep the old category. In HANDOFF.
-- Nice to have (the `isMac` / `isFindKey` move is done, spec 43 C; drop the re-export in `find.ts`):
+- Nice to have (the `isMac` / `isFindKey` move and the `find.ts` re-export are done, specs 43 C and 44 D):
   take the
   screenshot-only hook out of every row's `category-cell.tsx` (with finding
   6 of the 2026-11-08 review); hide "Paid back for a purchase..." on an
@@ -262,3 +262,13 @@ Full review: `docs/reviews/2026-11-25-wave13-review.md`.
   no channel reaches them.
 - REQUIREMENTS section 4 glossary lists fewer flows than exist;
   `docs/ARCHITECTURE.md` has all 8.
+
+## From the whole-code review fixes (spec 44, 2026-11-27)
+
+- A rule pattern with a nested open-ended repeat (`(\d+)+`) is refused when
+  saved; one saved before keeps running as it was. Switching such an old
+  rule off may ask to fix its pattern first (edit or delete it).
+- Dev and installed CoinLeak share one temp folder: starting one while the
+  other syncs removes the live sync profile (developers only).
+- Windows shutdown or logoff sends no quit: a sync profile left then is
+  removed at the next start.

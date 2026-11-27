@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RuleCondition, RuleJoin, RuleMatchMode } from "@shared/types";
 import { ruleInput } from "../testing/rules";
-import { compileMatcher, compileRegex, normalizeText, prepareRow, type MatchFacts } from "./match";
+import { compileMatcher, compileRegex, hasNestedRepeat, normalizeText, prepareRow, type MatchFacts } from "./match";
 
 const row = (facts: Partial<MatchFacts> = {}): MatchFacts => ({
   accountId: 1,
@@ -179,13 +179,13 @@ describe("several conditions (spec 13)", () => {
 });
 
 describe("patterns that could hang the app", () => {
-  it("refuses a repeat of a group that already repeats", () => {
+  it("spots an open-ended repeat of a group that already repeats", () => {
     for (const p of ["(\\d+)+$", "(a*)*", "(x+){2,}", "(?:ab+)*", "((a+)b)+", "((a)+)*", "(\\w{2,})+", "(a+?)+"]) {
-      expect(compileRegex(p), p).toBeNull();
+      expect(hasNestedRepeat(p), p).toBe(true);
     }
   });
 
-  it("accepts normal patterns", () => {
+  it("lets normal patterns and fixed counts through", () => {
     const normal = [
       "netflix|spotify",
       "^שופרסל (דיל|שלי) ",
@@ -201,7 +201,15 @@ describe("patterns that could hang the app", () => {
       "[(a+)]+",
       "(\\+)+",
       "([*+])+",
+      "(\\d{4}-){3}",
+      "(\\d{2})+",
+      "(\\d+){3}",
+      "[{2,}]+",
     ];
-    for (const p of normal) expect(compileRegex(p), p).not.toBeNull();
+    for (const p of normal) expect(hasNestedRepeat(p), p).toBe(false);
+  });
+
+  it("a saved rule's pattern still compiles and runs; only saving refuses it", () => {
+    expect(compileRegex("(\\d+)+$")?.test("12345")).toBe(true);
   });
 });

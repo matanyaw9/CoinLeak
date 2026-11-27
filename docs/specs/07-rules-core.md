@@ -66,7 +66,7 @@ to 20, newest first) and these channels:
 | channel | args | result |
 |---|---|---|
 | `rules:list` | none | `Rule[]` in order |
-| `rules:create` | `RuleInput` | `Rule` (appended last), then applies to all |
+| (`rules:create`) | | Removed in spec 44 D: the window saves with `rules:save`; `createRule` stays in core for the Demo |
 | `rules:update` | `{ id, rule: RuleInput }` | `Rule`, then reapplies to all |
 | `rules:delete` | `{ id }` | `null`, then reapplies to all |
 | `rules:reorder` | `{ ids }` (full new order) | `null`, then reapplies |
