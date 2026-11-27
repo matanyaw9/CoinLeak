@@ -1,44 +1,48 @@
 # Handoff: CoinLeak
-_Last session: 2026-11-27 (night into morning; owner away) · branch: dev · last commit: this handoff · not pushed (dev is 150+ commits ahead of origin)_
+_Last session: 2026-11-27 (day) · branch: dev · last commit: this handoff · pushed (dev = origin/dev)_
 
 ## Today in one line
-Waves 15b to 19 built by Sonnet agents, merged, and reviewed by Opus (round 2, round 3 + wave 16, the whole code, wave 18, wave 19); every finding is fixed or on the backlog. `dev` is green (1365 tests) and ready for the owner's tests and the first release.
-
-## How we work now (owner, 2026-11-27)
-Builders: Sonnet 5.5 at high effort in herdr (tabs 2 and 3), tight specs, short reports, about 5 to 15 minutes each. The lead does small precise and security fixes itself. One Opus review per round. One combined screenshot pass after merging. (Memory: pro-plan-model-choice.)
+Pushed `dev`, the owner started the owner tests, and their feedback is on the fix list (F96 to F100 plus one keyboard bug). Nothing fixed yet, as the owner asked.
 
 ## What we did
-- **Round 2, spec 40:** budgets on the Categories page (F87), tree guide lines (F88), tick-box chooser (F91); lead: "16,000" (F89), key A (F90), two-level defaults (F94), the wave 15 review fixes.
-- **Round 3, spec 41:** a new rule goes on top and names the rules it overrides (F92); restore asks what to bring over (F93).
-- **Wave 16, spec 42 (ready for Windows):** About in Settings (version, Check for updates, Report a bug, Star) through `app:openLink` (three fixed GitHub pages by name); README install, update and bank steps; `docs/RELEASE.md` publish steps; `SHA256SUMS.txt` from `npm run dist:win`.
-- **Wave 17, spec 43:** "Show all" checked on every chart, added to the money flow two levels deep (F61); exact rule Undo (`rules:delete` / `rules:restore`); screenshot hooks no longer per line or writing data.
-- **Wave 18, spec 44 (whole-code review fixes):** card-bill Undo is exact (must fix: it could hide ₪200 of spending); refunds show as "₪300 back" on the donut and month bars (core sends both ready to draw); quitting mid-sync waits for the sync and every start removes leftover bank browser profiles; `rules:create` removed; one `src/shared/limits.ts`; risky rule patterns refused when new, with the editor saying why (`src/shared/pattern-guard.ts`); deleting a category says its budget goes too.
-- **Wave 19, spec 45:** the money flow works from the keyboard (one Tab stop, Up and Down, Enter or Space, focus kept after Back); `src/core/ledger/queries.ts` split into accounts, categories, edits and trash (a pure move, 532 to 284 lines).
-- **Reviews** in `docs/reviews/`: `2026-11-27-round2-review.md`, `-round3-wave16-review.md`, `-whole-code-review.md` (verdict: ready for a friend on Windows after one fix), `-wave18-review.md` (good to merge after the owner's tests; fixed in `17c97de`), `-wave19-review.md` (same; fixed in `b8621a6`).
-- **Release prep:** light secrets scan of all history, nothing found (`docs/PUBLISH-CHECKLIST.md` section 1); draft release notes `docs/release-notes-0.1.0.md`; trial installer built at 8387f66 (fuses and asar as required).
-- **Splitwise plan (F95)**, side session `coinleak-1d`: `docs/research/splitwise.md`. No scraper needed: Splitwise has a CSV export per group and an official API. Proposal: a Splitwise account like the Cash wallet, one row per shared expense worth "what you paid minus your share", settle-ups internal like card bills, CSV import first. Listed in `docs/FEATURES.md` (Later, F95) and the "later" row of `REQUIREMENTS.md` section 8.
-- F58 debts: owner wants only a debt size estimate and whether it grows or shrinks, no live prices; will think about it another time.
-- Screenshots: `.claude/shots/round2/`, `.claude/shots/night/`, `.claude/shots/morning/`.
+- Pushed `dev` to GitHub (was 150+ commits ahead). `main` untouched.
+- Gave the owner the open test list (below, under Next steps).
+- Owner tested: restore choices (all, transactions only, budgets only, rules only), the About buttons, category editor Tab and arrows, dragging categories. All work except the points below.
+- Logged, owner's words and lead notes, in `docs/FEATURES.md` "Owner feedback from testing, 2026-11-27":
+  - F96 rename a profile by double-clicking its name in Settings (keep a keyboard way).
+  - F97 "Back up now" becomes "Export profile".
+  - F98 Add profile asks: empty, restore a `.coinleak` file, or Demo.
+  - F99 restore tick boxes become Transactions, Categories (budgets included), Rules. Transactions only and rules only still brought the owner's test category (today categories always come, F93). Needs decision.
+  - F100 small animation when dragging a category.
+- Bug in `docs/BACKLOG.md` "Owner tests, 2026-11-27": in the category editor, a parent picked from the keyboard is lost (saved as top level); with the mouse it works.
 
 ## Where we stopped
-- `dev` clean, committed, `npm run check` green (1365 tests). **Not pushed.** `main` untouched.
-- herdr tabs 2 and 3: all agents finished and merged; panes can be closed. Merged worktrees under `.claude/worktrees/` can be removed (the lead was not allowed to delete them unattended).
-- Sleep block `coinleak-awake6` ends by itself about 10:10.
+- `dev` clean, committed and pushed. Only docs changed today; `npm run check` was last green at `b8621a6` (1365 tests).
+- Owner said: "Don't fix rn, just keep it on a fix list." No fix wave started.
+- Merged worktrees under `.claude/worktrees/` (about 20) can still be removed; owner has not answered yet.
 
 ## Open questions / decisions for the user
-- **First release:** 0.1.0 as an unsigned GitHub pre-release, with the draft notes in `docs/release-notes-0.1.0.md`? Say go.
-- **Chooser:** a group's own rows count when it is fully ticked, not when partly ticked (the chooser says so). Want an "Other in <group>" line later? Keep both "Top 5 / All spending" and "Clear all"?
-- **Restore:** an account a kept rule is limited to stays (emptied) when transactions are left out. OK?
-- **Splitwise (F95), four decisions** at the end of `docs/research/splitwise.md`: count my share or only show Splitwise beside the bank view; CSV first or wait for a live connection; foreign-currency expenses (type the shekel amount, or skip with a count); when (lead: after the first public version).
+- **F99 restore:** lead proposal: ticking Rules ticks and locks Categories (rules point at categories); Transactions without Categories arrive in the new profile's default categories, keeping a category when one of the same name exists, else uncategorized, and the done message says how many. Owner to confirm.
+- **First release:** 0.1.0 as an unsigned GitHub pre-release with `docs/release-notes-0.1.0.md`? Probably after the fix list.
+- **Chooser:** "Other in <group>" line later? Keep both "Top 5 / All spending" and "Clear all"?
+- **Restore:** an account a kept rule is limited to stays (emptied) when transactions are left out. OK? (F99 may change this.)
+- **Splitwise (F95):** four decisions at the end of `docs/research/splitwise.md` (after v1).
+- **Worktrees:** delete the merged ones under `.claude/worktrees/`?
 
 ## Next steps
-1. Owner tests `docs/OWNER-TESTS.md` sections 12 to 17 (round 2, spec 41, waves 16 to 19), plus the open parts of 8 and 10. Mouse items: 12.4, 14.3. Windows only: 16.3.
-2. Push `dev` when the owner says; merge into `main` after the tests.
-3. First release: 0.1.0 on `main`, optional gitleaks scan, `npm run dist:win`, tag, draft pre-release with the installer, `SHA256SUMS.txt` and the notes (`docs/RELEASE.md`), Windows VM re-run from the draft (14.6, 16.3), publish for the friend.
-4. Later, no owner decision needed: what is left in `docs/BACKLOG.md` (none of it blocks the release).
-5. Splitwise, only after v1 and the owner's four decisions: owner makes a made-up test group and exports its CSV (step 1 of the plan), then wave A (core + window), then wave B (settle-up matching).
+1. Owner finishes `docs/OWNER-TESTS.md` (restart `npm run dev`, Demo first). Still open, by page:
+   - Home: 8.1 (own), 8.2, 12.7, 12.8, 14.2, 15.1, 16.2, 17.1, 17.2
+   - Transactions: 8.4 (cash), 8.5, 10.3, 10.9, 10.10, 10.11, 10.12a, 16.1 (must), 16.6
+   - Categories: 8.3, 10.1, 10.4, 10.5 (own), 12.1 to 12.3, 12.5, 12.6, 14.3 (mouse), 16.4, 10.13c
+   - Rules: 8.4 (rule), 10.6, 10.13a and b, 13.1 to 13.3, 15.2, 15.3, 16.5
+   - Settings: 12.9, 12.10 (own), 13.5, 14.4, and 10.8 (Tab out of lists)
+   - Later on Windows: 14.6, 16.3. Optional: 8.6, 10.12b.
+2. When the owner says go: a fix wave (spec 46) for the keyboard parent bug, F96 to F100 (F99 after the decision), and whatever the remaining tests find.
+3. Then merge `dev` into `main` and the 0.1.0 release (`docs/RELEASE.md`): optional gitleaks scan, `npm run dist:win`, tag, draft pre-release, Windows VM re-run (14.6, 16.3), publish for the friend.
+4. Later: the rest of `docs/BACKLOG.md`; Splitwise after v1 and the owner's decisions.
 
 ## History
+- 2026-11-27 (day): pushed `dev`; owner tested restore, About, category editor, dragging; feedback F96 to F100 and a keyboard bug on the fix list; pushed.
 - 2026-11-27 (night into morning): waves 15b to 19 (specs 40 to 45) built by Sonnet agents, merged, five Opus reviews, all findings fixed or on the backlog; release prep (scan, notes, trial build); Splitwise plan (F95) in a side session; not pushed.
 - 2026-11-25 (evening, night): wave 14 review fixes merged; wave 15 (specs 37 to 39) built, merged, reviewed; owner tested and sent F87 to F94; not pushed.
 - 2026-11-25 (overnight, morning-lead): wave 13 code review and its two fixes; wave 14 (specs 34 to 36) merged; not pushed.
@@ -48,5 +52,3 @@ Builders: Sonnet 5.5 at high effort in herdr (tabs 2 and 3), tight specs, short 
 - 2026-11-18: wave 12, Saved or overspent bars (spec 30, F62).
 - 2026-11-17: security docs and Windows VM results merged.
 - 2026-11-16: shipping plan; Windows VM test passed.
-- 2026-11-15: wave 11 merged; repo is public.
-- 2026-11-14: wave 10 started; Windows installer merged.
