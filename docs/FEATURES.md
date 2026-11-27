@@ -110,6 +110,22 @@ above got notes from the same message.
 | F93 | Restore: choose what to keep | spec 41 B (owner confirmed: no CSV import, 2026-11-27) | Owner: "migrate my profile as is (with the rules and categories) with the .coinleak file (and be able to choose what to keep and what not), or, just the transactions with the csv." Lead: after the check, tick boxes for transactions (with accounts and notes), rules, budgets; categories always come (rows and rules use them). Keeping only transactions covers "just the transactions", so no CSV import; the CSV stays for Excel. Owner to confirm. |
 | F94 | Default categories for new profiles | no third level: done (lead, bd474bb, migration 0017); later: rethink | Owner: "No need for Weekly Shop and Top Up categories by default. No need for 3 layer nested categories right at the default." "The default categories are about new profiles ... the current default categories don't seem good, we will rethink them later." Existing and restored profiles keep theirs. |
 
+## Owner feedback from testing, 2026-11-27
+
+Owner tested restore (all, transactions only, budgets only, rules only),
+the About buttons (work), the category editor keys (Tab and arrows work)
+and dragging categories (works). Owner: "Don't fix rn, just keep it on a
+fix list." The keyboard bug they found is in `docs/BACKLOG.md` (owner
+tests, 2026-11-27).
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| F96 | Rename a profile by double-clicking its name | idea | Owner: "Renaming should be done by double clicking on the profile name in settings where they are listed." Lead: the name turns into a text box in place; Enter saves, Esc cancels. Keep a keyboard way in (the Rename button, or F2 on the name) and list it under `?`. |
+| F97 | "Back up now" becomes "Export profile" | idea | Owner: rename "Back up now" to "Export Profile". Lead: sentence case like the other buttons ("Export profile"); the note that the file is not encrypted stays. |
+| F98 | New profile: start empty, restore a file, or try the Demo | idea | Owner: "Since restoring is effectively creating a new profile, when creating a new profile i should be asked if i want to restore one from a .coinleak file or create a new one (or a demo one for trying it out)." Lead: Add profile asks three ways: a new empty profile (a name), restore from a `.coinleak` file (then the F99 tick boxes), or the Demo profile. Settings' separate "Restore from backup" can then go; the Welcome screen keeps its "Restore a backup". |
+| F99 | Restore tick boxes: Transactions, Categories (budgets included), Rules | needs decision | Owner: the choices should be "Transactions, Categories (budgets included), Rules." Found in testing: with "transactions only" and with "rules only", the owner's own test category came over although it was unticked (today categories always come: F93). Owner: "can we migrate rules without migrating categories? I think not, because what if there is a rule aiming at a non default category?" Lead proposal: ticking Rules ticks Categories and locks it, with a short note why. Transactions without Categories arrive in the new profile's default categories: a row keeps its category when one of the same name exists there, otherwise it is uncategorized, and the done message says how many. Owner to confirm. |
+| F100 | Dragging a category needs a small animation | idea | Owner: "Dragging works, just with bad GUI. I think it should have a small animation." Lead: the dragged line follows the pointer and the other lines slide apart to show where it lands; respect "reduce motion". |
+
 ## Later
 
 | # | Feature | Status | Notes |

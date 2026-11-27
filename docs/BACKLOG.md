@@ -7,6 +7,16 @@ into specs when planning a wave. Must-fix items block the first real use.
 
 Nothing open.
 
+## Owner tests, 2026-11-27
+
+- **Category editor: a parent picked from the keyboard is lost.** Owner
+  made "Hi" under Restaurants with Tab and arrows: it was saved as a top
+  level category with no parent. "Ho" under Restaurants with the mouse
+  worked. Look at the parent list in the category editor (on
+  `lib/roving.ts` since the wave 14 review fixes): Enter or Space probably
+  moves the focus without setting the choice, or the choice is reset
+  before Save. Add a test that picks the parent by keyboard and saves.
+
 ## From wave 14 (specs 34 and 36) and its merge
 
 - Nesting budgets is the design now (spec 37). Moving a category on
