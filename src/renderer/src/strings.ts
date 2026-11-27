@@ -1162,6 +1162,8 @@ export const s = {
       chooserTick: "Category chooser: tick or untick",
       chooserApply: "Category chooser: apply",
       chooserRemove: "Category chooser: remove the focused chip",
+      // spec 45 A
+      flowNames: "Where the money went: pick a name (Enter opens it)",
     } as Record<string, string>,
   },
   trashSelect: {

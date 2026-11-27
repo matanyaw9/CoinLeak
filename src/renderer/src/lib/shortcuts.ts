@@ -30,6 +30,7 @@ export type ShortcutId =
   | "dialogSubmit"
   | "dialogCancel"
   | "chartMonth"
+  | "flowNames"
   | "chooserTick"
   | "chooserApply"
   | "chooserRemove"
@@ -94,6 +95,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "chooserTick", group: "charts", listed: true, label: "Space" },
   { id: "chooserApply", group: "charts", listed: true, label: "Enter" },
   { id: "chooserRemove", group: "charts", listed: true, label: "Delete / Backspace" },
+  // spec 45 A: the money flow's names.
+  { id: "flowNames", group: "charts", listed: true, label: "↑ ↓ / Enter" },
   // spec 40: the budget boxes and the raise offer on Categories handle these themselves.
   { id: "budgetMove", group: "budgets", listed: true, label: "↑ ↓" },
   { id: "budgetSave", group: "budgets", listed: true, label: "Enter" },
