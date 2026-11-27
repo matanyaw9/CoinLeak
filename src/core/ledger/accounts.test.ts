@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { CodedError } from "@shared/errors";
 import { NOW, accountId, bank, card, charge, newDb, snapshot, txn } from "../testing/ledger";
-import { setAccountsSyncing } from "./accounts";
 import { ingest } from "./ingest";
-import { listAccounts, listTransactions, monthSummary, trend } from "./queries";
+import { listAccounts, setAccountsSyncing } from "./accounts";
+import { listTransactions, monthSummary, trend } from "./queries";
 
 function ledger() {
   const db = newDb();

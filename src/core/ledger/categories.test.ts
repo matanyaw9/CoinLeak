@@ -6,9 +6,10 @@ import { NOW, bank, categoryId, idOf, newDb, stored, txn } from "../testing/ledg
 import { ruleInput } from "../testing/rules";
 import { createRule, listRules } from "../rules";
 import { budgetPlan, setBudget } from "./budgets";
-import { createCategory, deleteCategory, updateCategory } from "./categories";
+import { createCategory, deleteCategory, listCategories, updateCategory } from "./categories";
 import { ingest } from "./ingest";
-import { listCategories, monthSummary, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { monthSummary } from "./queries";
 
 const input = (over: Partial<CategoryInput> = {}): CategoryInput => ({
   name: "Books",

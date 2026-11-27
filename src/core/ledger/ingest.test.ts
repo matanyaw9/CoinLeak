@@ -18,7 +18,9 @@ import {
 } from "../testing/ledger";
 import { setCardMode } from "./card-bills";
 import { ingest, PROVIDER_KIND } from "./ingest";
-import { listAccounts, listTransactions, monthSummary, updateTransactions } from "./queries";
+import { listAccounts } from "./accounts";
+import { updateTransactions } from "./edits";
+import { listTransactions, monthSummary } from "./queries";
 
 const day = (d: number, amount: number, description = `קנייה ${d}`) =>
   txn({ date: `2026-03-${String(d).padStart(2, "0")}`, amount, description });

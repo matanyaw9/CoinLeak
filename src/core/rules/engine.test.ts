@@ -1,13 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Db } from "../db";
 import { ingest } from "../ledger/ingest";
-import {
-  listTransactions,
-  monthSummary,
-  restoreTransactions,
-  trashTransactions,
-  updateTransactions,
-} from "../ledger/queries";
+import { updateTransactions } from "../ledger/edits";
+import { listTransactions, monthSummary } from "../ledger/queries";
+import { restoreTransactions, trashTransactions } from "../ledger/trash";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, snapshot, stored, txn } from "../testing/ledger";
 import { lastRunId, ruleFields, ruleInput } from "../testing/rules";
 import { applyRules } from "./engine";

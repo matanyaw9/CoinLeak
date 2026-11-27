@@ -7,18 +7,11 @@ export { groupFlow, periodFlow } from "./money-flow";
 export { israelToday, periodCurves, periodCurveSum, periodSummary, periodTrend, periodTrendWithAverage, thisMonth } from "./period";
 export { monthlyNet } from "./net";
 export { deleteGoneRows } from "./pending";
-export { deleteForGood, emptyTrash, restoreTransactions, trashTransactions } from "./queries";
-export {
-  listAccounts,
-  listCategories,
-  listTransactions,
-  listTransactionsWithDays,
-  monthSummary,
-  trend,
-  updateTransactions,
-} from "./queries";
-export { createCategory, deleteCategory, updateCategory } from "./categories";
-export { setAccountsSyncing } from "./accounts";
+export { deleteForGood, emptyTrash, restoreTransactions, trashTransactions } from "./trash";
+export { listTransactions, listTransactionsWithDays, monthSummary, trend } from "./queries";
+export { updateTransactions } from "./edits";
+export { createCategory, deleteCategory, listCategories, updateCategory } from "./categories";
+export { listAccounts, setAccountsSyncing } from "./accounts";
 export { addManualTransaction, editManualTransaction, getCashWallet } from "./cash";
 export { balanceChecks } from "./balance";
 export { budgetPlan, budgetStatus, setBudget, setBudgetTotal } from "./budgets";

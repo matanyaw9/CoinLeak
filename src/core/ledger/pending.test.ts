@@ -19,7 +19,9 @@ import { setCardMode, setInternalByUser } from "./card-bills";
 import { dedupHash } from "./dedup";
 import { ingest } from "./ingest";
 import { DRIFT_DAYS, DRIFT_FLOOR, deleteGoneRows, planPending, type DriftFacts, type OpenRow } from "./pending";
-import { listTransactions, monthSummary, restoreTransactions, trashTransactions, trend, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { listTransactions, monthSummary, trend } from "./queries";
+import { restoreTransactions, trashTransactions } from "./trash";
 
 const LATER = new Date("2026-04-02T08:00:00Z");
 const LATEST = new Date("2026-04-05T08:00:00Z");

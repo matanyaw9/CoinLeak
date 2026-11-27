@@ -5,7 +5,8 @@ import { NOW, bank, categoryId, idOf, newDb, txn } from "../testing/ledger";
 import { ingest } from "./ingest";
 import { periodFlow } from "./money-flow";
 import { monthRange } from "./period";
-import { monthSummary, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { monthSummary } from "./queries";
 
 // Synthetic rows: [day, amount in agorot, description, category name or null].
 type Row = [string, number, string, string | null, ("pending" | "completed")?];

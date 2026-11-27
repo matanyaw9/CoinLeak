@@ -5,7 +5,8 @@ import { addMonths } from "./dates";
 import { ingest } from "./ingest";
 import { monthlyNet, netMonths } from "./net";
 import { periodTrend } from "./period";
-import { trashTransactions, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { trashTransactions } from "./trash";
 
 // A hand-built ledger over four months. Totals below are worked out by hand.
 //

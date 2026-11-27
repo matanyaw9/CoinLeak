@@ -3,7 +3,8 @@ import type { CategorySource, Flow, ReviewFlag } from "@shared/types";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testing/ledger";
 import { flagsOf, flowOf, LEDGER_SQL } from "./flow";
 import { ingest } from "./ingest";
-import { listTransactions, monthSummary, trend, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { listTransactions, monthSummary, trend } from "./queries";
 import { FLOWS } from "./validate";
 
 describe("flowOf", () => {

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { RuleInput } from "@shared/types";
 import type { Db } from "../db";
 import { ingest } from "../ledger/ingest";
-import { updateTransactions } from "../ledger/queries";
+import { updateTransactions } from "../ledger/edits";
 import { NOW, accountId, bank, card, categoryId, charge, idOf, newDb, snapshot, stored, txn } from "../testing/ledger";
 import { ruleFields, ruleInput, textValues } from "../testing/rules";
 import { hasNestedRepeat } from "./match";

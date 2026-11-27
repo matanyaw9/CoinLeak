@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ingest } from "../ledger/ingest";
-import { listTransactions, updateTransactions } from "../ledger/queries";
+import { updateTransactions } from "../ledger/edits";
+import { listTransactions } from "../ledger/queries";
 import { NOW, accountId, bank, card, categoryId, charge, idOf, idsOf, newDb, txn } from "../testing/ledger";
 import { lastRunId, textValues } from "../testing/rules";
 import { applyRules } from "./engine";

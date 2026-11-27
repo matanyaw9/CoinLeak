@@ -1,8 +1,8 @@
-// The categories editor's writes: create, rename, recolor, move anywhere in
-// the tree, and delete (refused while in use unless its rows and rules move
-// first). The three-level and same-kind rules are database triggers (0015);
-// core checks them first so the window gets a fixed problem code, never SQL
-// text. The old Routine / Treats column (`essential`) is left alone (spec 34).
+// The category list, and the editor's writes: create, rename, recolor, move
+// anywhere in the tree, and delete (refused while in use unless its rows and
+// rules move first). The three-level and same-kind rules are database triggers
+// (0015); core checks them first so the window gets a fixed problem code, never
+// SQL text. The old Routine / Treats column (`essential`) is left alone (spec 34).
 
 import type {
   Category,
@@ -14,7 +14,6 @@ import type {
   CategoryProblem,
 } from "@shared/types";
 import { transaction, type Db } from "../db";
-import { listCategories } from "./queries";
 import { check, isId } from "./validate";
 
 const KINDS: readonly CategoryKind[] = ["expense", "income", "transfer"];
@@ -204,6 +203,56 @@ function hasChildren(db: Db, id: number): boolean {
 }
 
 // ---- Reads ----
+
+/**
+ * Expense before income; depth first, so each category is followed by its
+ * children, each child by its own children (spec 34). Top-level categories
+ * go by sort order then id, the ones under them by sort order then name.
+ */
+export function listCategories(db: Db): Category[] {
+  const rows = db
+    .prepare(
+      `SELECT c.id, c.parent_id, c.name, c.kind, c.emoji, c.color, c.archived,
+         (SELECT COUNT(*) FROM transactions t WHERE t.category_id = c.id) AS row_count,
+         (SELECT COUNT(*) FROM rules r WHERE r.set_category_id = c.id) AS rule_count
+       FROM categories c
+       ORDER BY c.kind = 'income', c.sort_order, CASE WHEN c.parent_id IS NULL THEN c.id END, c.name`,
+    )
+    .all() as {
+    id: number;
+    parent_id: number | null;
+    name: string;
+    kind: Category["kind"];
+    emoji: string | null;
+    color: string | null;
+    archived: number;
+    row_count: number;
+    rule_count: number;
+  }[];
+  // Siblings keep the query's order; walking from the top puts each one's children right after it.
+  const childrenOf = new Map<number | null, typeof rows>();
+  for (const r of rows) childrenOf.set(r.parent_id, [...(childrenOf.get(r.parent_id) ?? []), r]);
+  const ordered: typeof rows = [];
+  const walk = (parentId: number | null): void => {
+    for (const r of childrenOf.get(parentId) ?? []) {
+      ordered.push(r);
+      walk(r.id);
+    }
+  };
+  walk(null);
+
+  return ordered.map((r) => ({
+    id: r.id,
+    parentId: r.parent_id,
+    name: r.name,
+    kind: r.kind,
+    emoji: r.emoji,
+    color: r.color,
+    archived: r.archived === 1,
+    rowCount: r.row_count,
+    ruleCount: r.rule_count,
+  }));
+}
 
 function record(db: Db, id: number): CategoryRecord | undefined {
   return db.prepare("SELECT id, parent_id, name, kind FROM categories WHERE id = ?").get(id) as

@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { Db } from "../db";
 import { ingest } from "../ledger/ingest";
-import { updateTransactions } from "../ledger/queries";
+import { updateTransactions } from "../ledger/edits";
 import { NOW, bank, categoryId, idOf, newDb, txn } from "../testing/ledger";
 import { ruleFields, ruleInput } from "../testing/rules";
 import { addKnownPlace } from "./places";

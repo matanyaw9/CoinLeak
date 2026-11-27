@@ -8,7 +8,8 @@ import type { Db } from "../db";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testing/ledger";
 import { ingest } from "./ingest";
 import { MAX_SUMMED, monthRange, periodCurveSum, periodCurves, periodTrendWithAverage } from "./period";
-import { listTransactions, monthSummary, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { listTransactions, monthSummary } from "./queries";
 
 type DayPoint = { date: IsoDate; amount: Agorot };
 
