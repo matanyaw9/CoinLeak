@@ -4,7 +4,9 @@
 // with a clear way back. Once ticked, a click opens Transactions (spec 38,
 // trend-filter.ts says which). Pointing at a segment or a legend name lights
 // that series in every bar (F60). Keys: the bars are one Tab stop (Left and
-// Right light a month, Enter opens it); the legend is one roving list.
+// Right light a month, Enter opens it); the legend is one roving list. Core
+// sends each bar ready to draw; a group whose refunds beat its spending has no
+// bar and shows as money back in the tooltip and the legend (spec 44).
 
 import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
 import {
@@ -21,10 +23,10 @@ import {
   type BarShapeProps,
 } from "recharts";
 import { ArrowLeft, Layers } from "lucide-react";
-import type { DateRange, IsoMonth, TrendPoint } from "@shared/types";
+import type { DateRange, IsoMonth, TrendBar, TrendPoint } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { categorySlice, otherSlice, ownRowsSlice, parentSlices, type CategoryIndex, type Slice } from "@/lib/categories";
+import { categorySlice, groupKey, groupSlice, otherSlice, ownRowsSlice, type CategoryIndex, type Slice } from "@/lib/categories";
 import { monthOf, monthRange, shiftMonth, toIsoMonth } from "@/lib/month";
 import { formatMonth, formatMonthShort, ils, percent } from "@/lib/format";
 import { useRoving } from "@/lib/roving";
@@ -35,6 +37,7 @@ import { Money } from "@/components/common/money";
 import { Button } from "@/components/ui/button";
 import { chartAnimation, ChartTooltip } from "@/components/charts/chart-tooltip";
 import { CategoryChooser } from "./category-chooser";
+import { MoneyBack } from "./category-donut-card";
 import {
   legendAction,
   monthAction,
@@ -46,9 +49,7 @@ import {
 } from "./trend-filter";
 import { usePeriodTrend } from "./period-data";
 
-type Row = { month: IsoMonth; label: string; total: number; top?: string } & Record<string, number | string | undefined>;
-
-const MAX_SERIES = 6;
+type Row = { month: IsoMonth; label: string; total: number; drawn: number; top?: string } & Record<string, number | string | undefined>;
 
 export function TrendCard({
   range,
@@ -74,15 +75,24 @@ export function TrendCard({
   }, [shot]);
   const trend = usePeriodTrend(trendRange(range), ticks);
   const points = trend.data?.points ?? [];
+  const bars = trend.data?.bars ?? [];
   const average = trend.data?.average ?? null;
+  // More money back than spending on average leaves no line to draw.
+  const averageLine = average && average.amount >= 0 ? average : null;
   const averageNote = average && s.average.months(average.count, formatMonth(average.from), formatMonth(average.to));
   const inPeriod = (m: IsoMonth) => m >= monthOf(range.from) && m <= monthOf(range.to);
 
   const filtered = ticks.length > 0;
   const showAll = () => setTicks([]);
   const toggle = (id: number | null) => setTicks((t) => toggleTick(t, id, index));
-  const series = filtered ? tickedSeries(index, ticks, points) : topGroups(index, points);
-  const data = points.map((t) => rowOf(t, series, filtered));
+  const series = filtered
+    ? tickedSeries(index, ticks, points)
+    : (trend.data?.groups ?? []).map((id) => groupSlice(index, { categoryId: id, amount: 0 }));
+  if (!filtered && trend.data?.hasOther) series.push(otherSlice(0));
+  const data = points.map((t, i) => rowOf(t, bars[i] as TrendBar, series));
+  /** A series' money back that month (below zero), if it had any. */
+  const backOf = (month: IsoMonth, key: string) =>
+    bars[points.findIndex((p) => p.month === month)]?.back.find((g) => groupKey(g.categoryId) === key)?.amount;
   const { list: legendList, item: legendItem } = useRoving(
     series.map((x) => x.key),
     // One line of names: Left and Right move along it.
@@ -93,7 +103,7 @@ export function TrendCard({
   const lastInPeriod = data.findLastIndex((d) => inPeriod(d.month));
   const restIndex = lastInPeriod >= 0 ? lastInPeriod : data.length - 1;
   const focus = hover != null ? data[hover] : data[restIndex];
-  const hasData = points.some((t) => t.spending > 0);
+  const hasData = bars.some((b) => b.drawn > 0 || b.back.length > 0);
 
   const act = (a: TrendAction | null) => {
     if (a?.kind === "tick") toggle(a.id);
@@ -187,7 +197,11 @@ export function TrendCard({
           <>
             {focus && (
               <div className="mb-4 flex items-baseline gap-2.5">
-                <Money amount={focus.total} decimals={false} className="text-[28px] leading-none tracking-tight" />
+                {focus.total < 0 ? (
+                  <MoneyBack amount={focus.total} className="text-[28px] leading-none tracking-tight" />
+                ) : (
+                  <Money amount={focus.total} decimals={false} className="text-[28px] leading-none tracking-tight" />
+                )}
                 <span className="text-sm text-muted-foreground">{formatMonth(focus.month)}</span>
               </div>
             )}
@@ -259,18 +273,26 @@ export function TrendCard({
                           label: x.name,
                           amount,
                           color: x.color,
-                          note: percent(amount, row.total),
+                          note: percent(amount, row.drawn),
                           strong: x.key === lit,
                         }));
+                      // Money back has no bar: it is listed under the spending, most first.
+                      const backRows = series
+                        .flatMap((x) => {
+                          const amount = backOf(row.month, x.key);
+                          if (amount === undefined) return [];
+                          return [{ key: x.key, label: x.name, amount: -amount, color: x.color, note: s.moneyBack.word, strong: x.key === lit }];
+                        })
+                        .sort((a, b) => b.amount - a.amount);
                       return (
                         <ChartTooltip
                           title={formatMonth(row.month)}
-                          rows={rows}
+                          rows={[...rows, ...backRows]}
                           hint={
                             <>
-                              {averageNote && (
+                              {averageLine && (
                                 <div className="mb-1">
-                                  {s.average.line(ils(average?.amount ?? 0, { decimals: false }))} · {averageNote}
+                                  {s.average.line(ils(averageLine.amount, { decimals: false }))} · {averageNote}
                                 </div>
                               )}
                               {tooltipHint(row.month)}
@@ -300,9 +322,9 @@ export function TrendCard({
                       ))}
                     </Bar>
                   ))}
-                  {average && (
+                  {averageLine && (
                     <ReferenceLine
-                      y={average.amount}
+                      y={averageLine.amount}
                       // The line stays inside the chart even above every bar.
                       ifOverflow="extendDomain"
                       stroke="var(--foreground)"
@@ -310,7 +332,7 @@ export function TrendCard({
                       strokeWidth={1.5}
                       strokeDasharray="6 5"
                       label={(p: { viewBox?: { x?: number; y?: number; width?: number } }) => (
-                        <AverageLabel viewBox={p.viewBox} text={s.average.line(ils(average.amount, { decimals: false }))} note={averageNote ?? ""} />
+                        <AverageLabel viewBox={p.viewBox} text={s.average.line(ils(averageLine.amount, { decimals: false }))} note={averageNote ?? ""} />
                       )}
                     />
                   )}
@@ -321,6 +343,8 @@ export function TrendCard({
               <div ref={legendList} role="group" aria-label={s.trendClick.legendLabel} className="contents">
                 {series.map((x, i) => {
                   const action = legendAction(ticks, x);
+                  // The month on show: what this name gave back then.
+                  const back = focus && backOf(focus.month, x.key);
                   return (
                     <button
                       key={x.key}
@@ -350,16 +374,17 @@ export function TrendCard({
                     >
                       <span className="size-2.5 rounded-full" style={{ backgroundColor: x.color }} />
                       {x.name}
+                      {back !== undefined && <MoneyBack amount={back} />}
                     </button>
                   );
                 })}
               </div>
-              {average ? (
+              {averageLine ? (
                 <span title={averageNote ?? undefined} className="flex items-center gap-1.5 px-1.5 py-1">
                   <span className="w-4 border-t-2 border-dashed border-foreground/55" />
                   {s.average.averageMonth}
                 </span>
-              ) : (
+              ) : average ? null : (
                 <span className="px-1.5 py-1">{s.average.none}</span>
               )}
             </div>
@@ -408,40 +433,28 @@ function trendRange(range: DateRange): DateRange {
  * The ticked categories as series. A ticked category with children shows them
  * one level down (core already counts each child with everything under it),
  * plus "Other in <name>" for rows set on the category itself, keeping only
- * those with spending in these months, so its bars say where the money went.
+ * those with money in these months, spent or given back, so its bars say where
+ * the money went.
  */
 function tickedSeries(index: CategoryIndex, ticks: TrendTicks, points: TrendPoint[]): Slice[] {
-  const spent = new Set(points.flatMap((t) => t.parts ?? []).filter((p) => p.amount > 0).map((p) => p.categoryId));
+  const moved = new Set(points.flatMap((t) => t.parts ?? []).filter((p) => p.amount !== 0).map((p) => p.categoryId));
   return ticks.flatMap((id) => {
     const children = id === null ? [] : (index.children.get(id) ?? []);
     if (id === null || children.length === 0) return [categorySlice(index, id)];
-    const parts = [...children.map((c) => c.id), id].filter((x) => spent.has(x));
+    const parts = [...children.map((c) => c.id), id].filter((x) => moved.has(x));
     return parts.length > 0
       ? parts.map((x) => (x === id ? ownRowsSlice(index, id) : categorySlice(index, x)))
       : [categorySlice(index, id)];
   });
 }
 
-/** All spending: the groups that are biggest over these months (by core's roll-up), the rest as "Other". */
-function topGroups(index: CategoryIndex, points: TrendPoint[]): Slice[] {
-  const size = new Map<number | null, number>();
-  for (const g of points.flatMap((t) => t.byParent)) size.set(g.categoryId, (size.get(g.categoryId) ?? 0) + g.amount);
-  const groups = parentSlices(index, [...size].map(([categoryId, amount]) => ({ categoryId, amount })));
-  if (groups.length <= MAX_SERIES) return groups;
-  return [...groups.slice(0, MAX_SERIES), otherSlice(0)];
-}
-
-/** One bar: each series' amount under its key. Core already split the month by group, or by series when filtered. */
-function rowOf(t: TrendPoint, series: Slice[], filtered: boolean): Row {
-  const row: Row = { month: t.month, label: formatMonthShort(t.month), total: t.spending };
-  const keys = new Set(series.map((x) => x.key));
-  const parts = filtered
-    ? (t.parts ?? t.byCategory).map((c) => ({ key: c.categoryId === null ? "none" : String(c.categoryId), amount: c.amount }))
-    : t.byParent.map((g) => ({ key: g.categoryId === null ? "none" : String(g.categoryId), amount: g.amount }));
-  for (const part of parts) {
-    const key = keys.has(part.key) ? part.key : "other";
-    row[key] = Number(row[key] ?? 0) + Math.max(0, part.amount);
-  }
+/** One bar: each series' amount under its key, as core sent it. */
+function rowOf(t: TrendPoint, bar: TrendBar, series: Slice[]): Row {
+  const row: Row = { month: t.month, label: formatMonthShort(t.month), total: t.spending, drawn: bar.drawn };
+  // A zero for every series, so a month with only money back still has a tooltip.
+  for (const x of series) row[x.key] = 0;
+  for (const part of bar.parts) row[groupKey(part.categoryId)] = part.amount;
+  if (bar.other > 0) row.other = bar.other;
   // Only the highest visible segment of each bar gets rounded corners.
   row.top = series.findLast((x) => Number(row[x.key] ?? 0) > 0)?.key;
   return row;

@@ -1,8 +1,8 @@
 // Display helpers for the category tree (three levels, spec 34): lookups,
-// depth and full paths, the tree in order for lists, and core's totals per
+// depth and full paths, the tree in order for lists, and core's amounts per
 // top-level category as chart slices.
 
-import type { Agorot, Category, CategoryKind } from "@shared/types";
+import type { Agorot, Category, CategoryKind, GroupAmount } from "@shared/types";
 import { s } from "@/strings";
 
 export const UNCATEGORIZED_COLOR = "#C9BFAE";
@@ -104,21 +104,31 @@ export interface Slice {
   amount: Agorot;
 }
 
-/** Core's totals per top-level category as chart slices, largest first. */
-export function parentSlices(index: CategoryIndex, byParent: { categoryId: number | null; amount: Agorot }[]): Slice[] {
+/** A top-level group's key in chart data. */
+export const groupKey = (categoryId: number | null) => (categoryId === null ? "none" : String(categoryId));
+
+/** One of core's top-level group amounts, with its name and color. */
+export function groupSlice(index: CategoryIndex, { categoryId, amount }: GroupAmount): Slice {
+  const c = categoryId === null ? null : (index.byId.get(categoryId) ?? null);
+  return {
+    key: groupKey(categoryId),
+    categoryId,
+    name: c ? c.name : categoryId === null ? s.common.uncategorized : s.common.other,
+    emoji: c?.emoji ?? null,
+    color: colorOf(c),
+    amount,
+  };
+}
+
+/**
+ * The groups with spending as lines for the category curves' top 5, largest
+ * first. Not for totals: the donut and the bars take core's own lists, money
+ * back included (spec 44).
+ */
+export function parentSlices(index: CategoryIndex, byParent: GroupAmount[]): Slice[] {
   return byParent
     .filter((p) => p.amount > 0)
-    .map((p) => {
-      const c = p.categoryId == null ? null : (index.byId.get(p.categoryId) ?? null);
-      return {
-        key: p.categoryId == null ? "none" : String(p.categoryId),
-        categoryId: p.categoryId,
-        name: c ? c.name : p.categoryId == null ? s.common.uncategorized : s.common.other,
-        emoji: c?.emoji ?? null,
-        color: colorOf(c),
-        amount: p.amount,
-      };
-    })
+    .map((p) => groupSlice(index, p))
     .sort((a, b) => b.amount - a.amount);
 }
 

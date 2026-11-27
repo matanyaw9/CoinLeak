@@ -1,15 +1,17 @@
-// Spending by top-level category as a donut with a clickable list, from
-// core's per-parent totals. Small slices fold into "Other" in the chart only;
-// the list shows every category. Pointing at a slice or a name shows it in
-// the donut's middle, so nothing ever covers the slice (spec 16).
+// Spending by top-level category as a donut with a clickable list, drawn
+// from core's lists (spec 44). The ring holds the groups with spending, small
+// ones folded into "Other"; the list shows every group, one whose refunds
+// beat its spending as money back, so it adds up to the total in the middle.
+// Pointing at a slice or a name shows it there, so nothing ever covers the
+// slice (spec 16).
 
 import { useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Ellipsis, Tag } from "lucide-react";
-import type { PeriodSummary } from "@shared/types";
+import type { Agorot, PeriodSummary } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
-import { otherSlice, parentSlices, type CategoryIndex, type Slice } from "@/lib/categories";
+import { groupKey, groupSlice, otherSlice, type CategoryIndex, type Slice } from "@/lib/categories";
 import { percent } from "@/lib/format";
 import { useShot } from "@/lib/shot";
 import { Card, CardHeader } from "@/components/common/card";
@@ -18,18 +20,13 @@ import { Money } from "@/components/common/money";
 import { chartAnimation } from "@/components/charts/chart-tooltip";
 import type { PeriodWords } from "./period-words";
 
-/** Slices smaller than this share of spending fold into "Other" in the chart. */
-const MIN_SHARE = 0.04;
-const MAX_SLICES = 7;
-
-/** The chart's slices, and which list keys each chart slice stands for. */
-function chartSlices(all: Slice[], total: number): { slices: Slice[]; members: Map<string, string[]> } {
-  const big = all.filter((x, i) => i < MAX_SLICES - 1 && x.amount >= total * MIN_SHARE);
-  const rest = all.slice(big.length);
-  const members = new Map(all.map((x) => [x.key, [x.key]]));
-  if (rest.length <= 1) return { slices: all, members };
-  members.set("other", rest.map((x) => x.key));
-  return { slices: [...big, otherSlice(rest.reduce((a, x) => a + x.amount, 0))], members };
+/** An amount below zero, said as money back: "₪300 back" (spec 44). */
+export function MoneyBack({ amount, className }: { amount: Agorot; className?: string }) {
+  return (
+    <span className={cn("whitespace-nowrap text-status-on-track", className)}>
+      <Money amount={-amount} decimals={false} /> {s.moneyBack.word}
+    </span>
+  );
 }
 
 export function CategoryDonutCard({
@@ -43,19 +40,21 @@ export function CategoryDonutCard({
   index: CategoryIndex;
   onOpen: (slice: Slice) => void;
 }) {
-  const all = parentSlices(index, summary.byParent);
-  const total = summary.spending;
-  const { slices, members } = chartSlices(all, total);
+  const { donut, spending: total } = summary;
+  const all = donut.groups.map((g) => groupSlice(index, g));
+  const slices = donut.ring.map((g) => groupSlice(index, g));
+  if (donut.other) slices.push(otherSlice(donut.other.amount));
+  const otherKeys = donut.other?.categoryIds.map(groupKey) ?? [];
   const shot = useShot();
   // Demo screenshots: `?shot=donut-hover` points at the second slice.
   const [hover, setHover] = useState<string | null>(shot === "donut-hover" ? (slices[1]?.key ?? null) : null);
 
   // A hovered list row lights its chart slice, which may be "Other".
-  const sliceOf = (key: string) => slices.find((x) => members.get(x.key)?.includes(key))?.key ?? key;
-  const litSlice = hover ? sliceOf(hover) : null;
-  const litRows = new Set(hover ? (members.get(hover) ?? [hover]) : []);
+  const litSlice = hover && otherKeys.includes(hover) ? "other" : hover;
+  const litRows = new Set(hover === "other" ? otherKeys : hover ? [hover] : []);
   const focus = hover ? (slices.find((x) => x.key === hover) ?? all.find((x) => x.key === hover)) : undefined;
-  const otherCount = members.get("other")?.length ?? 0;
+  // Shares are of what the ring draws; money back has none.
+  const share = (amount: Agorot) => (amount < 0 ? "" : percent(amount, donut.ringTotal));
 
   return (
     <Card className="flex h-full flex-col">
@@ -103,11 +102,17 @@ export function CategoryDonutCard({
                 <>
                   <span className="flex max-w-full items-center gap-1.5 text-xs text-muted-foreground">
                     <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: focus.color }} />
-                    <span className="truncate">{focus.key === "other" ? s.periodHome.donutOther(otherCount) : focus.name}</span>
+                    <span className="truncate">{focus.key === "other" ? s.periodHome.donutOther(otherKeys.length) : focus.name}</span>
                   </span>
-                  <Money amount={focus.amount} decimals={false} className="mt-1 text-xl tracking-tight" />
-                  <span className="mt-0.5 text-xs text-muted-foreground tabular-nums">{percent(focus.amount, total)}</span>
+                  {focus.amount < 0 ? (
+                    <MoneyBack amount={focus.amount} className="mt-1 text-xl tracking-tight" />
+                  ) : (
+                    <Money amount={focus.amount} decimals={false} className="mt-1 text-xl tracking-tight" />
+                  )}
+                  <span className="mt-0.5 text-xs text-muted-foreground tabular-nums">{share(focus.amount)}</span>
                 </>
+              ) : total < 0 ? (
+                <MoneyBack amount={total} className="text-2xl tracking-tight" />
               ) : (
                 <>
                   <Money amount={total} decimals={false} className="text-2xl tracking-tight" />
@@ -136,8 +141,12 @@ export function CategoryDonutCard({
                     {x.emoji ?? (x.categoryId === null ? <Tag className="size-3.5" /> : <Ellipsis className="size-3.5" />)}
                   </span>
                   <span className="min-w-0 flex-1 truncate">{x.name}</span>
-                  <Money amount={x.amount} decimals={false} className="text-[15px]" />
-                  <span className="w-9 text-end text-xs text-muted-foreground tabular-nums">{percent(x.amount, total)}</span>
+                  {x.amount < 0 ? (
+                    <MoneyBack amount={x.amount} className="text-[15px]" />
+                  ) : (
+                    <Money amount={x.amount} decimals={false} className="text-[15px]" />
+                  )}
+                  <span className="w-9 text-end text-xs text-muted-foreground tabular-nums">{share(x.amount)}</span>
                 </button>
               </li>
             ))}

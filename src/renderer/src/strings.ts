@@ -1336,6 +1336,12 @@ export const s = {
     button: "Show all",
     flowHint: "Back to all money",
   },
+
+  // spec 44 B
+  moneyBack: {
+    /** After the amount: "₪300 back". */
+    word: "back",
+  },
 };
 
 export type Strings = typeof s;
