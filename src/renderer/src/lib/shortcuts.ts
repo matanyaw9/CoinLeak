@@ -3,8 +3,6 @@
 // keyboard-help.tsx lists this same table, so the two never drift.
 // Spec 36: Delete and I on rows, and the keys of lists (lib/roving.ts).
 
-import { isFindKey, type KeyLike } from "@/components/transactions/find";
-
 export type ShortcutId =
   | "home"
   | "transactions"
@@ -119,6 +117,23 @@ export interface KeyContext {
   typing: boolean;
   /** A dialog, menu or popover is open. */
   overlay: boolean;
+}
+
+export interface KeyLike {
+  key: string;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+}
+
+export function isMac(): boolean {
+  return typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
+}
+
+/** Ctrl+F, or Cmd+F on a Mac (spec 17). */
+export function isFindKey(e: KeyLike, mac: boolean): boolean {
+  return e.key.toLowerCase() === "f" && !e.altKey && !e.shiftKey && isMod(e, mac);
 }
 
 /** Ctrl, or Cmd on a Mac, and not both. */
