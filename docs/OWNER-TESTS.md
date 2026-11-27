@@ -488,3 +488,11 @@ Restart `npm run dev` first.
 5. **Risky pattern.** Rules, Advanced, Pattern: `(\d+)+` is refused;
    `netflix|spotify` and `(\d{4}-){3}` work.
 6. Notes, cash rows and rule names still save; Ctrl+F still finds.
+
+## 17. Wave 19 (spec 45)
+
+1. **Money flow from the keyboard.** Home, Tab to "Where the money went":
+   Up and Down move between the names, each shows its tooltip; Enter on a
+   group opens it, Enter on a category opens its transactions. The `?`
+   list shows the keys under Home charts.
+2. Nothing else should look different: the ledger split is a pure move.

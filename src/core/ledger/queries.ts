@@ -29,9 +29,6 @@ import { FLOWS, assertIds, assertOptionalDate, check, isId } from "./validate";
 import { getCashWallet } from "./cash";
 import { isCashWithdrawal } from "./cash-patterns";
 
-// budgets.ts still imports this from here.
-export { listCategories } from "./categories";
-
 const WITH_LEDGER = `WITH ledger AS (${LEDGER_SQL})`;
 
 // ---- Transactions ----

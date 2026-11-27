@@ -29,7 +29,6 @@ Nothing open.
 
 ## From spec 35 (rule tick boxes)
 
-- Money flow: open a category from the keyboard (`flow-sankey.tsx` has mouse clicks only; found in spec 43 A).
 
 - The editor lists at most 500 matching rows. Hand-set rows past the 500
   are not shown, so saving never moves them (user edits win); before spec
@@ -57,6 +56,8 @@ Full review: `docs/reviews/2026-11-25-wave13-review.md`.
   safe; note it or match it).
 
 ## Done
+
+- (Spec 45) The money flow opens from the keyboard; `ledger/queries.ts` is split into accounts, categories, edits and trash (532 to 287 lines).
 
 - (Spec 44 B) The trend card and the donut no longer sum `byParent` in the window: core sends them ready to draw, money back included.
 
@@ -272,9 +273,6 @@ Full review: `docs/reviews/2026-11-25-wave13-review.md`.
   choices like `(a|aa)+$` or a big fixed count around a repeat (`(.*a){12}`).
 - While a quit waits for a sync to stop (up to 20 seconds), opening
   CoinLeak again does nothing: `second-instance` finds no window.
-- `src/core/ledger/queries.ts` is 532 lines with five jobs (whole-code
-  review should 5): split accounts, categories, Trash and edits out (a pure
-  move behind `ledger/index.ts`).
 - Dev and installed CoinLeak share one temp folder: starting one while the
   other syncs removes the live sync profile (developers only).
 - Windows shutdown or logoff sends no quit: a sync profile left then is

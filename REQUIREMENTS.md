@@ -229,6 +229,7 @@ migrations are never edited.
 | 16 | `42-ready-for-windows` | 2026-11-27 night. About in Settings with version, Check for updates, Report a bug, Star (F27, F28 step 1, `app:openLink`); README install and update steps; installer checksums; round 2 review polish |
 | 17 | `43-show-all-rule-undo-cleanup` | Merged 2026-11-27. Show all on every chart (F61), exact rule Undo, screenshot hooks. Owner tests section 15 |
 | 18 | `44-whole-review-fixes` | Merged 2026-11-27. Whole-code review fixes: exact card-bill Undo, refunds as money back, quit during sync, shared limits, pattern guard. Owner tests section 16 |
+| 19 | `45-flow-keys-and-queries-split` | Merged 2026-11-27. Money flow from the keyboard; ledger queries split (pure move). Owner tests section 17 |
 | later | | Net worth, investments and loans (F67, absorbs F58; a design note first), Splitwise shared bills (F95, plan in `docs/research/splitwise.md`, owner decisions first), Hebrew UI, pockets, AI helper (opt-in) |
 
 ## 9. Open questions

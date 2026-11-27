@@ -23,7 +23,7 @@ import { getSetting, setSetting } from "../settings";
 import { averageMonths, firstMonth } from "./average";
 import { addMonths, assertMonth, dayNumber, isIsoDate, monthBounds, toIsoDate } from "./dates";
 import { monthRange, spendingByCategory, spendingUnder, totals } from "./period";
-import { listCategories } from "./queries";
+import { listCategories } from "./categories";
 import { check, isId } from "./validate";
 
 export { BUDGET_MAX } from "@shared/money";
