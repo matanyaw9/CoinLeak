@@ -495,4 +495,7 @@ Restart `npm run dev` first.
    Up and Down move between the names, each shows its tooltip; Enter on a
    group opens it, Enter on a category opens its transactions. The `?`
    list shows the keys under Home charts.
-2. Nothing else should look different: the ledger split is a pure move.
+2. Open a group with Enter, Tab to Back, press Enter: the top chart shows
+   and its first name has the focus (the next Tab goes on to the next card).
+   Space presses a name like Enter.
+3. Nothing else should look different: the ledger split is a pure move.

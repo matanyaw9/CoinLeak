@@ -133,7 +133,8 @@ export function FlowSankey({
           setHover(null);
         }}
         onKeyDown={(e) => {
-          if (e.key !== "Enter") return roving.onKeyDown(e as unknown as KeyboardEvent<HTMLElement>);
+          // Enter or Space presses the name, as on any button.
+          if (e.key !== "Enter" && e.key !== " ") return roving.onKeyDown(e as unknown as KeyboardEvent<HTMLElement>);
           e.preventDefault();
           if (!e.repeat) pick(item, true);
         }}

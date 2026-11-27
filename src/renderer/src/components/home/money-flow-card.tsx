@@ -122,13 +122,14 @@ export function MoneyFlowCard({
               label={s.periodHome.flowGroupTitle(pathOf(index, groupCat))}
               action={
                 <span className="flex items-center gap-2">
-                  <Button variant="outline" className="h-8 rounded-xl px-3" onClick={() => go(path.slice(0, -1))}>
+                  {/* Back to the top removes this button: the top chart then takes the focus. */}
+                  <Button variant="outline" className="h-8 rounded-xl px-3" onClick={() => go(path.slice(0, -1), path.length === 1)}>
                     <ArrowLeft />
                     {upCat ? s.nested.flowUp(upCat.name) : s.periodHome.flowBack}
                   </Button>
                   {/* One level in, Back already goes to the top. */}
                   {path.length > 1 && (
-                    <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.showAll.flowHint} onClick={() => go([])}>
+                    <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.showAll.flowHint} onClick={() => go([], true)}>
                       {s.showAll.button}
                     </Button>
                   )}
@@ -155,7 +156,9 @@ export function MoneyFlowCard({
                 items={describe(index, flow.nodes)}
                 links={flow.links}
                 share={{ of: flow.income, label: flow.income > 0 ? s.flow.shareOfIncome : s.periodHome.noIncome }}
-                hoverFirst={shot === "flow-hover"}                onPick={pick}
+                hoverFirst={shot === "flow-hover"}
+                takeFocus={byKeys}
+                onPick={pick}
               />
             )}
           </>
