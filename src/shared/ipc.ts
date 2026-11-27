@@ -119,7 +119,6 @@ export interface IpcContract {
   "sync:cancel": { args: undefined; result: null };
   /** Rules in evaluation order. Every change below reapplies all rules to all rows. */
   "rules:list": { args: undefined; result: Rule[] };
-  "rules:create": { args: RuleInput; result: Rule };
   "rules:update": { args: { id: number; rule: RuleInput }; result: Rule };
   /** spec 43: answers with what `rules:restore` needs to undo it. */
   "rules:delete": { args: { id: number }; result: DeletedRule };
@@ -269,7 +268,6 @@ export const CHANNELS = [
   "sync:start",
   "sync:cancel",
   "rules:list",
-  "rules:create",
   "rules:update",
   "rules:delete",
   "rules:restore",
