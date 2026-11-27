@@ -12,6 +12,7 @@ import { createHandlers } from "./handlers";
 import { currentProfile, databasePath, DEMO_PROFILE, readProfiles, writeProfiles } from "./profiles";
 import { emit, registerIpc } from "./ipc";
 import { runSync } from "./sync";
+import { removeLeftoverProfiles } from "./sync/browser";
 import { createSyncService } from "./sync-service";
 import { isAppUrl, APP_ORIGIN } from "./policy";
 import { registerAppScheme, serveAppFiles } from "./protocol";
@@ -84,6 +85,10 @@ function start(): void {
     createDemoDatabase(databasePath(dataDir, DEMO_PROFILE), new Date());
     writeProfiles(dataDir, { current: DEMO_PROFILE.id, profiles: [DEMO_PROFILE] });
   }
+  // A quit mid-sync can leave a browser profile with bank cookies. Before any
+  // sync can run, remove them all. Not on screenshot runs: they hold no lock,
+  // so a sync of another running copy could own one.
+  if (!screenshotRun) removeLeftoverProfiles();
   openAtStartup(openCurrentDb);
   const sync = createSyncService({
     getDb,

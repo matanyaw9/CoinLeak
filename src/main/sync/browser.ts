@@ -2,7 +2,7 @@
 // pipe, visible window, fresh 0700 profile deleted afterwards, and network
 // limited to the provider's hosts for every page, frame, popup and worker.
 
-import { rmSync } from "node:fs";
+import { readdirSync, rmSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -126,6 +126,32 @@ function createStop(): { stopped: Promise<never>; reason(): ErrorCode | undefine
       reject(new CodedError(code));
     },
   };
+}
+
+/**
+ * Every sync profile in `root`, whatever its age. For app start only: the
+ * single-instance lock is held and no sync has run, so none is in use, and one
+ * left by quitting mid-sync still holds bank cookies. Synchronous so it is done
+ * before a sync can start. Never throws.
+ */
+export function removeLeftoverProfiles(root: string = tmpdir()): void {
+  let leftovers: string[];
+  try {
+    leftovers = readdirSync(root, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name.startsWith(PROFILE_PREFIX))
+      .map((e) => join(root, e.name));
+  } catch {
+    console.warn("[sync] could not look for old sync browser profiles");
+    return;
+  }
+  for (const path of leftovers) {
+    try {
+      rmSync(path, { recursive: true, force: true });
+    } catch {
+      // The others still go; the next start or sync tries this one again.
+      console.warn("[sync] could not delete an old sync browser profile");
+    }
+  }
 }
 
 /** Old profiles left by a crash still hold bank cookies: remove them. */

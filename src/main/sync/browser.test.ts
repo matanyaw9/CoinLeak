@@ -2,16 +2,17 @@
 // stop causes, and that the temporary profile is gone however the run ends.
 
 import { EventEmitter } from "node:events";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Browser, LaunchOptions, Page } from "puppeteer";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CodedError } from "@shared/errors";
 import {
   chromeArgs,
   launchOptions,
   PROFILE_PREFIX,
+  removeLeftoverProfiles,
   withSyncBrowser,
   type BrowserDeps,
   type SyncSession,
@@ -351,5 +352,34 @@ describe("withSyncBrowser", () => {
     expect(existsSync(old)).toBe(false);
     expect(existsSync(fresh)).toBe(true);
     expect(existsSync(unrelated)).toBe(true);
+  });
+});
+
+describe("removeLeftoverProfiles (app start)", () => {
+  it("removes old and new profile folders and nothing else", () => {
+    const old = join(root, `${PROFILE_PREFIX}old`);
+    const fresh = join(root, `${PROFILE_PREFIX}fresh`);
+    const unrelated = join(root, "something-else");
+    const file = join(root, `${PROFILE_PREFIX}a-file`);
+    for (const d of [old, fresh, unrelated]) mkdirSync(join(d, "Default"), { recursive: true });
+    writeFileSync(join(fresh, "Default", "Cookies"), "synthetic");
+    writeFileSync(file, "not a folder");
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    utimesSync(old, twoHoursAgo, twoHoursAgo);
+
+    removeLeftoverProfiles(root);
+
+    expect(readdirSync(root).sort()).toEqual([`${PROFILE_PREFIX}a-file`, "something-else"]);
+    expect(existsSync(join(unrelated, "Default"))).toBe(true);
+  });
+
+  it("does not throw when the temp folder cannot be read", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(() => removeLeftoverProfiles(join(root, "missing"))).not.toThrow();
+      expect(warn).toHaveBeenCalledWith("[sync] could not look for old sync browser profiles");
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
