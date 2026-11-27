@@ -8,10 +8,12 @@ import type { BudgetPlanLine } from "@shared/types";
 import { s } from "@/strings";
 import { cn } from "@/lib/utils";
 import { useSetBudget } from "@/lib/hooks";
-import { useShot } from "@/lib/shot";
 import { Button } from "@/components/ui/button";
 import { BudgetBox, budgetText, useBudgetEdit } from "./budget-box";
 import { money, offerWords, type OverProblem } from "./offer-words";
+
+/** A line, marked when `?shot=raise-<name>` asks this one for its raise offer. The page reads the shot. */
+export type ShownBudgetLine = BudgetPlanLine & { raiseShot?: boolean };
 
 export function BudgetLine({
   line,
@@ -20,7 +22,7 @@ export function BudgetLine({
   children,
   actions,
 }: {
-  line: BudgetPlanLine;
+  line: ShownBudgetLine;
   name: string;
   nameOf: (id: number) => string;
   /** The start of the line: the category itself. */
@@ -35,7 +37,7 @@ export function BudgetLine({
   );
   const problem = edit.refused?.problem;
   const over = problem?.code === "over_parent" || problem?.code === "over_total" ? problem : null;
-  useRaiseShot(name, line, box, edit.onText, edit.submit);
+  useRaiseShot(line, box, edit.onText, edit.submit);
 
   const backToBox = () => box.current?.focus();
   const raise = () => void edit.raise().then((ok) => ok && backToBox());
@@ -149,18 +151,17 @@ function RaiseOffer({
 }
 
 /**
- * Screenshot aid: `?shot=raise-<name>` types ₪500 more than that category's
- * room into its box and saves, so the raise offer shows.
+ * Screenshot aid: on the marked line, types ₪500 more than that category's
+ * room into its box and saves. The save is refused, so the raise offer shows
+ * and nothing is written.
  */
 function useRaiseShot(
-  name: string,
-  line: BudgetPlanLine,
+  line: ShownBudgetLine,
   box: RefObject<HTMLInputElement | null>,
   onText: (text: string) => void,
   submit: (next: number | null) => Promise<boolean>,
 ) {
-  const shot = useShot();
-  const wanted = shot === `raise-${name}` && line.room !== null;
+  const wanted = line.raiseShot === true && line.room !== null;
   useEffect(() => {
     if (!wanted || line.room === null) return;
     const amount = line.room + 50_000;

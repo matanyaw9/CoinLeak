@@ -68,7 +68,9 @@ export function CategoriesPage() {
   const edit = (category: Category) => show({ name: "editor", request: { mode: "edit", category } });
   const add = (parentId: number | null, meta: boolean) => show({ name: "editor", request: { mode: "new", kind, parentId, meta } });
 
-  useDemoShot(all, setKind, show, setDragging, setOver, setSearch);
+  // Read once for the whole page; a line gets only what concerns it.
+  const shot = useShot();
+  useDemoShot(shot, all, setKind, show, setDragging, setOver, setSearch);
 
   // spec 21: groups with no match collapse away.
   const groups = searchCategories(index, kind, q, placeNames);
@@ -136,6 +138,8 @@ export function CategoriesPage() {
     const depth = depthOf(index, c);
     const holds = depth < MAX_LEVELS;
     const planned = spending ? lines.get(c.id) : undefined;
+    // `?shot=raise-<name>`: that one line shows its raise offer (budget-line.tsx).
+    const marked = planned && shot === `raise-${c.name}` ? { ...planned, raiseShot: true } : planned;
     return (
       <CategoryLine
         key={c.id}
@@ -152,7 +156,7 @@ export function CategoriesPage() {
         onAdd={holds ? () => add(c.id, false) : undefined}
         dragProps={dragProps(c)}
         dropProps={holds ? dropProps(c) : undefined}
-        budget={planned && { line: planned, nameOf }}
+        budget={marked && { line: marked, nameOf }}
         roving={item(rows.indexOf(c))}
       />
     );
@@ -285,6 +289,7 @@ function List({ children }: { children: ReactNode }) {
  * Spec 21: `?shot=find-<text>` types a search.
  */
 function useDemoShot(
+  shot: string | null,
   all: Category[],
   setKind: (k: CategoryKind) => void,
   show: (o: OpenRequest) => void,
@@ -292,7 +297,6 @@ function useDemoShot(
   setOver: (id: number | null) => void,
   setSearch: (text: string) => void,
 ) {
-  const shot = useShot();
   const ready = all.length > 0;
   useEffect(() => {
     if (!shot || !ready) return;
