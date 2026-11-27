@@ -58,6 +58,8 @@ Full review: `docs/reviews/2026-11-25-wave13-review.md`.
 
 ## Done
 
+- (Spec 44 B) The trend card and the donut no longer sum `byParent` in the window: core sends them ready to draw, money back included.
+
 - (Review 2026-11-25, must fix 1) A new category on a paid-back row, by
   hand or by a saved rule, ends the link, so "Not paid back" can no longer
   empty a category the user chose. Same category keeps it.
@@ -256,8 +258,6 @@ Full review: `docs/reviews/2026-11-25-wave13-review.md`.
 
 ## From spec 25
 
-- The trend card and the donut still sum `byParent` across months to pick
-  their top groups and fold the rest into "Other".
 - `monthSummary`, `trend` and `MonthSummary` stay in core as test helpers;
   no channel reaches them.
 - REQUIREMENTS section 4 glossary lists fewer flows than exist;

@@ -1341,6 +1341,12 @@ export const s = {
   deleteBudget: {
     goes: (amount: string) => `Its ${amount} budget goes too.`,
   },
+
+  // spec 44 B
+  moneyBack: {
+    /** After the amount: "₪300 back". */
+    word: "back",
+  },
 };
 
 export type Strings = typeof s;

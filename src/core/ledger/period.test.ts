@@ -17,6 +17,7 @@ import {
   previousRange,
   thisMonth,
 } from "./period";
+import { createCategory } from "./categories";
 import {
   dayTotals,
   listCategories,
@@ -715,5 +716,109 @@ describe("the average month's curve (spec 26)", () => {
     expect(periodCurves(db, { from: "2026-01-01", to: "2026-03-31", categoryIds: [null] }, APRIL)[0]?.average).toBeNull();
     // In February only January is full: no average.
     expect(periodSummary(db, monthRange("2026-02"), { now: new Date("2026-02-10T09:00:00Z") }).average).toBeNull();
+  });
+});
+
+// spec 44 B: refunds never vanish from Home's donut and month bars.
+describe("money back in the donut and the month bars", () => {
+  const march = monthRange("2026-03");
+
+  /** One bank row per entry: date, amount in agorot (negative is spending), category name. */
+  function spent(rows: [string, number, string][], newGroups: string[] = []): Db {
+    const db = newDb();
+    for (const name of newGroups) createCategory(db, { name, kind: "expense", parentId: null, emoji: null, color: null });
+    ingest(db, [bank(rows.map(([date, amount], i) => txn({ date, amount, description: `שורה ${i}` })))], { now: NOW });
+    rows.forEach(([, , name], i) => updateTransactions(db, [idOf(db, `שורה ${i}`)], { categoryId: categoryId(db, name) }));
+    return db;
+  }
+
+  // The review's case: Food has ₪1,000 spent, Lifestyle only a ₪300 refund.
+  const reviewCase = () =>
+    spent([
+      ["2026-03-05", -100000, "Groceries"],
+      ["2026-03-07", 30000, "Shopping"],
+    ]);
+
+  it("the donut's list holds both and adds up to spending; the ring only what is above zero", () => {
+    const db = reviewCase();
+    const food = categoryId(db, "Food");
+    const lifestyle = categoryId(db, "Lifestyle");
+    const p = periodSummary(db, march, opts);
+    expect(p.spending).toBe(70000);
+    expect(p.donut).toEqual({
+      groups: [
+        { categoryId: food, amount: 100000 },
+        { categoryId: lifestyle, amount: -30000 },
+      ],
+      ring: [{ categoryId: food, amount: 100000 }],
+      other: null,
+      ringTotal: 100000,
+    });
+  });
+
+  it("the month's bar draws Food and lists Lifestyle as money back", () => {
+    const db = reviewCase();
+    const food = categoryId(db, "Food");
+    const lifestyle = categoryId(db, "Lifestyle");
+    const trend = periodTrendWithAverage(db, march, opts);
+    expect(trend.groups).toEqual([food, lifestyle]);
+    expect(trend.hasOther).toBe(false);
+    expect(trend.bars).toHaveLength(trend.points.length);
+    expect(trend.bars.at(-1)).toEqual({
+      parts: [{ categoryId: food, amount: 100000 }],
+      other: 0,
+      drawn: 100000,
+      back: [{ categoryId: lifestyle, amount: -30000 }],
+    });
+  });
+
+  it("chosen categories show their money back too", () => {
+    const db = reviewCase();
+    const lifestyle = categoryId(db, "Lifestyle");
+    const trend = periodTrendWithAverage(db, { ...march, categoryIds: [lifestyle] }, opts);
+    expect(trend.groups).toEqual([]);
+    expect(trend.bars.at(-1)).toEqual({
+      parts: [],
+      other: 0,
+      drawn: 0,
+      back: [{ categoryId: categoryId(db, "Shopping"), amount: -30000 }],
+    });
+  });
+
+  it("a group whose refunds cancel its spending over the months keeps its bar", () => {
+    const db = spent([
+      ["2026-02-05", -30000, "Shopping"],
+      ["2026-03-05", 30000, "Shopping"],
+    ]);
+    const lifestyle = categoryId(db, "Lifestyle");
+    const trend = periodTrendWithAverage(db, march, opts);
+    expect(trend.groups).toEqual([lifestyle]);
+    expect(trend.bars.at(-2)?.parts).toEqual([{ categoryId: lifestyle, amount: 30000 }]);
+    expect(trend.bars.at(-1)?.back).toEqual([{ categoryId: lifestyle, amount: -30000 }]);
+  });
+
+  it("small groups fold into Other, and a group with money back never does", () => {
+    // Eight spending groups of our own, biggest first, then Lifestyle with only a refund.
+    const names = Array.from({ length: 8 }, (_, i) => `Group ${i}`);
+    const rows: [string, number, string][] = names.map((name, i) => ["2026-03-05", -(80000 - i * 10000), name]);
+    const db = spent([...rows, ["2026-03-07", 500, "Shopping"]], names);
+    const lifestyle = categoryId(db, "Lifestyle");
+
+    const { donut, spending } = periodSummary(db, march, opts);
+    expect(donut.groups).toHaveLength(9);
+    expect(donut.groups.reduce((a, g) => a + g.amount, 0)).toBe(spending);
+    expect(donut.ring).toHaveLength(6);
+    expect(donut.other?.categoryIds).toHaveLength(2);
+    expect(donut.other?.categoryIds).not.toContain(lifestyle);
+    expect(donut.ring.reduce((a, g) => a + g.amount, 0) + (donut.other?.amount ?? 0)).toBe(donut.ringTotal);
+
+    const trend = periodTrendWithAverage(db, march, opts);
+    const bar = trend.bars.at(-1);
+    expect(trend.hasOther).toBe(true);
+    expect(trend.groups).toHaveLength(7);
+    expect(trend.groups.at(-1)).toBe(lifestyle);
+    expect(bar?.other).toBe(20000 + 10000);
+    expect(bar?.drawn).toBe(donut.ringTotal);
+    expect(bar?.back).toEqual([{ categoryId: lifestyle, amount: -500 }]);
   });
 });

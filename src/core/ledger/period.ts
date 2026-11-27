@@ -8,6 +8,8 @@ import type {
   Agorot,
   AverageCurve,
   DateRange,
+  Donut,
+  GroupAmount,
   IsoDate,
   IsoMonth,
   PeriodCurve,
@@ -17,6 +19,7 @@ import type {
   SeriesPoint,
   SpendingComparison,
   SummedCurve,
+  TrendBar,
   ThisMonth,
   TrendPoint,
 } from "@shared/types";
@@ -262,6 +265,63 @@ function seriesOf(db: Db, range: DateRange, bucket: SeriesBucket, match: Match, 
   return { days, series: cumulative(days, bucketsOf(range, bucket), today) };
 }
 
+// ---- Home's donut and month bars, ready to draw (spec 44) ----
+
+/** Groups smaller than this share of the ring fold into "Other", past this many slices too. */
+const RING_MIN_SHARE = 0.04;
+const RING_MAX_SLICES = 7;
+/** The month bars colour this many of the biggest groups. */
+const BAR_GROUPS = 6;
+
+const sumOf = (list: GroupAmount[]): Agorot => list.reduce((sum, g) => sum + g.amount, 0);
+
+/** `byParent` is largest first, so money back ends up last in the list. */
+function donutOf(byParent: GroupAmount[]): Donut {
+  const groups = byParent.map(({ categoryId, amount }) => ({ categoryId, amount }));
+  // The ring cannot draw money back, so it holds only what is above zero.
+  const positive = groups.filter((g) => g.amount > 0);
+  const ringTotal = sumOf(positive);
+  const big = positive.filter((g, i) => i < RING_MAX_SLICES - 1 && g.amount >= ringTotal * RING_MIN_SHARE);
+  const rest = positive.slice(big.length);
+  // One small group alone is no reason for "Other".
+  if (rest.length <= 1) return { groups, ring: positive, other: null, ringTotal };
+  return { groups, ring: big, other: { categoryIds: rest.map((g) => g.categoryId), amount: sumOf(rest) }, ringTotal };
+}
+
+/**
+ * The all-spending bars' groups: the biggest over these months, and every
+ * group with money back in some month, so that it has a name to show it
+ * under. The others fold into "Other".
+ */
+function trendGroups(points: TrendPoint[]): Pick<PeriodTrend, "groups" | "hasOther"> {
+  const net = new Map<number | null, Agorot>();
+  const moved = new Set<number | null>();
+  const gaveBack = new Set<number | null>();
+  for (const g of points.flatMap((p) => p.byParent)) {
+    net.set(g.categoryId, (net.get(g.categoryId) ?? 0) + g.amount);
+    if (g.amount !== 0) moved.add(g.categoryId);
+    if (g.amount < 0) gaveBack.add(g.categoryId);
+  }
+  const ranked = [...net].filter(([id]) => moved.has(id)).sort((a, b) => b[1] - a[1]);
+  const groups = ranked.filter(([id], i) => i < BAR_GROUPS || gaveBack.has(id)).map(([id]) => id);
+  return { groups, hasOther: ranked.length > groups.length };
+}
+
+/** One bar. With `shown`, amounts of other groups go into `other`. */
+function barOf(amounts: GroupAmount[], shown: Set<number | null> | null): TrendBar {
+  const bar: TrendBar = { parts: [], other: 0, drawn: 0, back: [] };
+  for (const g of amounts) {
+    if (g.amount < 0) {
+      bar.back.push(g);
+    } else if (g.amount > 0) {
+      if (!shown || shown.has(g.categoryId)) bar.parts.push(g);
+      else bar.other += g.amount;
+      bar.drawn += g.amount;
+    }
+  }
+  return bar;
+}
+
 // ---- What the window asks for ----
 
 export function periodSummary(db: Db, args: DateRange, opts: { now?: Date } = {}): PeriodSummary {
@@ -272,6 +332,7 @@ export function periodSummary(db: Db, args: DateRange, opts: { now?: Date } = {}
   const t = totals(db, range.from, until);
   const bucket = bucketFor(range);
   const { series } = seriesOf(db, range, bucket, undefined, today);
+  const byParent = spendingByParent(db, range.from, until);
 
   const before = previousRange(range);
   const prev = seriesOf(db, before, bucket, undefined);
@@ -293,7 +354,8 @@ export function periodSummary(db: Db, args: DateRange, opts: { now?: Date } = {}
     transfers: t.transfers,
     needsReview: t.needsReview,
     byCategory: spendingByCategory(db, range.from, until),
-    byParent: spendingByParent(db, range.from, until),
+    byParent,
+    donut: donutOf(byParent),
     spendingUnder: spendingUnder(db, range.from, until),
     bucket,
     series,
@@ -410,7 +472,10 @@ export function periodCurveSum(
   return { categoryIds: [...categoryIds], ...curveOf(db, range, categoryIds, opts.now) };
 }
 
-/** The bars with the average month over their full months (spec 26), with the same categories. */
+/**
+ * The bars, ready to draw (spec 44), with the average month over their full
+ * months (spec 26), with the same categories.
+ */
 export function periodTrendWithAverage(
   db: Db,
   args: DateRange & { categoryIds?: (number | null)[] },
@@ -420,7 +485,12 @@ export function periodTrendWithAverage(
   const thisMonth = israelMonth(opts.now ?? new Date());
   const counted = new Set(averageMonths(points.map((p) => p.month), thisMonth, firstMonth(db)));
   const average = monthAverage(points.filter((p) => counted.has(p.month)).map((p) => ({ month: p.month, spending: p.spending })));
-  return { points, average };
+  if (args.categoryIds !== undefined) {
+    return { points, average, groups: [], hasOther: false, bars: points.map((p) => barOf(p.parts ?? [], null)) };
+  }
+  const { groups, hasOther } = trendGroups(points);
+  const shown = new Set(groups);
+  return { points, average, groups, hasOther, bars: points.map((p) => barOf(p.byParent, shown)) };
 }
 
 /**

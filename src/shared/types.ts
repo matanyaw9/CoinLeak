@@ -618,6 +618,38 @@ export interface PeriodSummary extends DateRange {
   comparison: SpendingComparison;
   /** The average month's curve (spec 26); null for other periods or without enough history. */
   average?: AverageCurve | null;
+  /** Spending by top-level category, ready for Home's donut (spec 44). */
+  donut: Donut;
+}
+
+/** A group's money in a chart (spec 44); null is uncategorized, below zero is money back. */
+export interface GroupAmount {
+  categoryId: number | null;
+  amount: Agorot;
+}
+
+/** Home's donut, ready to draw (spec 44). */
+export interface Donut {
+  /** The list: every top-level group, largest first, money back last. They add up to `spending`. */
+  groups: GroupAmount[];
+  /** The ring's own slices: groups above zero, without those folded into `other`. */
+  ring: GroupAmount[];
+  /** The ring's small groups together; null when none are folded. */
+  other: { categoryIds: (number | null)[]; amount: Agorot } | null;
+  /** Everything the ring draws, for shares. More than `spending` when there is money back. */
+  ringTotal: Agorot;
+}
+
+/** One month's bar, ready to draw (spec 44). */
+export interface TrendBar {
+  /** The amounts to stack, all above zero. */
+  parts: GroupAmount[];
+  /** The smaller groups together, 0 when none. */
+  other: Agorot;
+  /** `parts` and `other` together, for shares. */
+  drawn: Agorot;
+  /** Money back: where refunds beat spending this month. Never drawn as a bar. */
+  back: GroupAmount[];
 }
 
 /**
@@ -650,6 +682,15 @@ export interface PeriodTrend {
   points: TrendPoint[];
   /** Null with fewer than 2 average months. */
   average: MonthAverage | null;
+  /**
+   * All spending's series (spec 44): the biggest top-level groups, and every
+   * group with money back in some month. Empty with chosen categories.
+   */
+  groups: (number | null)[];
+  /** True when smaller groups are folded into each bar's `other`. */
+  hasOther: boolean;
+  /** One per point, in the same order; with chosen categories, from their `parts`. */
+  bars: TrendBar[];
 }
 
 /** How this period's spending compares with the period before (Home's hero). */
