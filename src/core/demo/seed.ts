@@ -31,6 +31,9 @@ const MONTHS = 6;
 /** spec 24: the bank's earlier sync, and a fee its second account's rows miss. */
 const EARLIER_SYNC_DAYS = 4;
 const MISSING_FEE: Agorot = -12_000;
+/** spec 43: Bills also reads the phone company and sits higher, so it decides; the screens name both. */
+const OVERLAP_RULE: DemoRule = { name: "Phone", category: "Subscriptions", contains: ["פלאפון"] };
+const SAVINGS_MOVE = "העברה לחשבון חיסכון";
 
 interface Draft {
   account: DemoAccount;
@@ -91,7 +94,13 @@ export function seedDemo(db: Db, today: Date): void {
   ingest(db, [scraped("everyday", drafts), scraped("online", drafts)], { now });
   ingest(db, [scraped("old", drafts)], { now });
 
-  for (const rule of RULES) createRule(db, ruleInput(db, rule), now);
+  // The overlapping rule goes right under the one it overlaps, near the top of the list.
+  const rules = RULES.flatMap((r) => (r.name === "Bills" ? [r, OVERLAP_RULE] : [r]));
+  for (const rule of rules) createRule(db, ruleInput(db, rule), now);
+
+  // spec 43: last month's savings move, also ignored by hand, so its Ignore rule shows "Set by you".
+  const oldMoves = listTransactions(db, { search: SAVINGS_MOVE }).filter((r) => r.date < `${todayIso.slice(0, 7)}-01`);
+  updateTransactions(db, oldMoves.map((r) => r.id), { excluded: true }, now);
 
   // Sorted by hand: Bit transfers to friends, and one big dentist bill.
   const byText = (text: string) => listTransactions(db, { search: text }).map((r) => r.id);
@@ -270,12 +279,13 @@ function makeDrafts(today: IsoDate): Draft[] {
     if (i < 2) add(day(9), { account: "old", amount: shekels(90, 300), description: "המשביר לצרכן" });
   }
 
-  // This month: rows waiting for a look, an excluded savings move, a card
+  // This month: rows waiting for a look, an excluded savings move (and last month's), a card
   // bill from a card CoinLeak does not track, a purchase abroad whose shekel
   // amount is not known yet, and two lines for the Trash.
   const first = `${current}-01`;
   drafts.push(
-    { account: "bank", date: first, amount: -200_000, description: "העברה לחשבון חיסכון", memo: "פיקדון" },
+    { account: "bank", date: first, amount: -200_000, description: SAVINGS_MOVE, memo: "פיקדון" },
+    { account: "bank", date: `${addMonths(current, -1)}-01`, amount: -200_000, description: SAVINGS_MOVE, memo: "פיקדון" },
     { account: "bank", date: first, amount: -128_460, description: "מקס איט פיננסים", memo: "חיוב כרטיס" },
     { account: "bank", date: first, amount: -1500, description: "עמלת פעולה בערוץ ישיר" },
     { account: "bank", date: first, amount: 4000, description: "החזר עמלה" },
