@@ -13,7 +13,7 @@ import { currentProfile, databasePath, DEMO_PROFILE, readProfiles, writeProfiles
 import { emit, registerIpc } from "./ipc";
 import { runSync } from "./sync";
 import { removeLeftoverProfiles } from "./sync/browser";
-import { createSyncService } from "./sync-service";
+import { createSyncService, quitAfterSync } from "./sync-service";
 import { isAppUrl, APP_ORIGIN } from "./policy";
 import { registerAppScheme, serveAppFiles } from "./protocol";
 import { hardenAllWebContents, hardenSession } from "./security";
@@ -47,7 +47,8 @@ if (!screenshotRun && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("second-instance", () => {
-    if (!mainWindow) return;
+    // The window can be gone while a quit still waits for the sync to stop.
+    if (!mainWindow || mainWindow.isDestroyed()) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
   });
@@ -96,9 +97,11 @@ function start(): void {
     ingest,
     emit: (progress) => {
       console.log(`[sync] ${progress.provider}: ${progress.stage}`);
-      if (mainWindow) emit(mainWindow.webContents, "sync:progress", progress);
+      // A sync cancelled by quitting reports after its window is gone.
+      if (mainWindow && !mainWindow.isDestroyed()) emit(mainWindow.webContents, "sync:progress", progress);
     },
   });
+  app.on("before-quit", quitAfterSync(sync, () => app.quit()));
   const handlers = createHandlers({
     version: app.getVersion(),
     dataDir,
@@ -165,7 +168,6 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
-app.on("window-all-closed", () => {
-  closeDb();
-  app.quit();
-});
+app.on("window-all-closed", () => app.quit());
+// Not on window-all-closed: a running sync may still be saving what it downloaded.
+app.on("will-quit", closeDb);

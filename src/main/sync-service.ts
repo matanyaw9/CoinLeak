@@ -26,8 +26,42 @@ export interface SyncService {
   isRunning(): boolean;
 }
 
-export function createSyncService(deps: SyncServiceDeps): SyncService {
+/** What quitting the app needs from the sync service. */
+export interface StoppableSync {
+  isRunning(): boolean;
+  cancel(): void;
+  /** Resolves once the running sync has ended and cleaned up; at once when none runs. */
+  whenStopped(): Promise<void>;
+}
+
+/** The longest a quit waits for the sync browser to close and its profile to go. */
+export const QUIT_WAIT_MS = 20_000;
+
+/**
+ * The app's `before-quit` listener (spec 44 C). Quitting during a sync would
+ * leave the bank session's browser profile on disk, so the first quit is held
+ * back: cancel, wait for the sync to end, then `quit` again. A second quit
+ * while waiting goes through at once.
+ */
+export function quitAfterSync(
+  sync: StoppableSync,
+  quit: () => void,
+  maxWaitMs = QUIT_WAIT_MS,
+): (event: { preventDefault(): void }) => void {
+  let waiting = false;
+  return (event) => {
+    if (waiting || !sync.isRunning()) return;
+    waiting = true;
+    event.preventDefault();
+    sync.cancel();
+    const tooLong = new Promise<void>((resolve) => setTimeout(resolve, maxWaitMs));
+    void Promise.race([sync.whenStopped(), tooLong]).then(quit);
+  };
+}
+
+export function createSyncService(deps: SyncServiceDeps): SyncService & StoppableSync {
   let current: AbortController | undefined;
+  let ended: Promise<void> = Promise.resolve();
   const now = deps.now ?? (() => new Date());
 
   return {
@@ -40,6 +74,10 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
       const stage = (s: SyncStage): void => deps.emit({ provider, stage: s, scope });
       const controller = new AbortController();
       current = controller;
+      let markEnded = (): void => {};
+      ended = new Promise((resolve) => {
+        markEnded = resolve;
+      });
       try {
         const download = await deps.runSync(provider, { signal: controller.signal, onProgress: stage, startDate });
         const { accounts, since } = download;
@@ -65,6 +103,7 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
         throw e instanceof CodedError ? e : new CodedError("DATABASE");
       } finally {
         current = undefined;
+        markEnded();
       }
     },
     cancel() {
@@ -72,6 +111,9 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
     },
     isRunning() {
       return current !== undefined;
+    },
+    whenStopped() {
+      return ended;
     },
   };
 }
