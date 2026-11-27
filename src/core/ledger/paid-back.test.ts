@@ -6,7 +6,9 @@ import { NOW, bank, categoryId, idOf, newDb, snapshot, stored, txn } from "../te
 import { ingest } from "./ingest";
 import { clearPaidBack, markPaidBack, paidBackCandidates } from "./paid-back";
 import { spendingByCategory, totals } from "./period";
-import { emptyTrash, listTransactions, trashTransactions, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { listTransactions } from "./queries";
+import { emptyTrash, trashTransactions } from "./trash";
 import { saveRule } from "../rules/queries";
 import { ruleInput } from "../testing/rules";
 

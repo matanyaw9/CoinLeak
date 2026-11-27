@@ -5,10 +5,11 @@ import { seedDemo } from "../demo";
 import { openDatabase, type Db } from "../db";
 import { NOW, bank, card, categoryId, charge, idOf, newDb, txn } from "../testing/ledger";
 import { BUDGET_MAX, budgetPlan, budgetStatus, budgetWeek, planMonths, setBudget, setBudgetTotal, weekOf, weeklyBudget } from "./budgets";
-import { createCategory } from "./categories";
+import { createCategory, listCategories } from "./categories";
 import { ingest } from "./ingest";
 import { israelToday, periodSummary, spendingUnder } from "./period";
-import { listCategories, trashTransactions, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { trashTransactions } from "./trash";
 
 // A small made-up ledger. 2026-03-01 is a Sunday; 2026-03-29 to 04-04 is a
 // week that crosses into April.

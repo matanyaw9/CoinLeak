@@ -6,11 +6,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Db } from "../db";
 import { NOW, bank, categoryId, idOf, newDb, txn } from "../testing/ledger";
 import { budgetStatus, setBudget } from "./budgets";
-import { createCategory } from "./categories";
+import { createCategory, listCategories } from "./categories";
 import { ingest } from "./ingest";
 import { groupFlow } from "./money-flow";
 import { monthRange, periodSummary, periodTrend, spendingByChild } from "./period";
-import { listCategories, listTransactions, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { listTransactions } from "./queries";
 
 // Food › Groceries › Weekly shop, with rows on all three levels:
 //   Weekly shop  -1,000 and a +300 refund   (level 3)

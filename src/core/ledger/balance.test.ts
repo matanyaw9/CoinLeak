@@ -6,7 +6,8 @@ import { MIGRATIONS } from "../db/migrations";
 import { BANK_NUMBER, accountId, bank, card, idOf, newDb, txn } from "../testing/ledger";
 import { balanceChecks } from "./balance";
 import { ingest } from "./ingest";
-import { trashTransactions, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { trashTransactions } from "./trash";
 
 // Sync A on 10 March, sync B on 14 March (Israel time, mid-morning).
 const AT_A = new Date("2026-03-10T08:00:00Z");

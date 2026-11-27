@@ -17,17 +17,10 @@ import {
   previousRange,
   thisMonth,
 } from "./period";
-import { createCategory } from "./categories";
-import {
-  dayTotals,
-  listCategories,
-  listTransactions,
-  listTransactionsWithDays,
-  monthSummary,
-  trashTransactions,
-  trend,
-  updateTransactions,
-} from "./queries";
+import { createCategory, listCategories } from "./categories";
+import { updateTransactions } from "./edits";
+import { dayTotals, listTransactions, listTransactionsWithDays, monthSummary, trend } from "./queries";
+import { trashTransactions } from "./trash";
 
 // A hand-built ledger over four months. Totals below are worked out by hand.
 //

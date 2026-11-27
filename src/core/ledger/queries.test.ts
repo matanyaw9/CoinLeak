@@ -3,17 +3,10 @@ import type { Db } from "../db";
 import { NOW, accountId, bank, card, categoryId, charge, countRows, idOf, idsOf, newDb, snapshot, stored, txn } from "../testing/ledger";
 import { recomputeCardBills } from "./card-bills";
 import { ingest } from "./ingest";
-import {
-  deleteForGood,
-  emptyTrash,
-  listCategories,
-  listTransactions,
-  monthSummary,
-  restoreTransactions,
-  trashTransactions,
-  trend,
-  updateTransactions,
-} from "./queries";
+import { listCategories } from "./categories";
+import { updateTransactions } from "./edits";
+import { listTransactions, monthSummary, trend } from "./queries";
+import { deleteForGood, emptyTrash, restoreTransactions, trashTransactions } from "./trash";
 import { createRule } from "../rules";
 import { ruleInput } from "../testing/rules";
 

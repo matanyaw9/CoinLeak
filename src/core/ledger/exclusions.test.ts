@@ -5,7 +5,8 @@ import { createRule } from "../rules";
 import { ruleInput } from "../testing/rules";
 import { restoreExclusions } from "./exclusions";
 import { ingest } from "./ingest";
-import { listTransactions, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { listTransactions } from "./queries";
 
 const exclusion = (db: Db, id: number) => {
   const r = stored(db, id);

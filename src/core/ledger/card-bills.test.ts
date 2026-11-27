@@ -17,14 +17,9 @@ import {
 import { recomputeCardBills, restoreInternal, setCardMode, setInternalByUser } from "./card-bills";
 import { restoreExclusions } from "./exclusions";
 import { ingest } from "./ingest";
-import {
-  deleteForGood,
-  listTransactions,
-  monthSummary,
-  restoreTransactions,
-  trashTransactions,
-  updateTransactions,
-} from "./queries";
+import { updateTransactions } from "./edits";
+import { listTransactions, monthSummary } from "./queries";
+import { deleteForGood, restoreTransactions, trashTransactions } from "./trash";
 
 const line = (date: string, amount: number, description: string) => txn({ date, amount, description });
 const BILL_4321 = "חיוב לכרטיס ויזה 4321";

@@ -8,7 +8,8 @@ import { setInternalByUser } from "./card-bills";
 import { createCategory } from "./categories";
 import { exportTransactionsCsv, shekels } from "./export-csv";
 import { ingest } from "./ingest";
-import { trashTransactions, updateTransactions } from "./queries";
+import { updateTransactions } from "./edits";
+import { trashTransactions } from "./trash";
 
 const HEADER = "Date,Charged on,Account,Description,Amount,Category,Note,Status,Ignored,Card bill,Paid back";
 

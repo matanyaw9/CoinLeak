@@ -1,16 +1,12 @@
-// What the screens ask for: accounts, categories, transactions, user edits,
-// and month totals. Every total is computed here in SQL over LEDGER_SQL, so
-// the window only renders numbers. Months follow the row `date`.
+// What the screens ask for: the transaction list, its day totals, and month
+// totals. Every total is computed here in SQL over LEDGER_SQL, so the window
+// only renders numbers. Months follow the row `date`.
 
 import type { SQLInputValue } from "node:sqlite";
 import type {
-  Account,
   Agorot,
-  Category,
   CategorySource,
   DayTotal,
-  ExcludedSource,
-  ExclusionState,
   Flow,
   IsoDate,
   IsoMonth,
@@ -20,104 +16,23 @@ import type {
   ScrapedStatus,
   TransactionFilter,
   TransactionList,
-  TransactionPatch,
   TransactionRow,
   TransactionSort,
   TrendPoint,
   TxnSource,
 } from "@shared/types";
-import { transaction, type Db } from "../db";
-import { applyRulesInTransaction } from "../rules/engine";
-import { applyCardBills } from "./card-bills";
+import type { Db } from "../db";
 import { addMonths, assertMonth, israelMonth } from "./dates";
 import { LEDGER_SQL } from "./flow";
 import { monthRange, NEEDS_REVIEW_SQL, periodSummary, trendPoint } from "./period";
-import { FLOWS, assertIds, assertOptionalDate, check, cleanNote, isId } from "./validate";
+import { FLOWS, assertIds, assertOptionalDate, check, isId } from "./validate";
 import { getCashWallet } from "./cash";
 import { isCashWithdrawal } from "./cash-patterns";
 
+// budgets.ts still imports this from here.
+export { listCategories } from "./categories";
+
 const WITH_LEDGER = `WITH ledger AS (${LEDGER_SQL})`;
-
-// ---- Accounts and categories ----
-
-/** Bank accounts and cards. The cash wallet has its own call (cash.ts, spec 20). */
-export function listAccounts(db: Db): Account[] {
-  const rows = db
-    .prepare(
-      `SELECT id, provider, kind, account_number, name, card_mode, last_synced_at, sync_enabled FROM accounts
-       WHERE kind <> 'cash' ORDER BY kind = 'card', provider, account_number`,
-    )
-    .all() as {
-    id: number;
-    provider: Account["provider"];
-    kind: Account["kind"];
-    account_number: string;
-    name: string | null;
-    card_mode: Account["cardMode"];
-    last_synced_at: string | null;
-    sync_enabled: number;
-  }[];
-  return rows.map((r) => ({
-    id: r.id,
-    provider: r.provider,
-    kind: r.kind,
-    accountNumber: r.account_number,
-    name: r.name,
-    cardMode: r.card_mode,
-    lastSyncedAt: r.last_synced_at,
-    syncEnabled: r.sync_enabled === 1,
-  }));
-}
-
-/**
- * Expense before income; depth first, so each category is followed by its
- * children, each child by its own children (spec 34). Top-level categories
- * go by sort order then id, the ones under them by sort order then name.
- */
-export function listCategories(db: Db): Category[] {
-  const rows = db
-    .prepare(
-      `SELECT c.id, c.parent_id, c.name, c.kind, c.emoji, c.color, c.archived,
-         (SELECT COUNT(*) FROM transactions t WHERE t.category_id = c.id) AS row_count,
-         (SELECT COUNT(*) FROM rules r WHERE r.set_category_id = c.id) AS rule_count
-       FROM categories c
-       ORDER BY c.kind = 'income', c.sort_order, CASE WHEN c.parent_id IS NULL THEN c.id END, c.name`,
-    )
-    .all() as {
-    id: number;
-    parent_id: number | null;
-    name: string;
-    kind: Category["kind"];
-    emoji: string | null;
-    color: string | null;
-    archived: number;
-    row_count: number;
-    rule_count: number;
-  }[];
-  // Siblings keep the query's order; walking from the top puts each one's children right after it.
-  const childrenOf = new Map<number | null, typeof rows>();
-  for (const r of rows) childrenOf.set(r.parent_id, [...(childrenOf.get(r.parent_id) ?? []), r]);
-  const ordered: typeof rows = [];
-  const walk = (parentId: number | null): void => {
-    for (const r of childrenOf.get(parentId) ?? []) {
-      ordered.push(r);
-      walk(r.id);
-    }
-  };
-  walk(null);
-
-  return ordered.map((r) => ({
-    id: r.id,
-    parentId: r.parent_id,
-    name: r.name,
-    kind: r.kind,
-    emoji: r.emoji,
-    color: r.color,
-    archived: r.archived === 1,
-    rowCount: r.row_count,
-    ruleCount: r.rule_count,
-  }));
-}
 
 // ---- Transactions ----
 
@@ -340,166 +255,6 @@ function paidBackLink(r: LedgerRow): PaidBackLink | null {
     date: r.paid_back_date as IsoDate,
     amount: r.paid_back_amount as Agorot,
   };
-}
-
-/**
- * The user's edits. Setting a category (even to none) or excluding or
- * including a row marks that field as the user's, so rules and syncs leave
- * it alone. Excluding or including a row rematches card bills, since
- * excluded bank lines are frozen, and returns each row's exclusion as it was.
- * Undo passes that back with `excludedSource`: `rule` or null hands the row
- * back to the rules, which run on it at once (spec 13).
- */
-export function updateTransactions(
-  db: Db,
-  ids: number[],
-  patch: TransactionPatch,
-  now = new Date(),
-): { updated: number; before?: ExclusionState[] } {
-  assertIds(ids);
-  check(typeof patch === "object" && patch !== null);
-  const sets: string[] = [];
-  const params: SQLInputValue[] = [];
-
-  if (patch.categoryId !== undefined) {
-    check(patch.categoryId === null || isId(patch.categoryId));
-    if (patch.categoryId !== null) {
-      check(db.prepare("SELECT 1 FROM categories WHERE id = ?").get(patch.categoryId) !== undefined);
-    }
-    // A pay-back link (spec 33) explains the category it copied: a different
-    // category ends it. SET reads the row as it was before this update.
-    sets.push(
-      "category_id = ?",
-      "category_source = 'user'",
-      "paid_back_for = CASE WHEN category_id IS ? THEN paid_back_for ELSE NULL END",
-    );
-    params.push(patch.categoryId, patch.categoryId);
-  }
-  if (patch.note !== undefined) {
-    sets.push("note = ?");
-    params.push(cleanNote(patch.note));
-  }
-  const source = patch.excludedSource === undefined ? "user" : patch.excludedSource;
-  check(patch.excludedSource === undefined || patch.excluded !== undefined);
-  check(source === null || source === "user" || source === "rule");
-  if (patch.excluded !== undefined) {
-    check(typeof patch.excluded === "boolean");
-    sets.push("excluded = ?", "excluded_source = ?");
-    params.push(patch.excluded ? 1 : 0, source);
-  }
-  if (sets.length === 0 || ids.length === 0) return { updated: 0 };
-
-  return transaction(db, () => {
-    const unique = [...new Set(ids)];
-    const before = patch.excluded === undefined ? undefined : exclusionsOf(db, unique);
-    const stmt = db.prepare(`UPDATE transactions SET ${sets.join(", ")}, updated_at = ? WHERE id = ?`);
-    let updated = 0;
-    for (const id of unique) updated += Number(stmt.run(...params, now.toISOString(), id).changes);
-    if (patch.excluded === false && source === "user") forgetPaysCard(db, unique);
-    if (patch.excluded !== undefined && source !== "user") applyRulesInTransaction(db, { ids: unique }, now);
-    if (patch.excluded !== undefined) applyCardBills(db);
-    return before ? { updated, before } : { updated };
-  });
-}
-
-/**
- * Spec 28: "Count again" asks for the row to count. A line the user had
- * marked "This pays a card I track" would still not count, so the mark is
- * dropped and the matcher decides again (flagged if no tracked card fits).
- * "Count it as spending" (internal 0 by the user) already counts and stays.
- */
-function forgetPaysCard(db: Db, ids: number[]): void {
-  db.prepare(
-    `UPDATE transactions SET internal = 0, internal_by_user = 0
-     WHERE id IN (SELECT value FROM json_each(?)) AND internal_by_user = 1 AND internal = 1`,
-  ).run(JSON.stringify(ids));
-}
-
-function exclusionsOf(db: Db, ids: number[]): ExclusionState[] {
-  const rows = db
-    .prepare(
-      `SELECT id, excluded, excluded_source FROM transactions WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id`,
-    )
-    .all(JSON.stringify(ids)) as unknown as { id: number; excluded: number; excluded_source: ExcludedSource | null }[];
-  return rows.map((r) => ({ id: r.id, excluded: r.excluded === 1, excludedSource: r.excluded_source }));
-}
-
-// ---- Trash ----
-
-/**
- * Moves rows to Trash: they count nowhere until restored. Card bills
- * rematch, since trashed rows take no part on either side.
- */
-export function trashTransactions(db: Db, ids: number[], now = new Date()): { updated: number } {
-  assertIds(ids);
-  if (ids.length === 0) return { updated: 0 };
-  const at = now.toISOString();
-  return transaction(db, () => {
-    const stmt = db.prepare("UPDATE transactions SET trashed_at = ?, updated_at = ? WHERE id = ? AND trashed_at IS NULL");
-    let updated = 0;
-    for (const id of new Set(ids)) updated += Number(stmt.run(at, at, id).changes);
-    if (updated > 0) applyCardBills(db);
-    return { updated };
-  });
-}
-
-/**
- * Brings trashed rows back as they were. Rules catch up on them (they skip
- * trashed rows) and card bills rematch.
- */
-export function restoreTransactions(db: Db, ids: number[], now = new Date()): { updated: number } {
-  assertIds(ids);
-  if (ids.length === 0) return { updated: 0 };
-  const at = now.toISOString();
-  return transaction(db, () => {
-    const stmt = db.prepare("UPDATE transactions SET trashed_at = NULL, updated_at = ? WHERE id = ? AND trashed_at IS NOT NULL");
-    const restored: number[] = [];
-    for (const id of new Set(ids)) if (Number(stmt.run(at, id).changes) > 0) restored.push(id);
-    if (restored.length > 0) {
-      applyRulesInTransaction(db, { ids: restored }, now);
-      applyCardBills(db);
-    }
-    return { updated: restored.length };
-  });
-}
-
-/**
- * Deletes trashed rows for good: the ones in `ids`, or every one when `ids`
- * is null. A bank line that still points at one (a card bill decided by
- * hand) lets go of it first. Each row leaves a tombstone (its dedup key and
- * copy number) so a later sync never adds it back (spec 14).
- */
-function deleteTrashed(db: Db, ids: number[] | null, now: Date): { deleted: number } {
-  const trashed = ids === null ? "trashed_at IS NOT NULL" : "trashed_at IS NOT NULL AND id IN (SELECT value FROM json_each(?))";
-  const args = ids === null ? [] : [JSON.stringify(ids)];
-  return transaction(db, () => {
-    db.prepare(
-      `INSERT OR IGNORE INTO trash_tombstones (account_id, dedup_hash, dedup_seq, emptied_at)
-       SELECT account_id, dedup_hash, dedup_seq, ? FROM transactions WHERE ${trashed}`,
-    ).run(now.toISOString(), ...args);
-    db.prepare(
-      `UPDATE transactions SET card_bill_txn_id = NULL
-       WHERE card_bill_txn_id IN (SELECT id FROM transactions WHERE ${trashed})`,
-    ).run(...args);
-    const deleted = Number(db.prepare(`DELETE FROM transactions WHERE ${trashed}`).run(...args).changes);
-    if (deleted > 0) applyCardBills(db);
-    return { deleted };
-  });
-}
-
-/** "Empty trash": deletes every trashed row for good. The window asks first. */
-export function emptyTrash(db: Db, now = new Date()): { deleted: number } {
-  return deleteTrashed(db, null, now);
-}
-
-/**
- * Spec 36: deletes only the given trashed rows for good, the same way as
- * `emptyTrash`. Ids of rows that are not in Trash are skipped.
- */
-export function deleteForGood(db: Db, ids: number[], now = new Date()): { deleted: number } {
-  assertIds(ids);
-  if (ids.length === 0) return { deleted: 0 };
-  return deleteTrashed(db, ids, now);
 }
 
 // ---- Summaries ----
