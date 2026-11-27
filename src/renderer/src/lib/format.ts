@@ -41,8 +41,6 @@ export const formatMonthShort = (m: IsoMonth) => monthShort.format(monthDate(m))
 export const formatDayLong = (d: IsoDate) => dayLong.format(parseDate(d));
 /** "7 November" */
 export const formatDayShort = (d: IsoDate) => dayShort.format(parseDate(d));
-/** "07/11/2026" */
-export const formatDateNumeric = (d: IsoDate) => dayNumeric.format(parseDate(d));
 
 /** "2 hours ago", "yesterday", or a date for anything older than a week. */
 export function formatRelative(iso: string, now: Date = new Date()): string {

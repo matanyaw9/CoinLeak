@@ -3,8 +3,7 @@
 // whether a dialog is open, then calls the handler the caller gave for it.
 
 import { useEffect, useRef } from "react";
-import { isMac } from "@/components/transactions/find";
-import { shortcutFor, type ShortcutId } from "./shortcuts";
+import { isMac, shortcutFor, type ShortcutId } from "./shortcuts";
 
 export type ShortcutHandlers = Partial<Record<ShortcutId, () => void>>;
 

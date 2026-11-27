@@ -19,7 +19,7 @@ import { awaitingShekels, formatDayShort, formatForeign } from "@/lib/format";
 import { isGone, isPossibleCardBill, type InternalChoice } from "@/lib/review";
 import { ruleChipId } from "@/lib/review-rows";
 import { useRules } from "@/lib/hooks";
-import { isMenuKey } from "@/lib/shortcuts";
+import { isMac, isMenuKey } from "@/lib/shortcuts";
 import type { RovingItem } from "@/lib/roving";
 import { Hint } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
@@ -30,7 +30,6 @@ import { CardBillPrompt, GonePrompt, InternalMenu } from "./review-prompt";
 import { NoteButton } from "./note-editor";
 import { RowContextMenu, RowMenuButton, type RowMenuModel } from "./row-menu";
 import { rowClickKind } from "./selection";
-import { isMac } from "./find";
 
 /** Parts of a row that keep their own click: the box, chips, pickers, the note and menu buttons. */
 const ROW_CONTROLS = 'button, a, input, textarea, select, label, [role="button"], [role="checkbox"], [role="combobox"]';

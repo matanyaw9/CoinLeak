@@ -9,10 +9,9 @@ import { s } from "@/strings";
 import type { CategoryIndex } from "@/lib/categories";
 import { useShot } from "@/lib/shot";
 import { cn } from "@/lib/utils";
-import { keyFor } from "@/lib/shortcuts";
+import { isMac, keyFor } from "@/lib/shortcuts";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/ui/tooltip";
-import { isMac } from "./find";
 import { CategoryPicker } from "./category-picker";
 
 const ACTION = "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50";

@@ -49,9 +49,10 @@ import { SummaryBar } from "@/components/transactions/summary-bar";
 import { FilterChips, FilterMenu } from "@/components/transactions/list-tools";
 import { ListHeader } from "@/components/transactions/list-header";
 import { chipsFor, clearFilters, groupsByDay, onlyCategory, readView, toFilter, writeView, type ListView } from "@/components/transactions/list-view";
-import { isMac, onFind, takeFindRequest } from "@/components/transactions/find";
-import { keyFor } from "@/lib/shortcuts";
+import { onFind, takeFindRequest } from "@/components/transactions/find";
+import { isMac, keyFor } from "@/lib/shortcuts";
 import { useShortcuts } from "@/lib/use-shortcuts";
+import { useDebounced } from "@/lib/use-debounced";
 import { useRoving } from "@/lib/roving";
 import { Hint } from "@/components/ui/tooltip";
 import { useRuleEditor } from "@/components/rules/rule-editor-provider";
@@ -65,15 +66,6 @@ import { useDemoShot } from "@/components/transactions/demo-shot";
 import { ManualDialog } from "@/components/transactions/manual-dialog";
 
 const failed = (e: unknown) => showFailure(e, s.errors.failed.update);
-
-function useDebounced<T>(value: T, ms: number): T {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(id);
-  }, [value, ms]);
-  return v;
-}
 
 export function TransactionsPage() {
   const { choice, range, showMonth } = usePeriod();

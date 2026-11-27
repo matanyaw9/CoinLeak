@@ -1,14 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isFindKey, onFind, requestFind, takeFindRequest } from "./find";
-
-const key = (patch: Partial<Parameters<typeof isFindKey>[0]>) => ({
-  key: "f",
-  ctrlKey: false,
-  metaKey: false,
-  altKey: false,
-  shiftKey: false,
-  ...patch,
-});
+import { onFind, requestFind, takeFindRequest } from "./find";
 
 describe("Ctrl+F", () => {
   beforeEach(() => {
@@ -16,17 +7,6 @@ describe("Ctrl+F", () => {
     takeFindRequest();
   });
   afterEach(() => vi.unstubAllGlobals());
-
-  it("is Ctrl+F on Linux and Windows, Cmd+F on Mac, nothing else", () => {
-    expect(isFindKey(key({ ctrlKey: true }), false)).toBe(true);
-    expect(isFindKey(key({ ctrlKey: true, key: "F" }), false)).toBe(true);
-    expect(isFindKey(key({ metaKey: true }), true)).toBe(true);
-    expect(isFindKey(key({ metaKey: true }), false)).toBe(false);
-    expect(isFindKey(key({ ctrlKey: true }), true)).toBe(false);
-    expect(isFindKey(key({}), false)).toBe(false);
-    expect(isFindKey(key({ ctrlKey: true, shiftKey: true }), false)).toBe(false);
-    expect(isFindKey(key({ ctrlKey: true, key: "g" }), false)).toBe(false);
-  });
 
   it("an open Transactions page focuses at once", () => {
     const focus = vi.fn();

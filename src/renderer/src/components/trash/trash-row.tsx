@@ -14,7 +14,7 @@ import { Money } from "@/components/common/money";
 import { AccountChip, IconBubble } from "@/components/common/chips";
 import { rowClickKind } from "@/components/transactions/selection";
 import { ROW_FOCUS } from "@/components/transactions/transaction-row";
-import { isMac } from "@/components/transactions/find";
+import { isMac } from "@/lib/shortcuts";
 
 export function TrashRow({
   row,
