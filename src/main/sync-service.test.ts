@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodedError } from "@shared/errors";
 import { ENABLED_PROVIDERS } from "@shared/providers";
 import type { ProviderId, ScrapedAccount, ScrapedTransaction, SyncProgress } from "@shared/types";
@@ -6,7 +6,7 @@ import { openDatabase } from "@core/db";
 import { ingest, listTransactions, type IngestOptions } from "@core/ledger";
 import { setSetting } from "@core/settings";
 import type { SyncDownload, SyncOptions } from "./sync";
-import { createSyncService } from "./sync-service";
+import { createSyncService, QUIT_WAIT_MS, quitAfterSync, type StoppableSync } from "./sync-service";
 
 const SINCE = "2025-05-09";
 const TIMINGS = { loginMs: 4200, downloadMs: 31000 };
@@ -221,5 +221,105 @@ describe("sync service", () => {
     } finally {
       log.mockRestore();
     }
+  });
+});
+
+// ---- spec 44 C: quitting during a sync ----
+
+/** A sync that runs until the test calls `end`. */
+function fakeSync(running = true) {
+  let end = (): void => {};
+  const ended = new Promise<void>((resolve) => {
+    end = resolve;
+  });
+  const sync: StoppableSync = {
+    isRunning: () => running,
+    cancel: vi.fn(),
+    whenStopped: () => ended,
+  };
+  return { sync, end };
+}
+
+describe("quitAfterSync", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("lets the quit through when no sync runs", () => {
+    const { sync } = fakeSync(false);
+    const quit = vi.fn();
+    const event = { preventDefault: vi.fn() };
+    quitAfterSync(sync, quit)(event);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(sync.cancel).not.toHaveBeenCalled();
+    expect(quit).not.toHaveBeenCalled();
+  });
+
+  it("holds the quit, cancels the sync, and quits only once it has ended", async () => {
+    vi.useFakeTimers();
+    const { sync, end } = fakeSync();
+    const quit = vi.fn();
+    const event = { preventDefault: vi.fn() };
+    quitAfterSync(sync, quit)(event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(sync.cancel).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(QUIT_WAIT_MS - 1);
+    expect(quit).not.toHaveBeenCalled();
+
+    end();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(quit).toHaveBeenCalledOnce();
+  });
+
+  it("quits anyway when the sync does not end in time", async () => {
+    vi.useFakeTimers();
+    const { sync } = fakeSync();
+    const quit = vi.fn();
+    quitAfterSync(sync, quit)({ preventDefault: vi.fn() });
+    await vi.advanceTimersByTimeAsync(QUIT_WAIT_MS);
+    expect(quit).toHaveBeenCalledOnce();
+  });
+
+  it("lets a second quit through at once", () => {
+    vi.useFakeTimers();
+    const { sync } = fakeSync();
+    const listener = quitAfterSync(sync, vi.fn());
+    listener({ preventDefault: vi.fn() });
+    const second = { preventDefault: vi.fn() };
+    listener(second);
+    expect(second.preventDefault).not.toHaveBeenCalled();
+    expect(sync.cancel).toHaveBeenCalledOnce();
+  });
+});
+
+describe("whenStopped", () => {
+  it("resolves at once when no sync runs", async () => {
+    const { service } = setup(async () => download);
+    await expect(service.whenStopped()).resolves.toBeUndefined();
+  });
+
+  it("resolves only after the cancelled sync has finished cleaning up", async () => {
+    let cleanedUp = (): void => {};
+    const { service } = setup(
+      (_p, o) =>
+        new Promise((_, reject) => {
+          // Like the sync browser: after the abort it still closes and deletes its profile.
+          o.signal?.addEventListener("abort", () => {
+            cleanedUp = () => reject(new CodedError("LOGIN_CANCELLED"));
+          });
+        }),
+    );
+    const run = service.start("visaCal").catch((e: unknown) => e);
+    let stopped = false;
+    const waiting = service.whenStopped().then(() => {
+      stopped = true;
+    });
+    service.cancel();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(stopped).toBe(false);
+
+    cleanedUp();
+    await waiting;
+    expect(service.isRunning()).toBe(false);
+    await expect(run).resolves.toMatchObject({ code: "LOGIN_CANCELLED" });
   });
 });
