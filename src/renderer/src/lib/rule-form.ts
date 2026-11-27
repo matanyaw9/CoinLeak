@@ -4,6 +4,7 @@
 // agorot. A suggestion's account and amount wait aside until the user adds them.
 
 import type { Agorot, RuleCondition, RuleDirection, RuleInput, RuleJoin, RuleMatchField, RuleMatchMode } from "@shared/types";
+import { MAX_CONDITIONS, MAX_NAME, MAX_TEXT, MAX_VALUES } from "@shared/limits";
 import { parseShekels, shekelText } from "@shared/money";
 import { s } from "@/strings";
 
@@ -28,10 +29,8 @@ export interface RuleForm {
   exclusion: Exclusion;
 }
 
-export const MAX_TEXT = 200;
-export const MAX_NAME = 100;
-export const MAX_CONDITIONS = 20;
-export const MAX_VALUES = 200;
+// The editor's fields read these from here.
+export { MAX_CONDITIONS, MAX_NAME, MAX_TEXT };
 
 let lastKey = 0;
 const nextKey = () => ++lastKey;

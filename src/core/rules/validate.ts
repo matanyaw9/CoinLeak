@@ -3,20 +3,19 @@
 // compile is BAD_REQUEST, thrown before anything is saved.
 
 import { CodedError } from "@shared/errors";
+import { MAX_CONDITIONS, MAX_NAME, MAX_TEXT, MAX_VALUES } from "@shared/limits";
 import type { RuleCondition, RuleDirection, RuleInput, RuleJoin, RuleMatchField, RuleMatchMode } from "@shared/types";
 import type { Db } from "../db";
 import { check, isId } from "../ledger/validate";
 import { cleanText, compileRegex, normalizeText, type Conditions } from "./match";
 
-export const MAX_TEXT = 200;
-export const MAX_NAME = 100;
-export const MAX_CONDITIONS = 20;
-export const MAX_VALUES = 200;
-
 const FIELDS: readonly RuleMatchField[] = ["description", "memo"];
 const MODES: readonly RuleMatchMode[] = ["contains", "starts_with", "equals", "regex"];
 const DIRECTIONS: readonly RuleDirection[] = ["out", "in"];
 const JOINS: readonly RuleJoin[] = ["all", "any"];
+
+// places.ts reads these from here.
+export { MAX_NAME, MAX_VALUES };
 
 type Raw = Partial<Record<keyof RuleInput, unknown>>;
 
