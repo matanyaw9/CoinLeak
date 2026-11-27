@@ -49,13 +49,44 @@ export function prepareRow(row: MatchFacts): PreparedRow {
   };
 }
 
-/** Case-insensitive, like the other modes. `null` when it does not compile. */
+/** Case-insensitive, like the other modes. `null` when it does not compile or could hang the app. */
 export function compileRegex(pattern: string): RegExp | null {
+  if (hasNestedRepeat(pattern)) return null;
   try {
     return new RegExp(pattern, "i");
   } catch {
     return null;
   }
+}
+
+/**
+ * A repeat of a group that already repeats, such as `(\d+)+`. On a long text
+ * that does not match it can take minutes, and rules run on the main process.
+ * A repeat is `+`, `*` or `{`; escaped characters and `[...]` are plain text.
+ */
+function hasNestedRepeat(pattern: string): boolean {
+  // One entry for the whole pattern and one per open group: does it hold a repeat?
+  const repeats = [false];
+  let inClass = false;
+  let closedRepeatingGroup = false;
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern.charAt(i);
+    const afterRepeatingGroup = closedRepeatingGroup;
+    closedRepeatingGroup = false;
+    if (c === "\\") i++;
+    else if (inClass) inClass = c !== "]";
+    else if (c === "[") inClass = true;
+    else if (c === "(") repeats.push(false);
+    else if (c === ")") {
+      closedRepeatingGroup = repeats.pop() === true;
+      // Then the group around it holds a repeat too.
+      if (closedRepeatingGroup) repeats[repeats.length - 1] = true;
+    } else if (c === "+" || c === "*" || c === "{") {
+      if (afterRepeatingGroup) return true;
+      repeats[repeats.length - 1] = true;
+    }
+  }
+  return false;
 }
 
 /** Conditions must already be valid (see `validate.ts`). */
