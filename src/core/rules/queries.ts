@@ -27,7 +27,7 @@ import {
   restoreLinks,
   writeRule,
 } from "./store";
-import { cleanConditions, cleanRuleInput } from "./validate";
+import { checkNewPatterns, cleanConditions, cleanRuleInput } from "./validate";
 
 /** The editor lists at most this many matching rows, newest first (spec 35). */
 export const PREVIEW_ROWS = 500;
@@ -66,6 +66,7 @@ export function listRules(db: Db): Rule[] {
 export function saveRule(db: Db, req: SaveRequest, now = new Date()): RuleSaved {
   check(req.id === null || isId(req.id));
   const rule = cleanRuleInput(db, req.rule);
+  checkNewPatterns(rule.conditions, req.id === null ? undefined : loadRule(db, req.id)?.conditions);
   const alsoChange = req.alsoChange ?? [];
   const unticked = req.unticked ?? [];
   const ticked = req.ticked ?? [];
@@ -191,6 +192,7 @@ export function previewRule(db: Db, input: unknown): RulePreview {
   check(setCategoryId === null || isId(setCategoryId));
   const setExcluded = typeof raw.setExcluded === "boolean" ? raw.setExcluded : null;
   check(raw.ruleId === undefined || isId(raw.ruleId));
+  checkNewPatterns(conditions.conditions, raw.ruleId === undefined ? undefined : loadRule(db, raw.ruleId)?.conditions);
   const rows = listTransactions(db).filter((t) => matches(prepareRow(t)));
   const inside = setCategoryId === null ? new Set<number>() : categoryAndBelow(db, setCategoryId);
   const handSet =

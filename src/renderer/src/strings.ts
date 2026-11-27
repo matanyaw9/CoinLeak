@@ -380,6 +380,7 @@ export const s = {
       badAmount: "Use a number, like 60 or 59.90.",
       amountOrder: "Put the smaller amount first.",
       badPattern: "This pattern does not work yet. Check it, or turn the pattern off.",
+      riskyPattern: "This pattern could make CoinLeak freeze: avoid a repeat inside a repeat, like (\\d+)+.",
     },
 
     preview: {
@@ -1340,6 +1341,8 @@ export const s = {
   // spec 44 D
   deleteBudget: {
     goes: (amount: string) => `Its ${amount} budget goes too.`,
+    /** When the budgets could not be read: say it in general rather than nothing. */
+    maybe: "If it has a budget, that goes too.",
   },
 
   // spec 44 B

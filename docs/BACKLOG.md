@@ -265,9 +265,16 @@ Full review: `docs/reviews/2026-11-25-wave13-review.md`.
 
 ## From the whole-code review fixes (spec 44, 2026-11-27)
 
-- A rule pattern with a nested open-ended repeat (`(\d+)+`) is refused when
-  saved; one saved before keeps running as it was. Switching such an old
-  rule off may ask to fix its pattern first (edit or delete it).
+- A rule pattern with a nested open-ended repeat (`(\d+)+`) is refused only
+  when it is new in a saved or previewed rule; an older rule keeps running,
+  switches on and off, and comes back by Undo. The editor flags it as you
+  type, also when you edit such an older rule. Not caught: overlapping
+  choices like `(a|aa)+$` or a big fixed count around a repeat (`(.*a){12}`).
+- While a quit waits for a sync to stop (up to 20 seconds), opening
+  CoinLeak again does nothing: `second-instance` finds no window.
+- `src/core/ledger/queries.ts` is 532 lines with five jobs (whole-code
+  review should 5): split accounts, categories, Trash and edits out (a pure
+  move behind `ledger/index.ts`).
 - Dev and installed CoinLeak share one temp folder: starting one while the
   other syncs removes the live sync profile (developers only).
 - Windows shutdown or logoff sends no quit: a sync profile left then is

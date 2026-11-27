@@ -6,6 +6,7 @@
 import type { Agorot, RuleCondition, RuleDirection, RuleInput, RuleJoin, RuleMatchField, RuleMatchMode } from "@shared/types";
 import { MAX_CONDITIONS, MAX_NAME, MAX_TEXT, MAX_VALUES } from "@shared/limits";
 import { parseShekels, shekelText } from "@shared/money";
+import { hasNestedRepeat } from "@shared/pattern-guard";
 import { s } from "@/strings";
 
 export type Exclusion = "none" | "exclude" | "count";
@@ -127,7 +128,12 @@ function checkCondition(c: FormCondition): { condition: RuleCondition; problem?:
   if (c.kind === "text") {
     const values = valuesOf(c);
     const condition: RuleCondition = { kind: "text", field: c.field, mode: c.mode, values };
-    return values.length === 0 ? { condition, problem: s.rules.editor.needsText } : { condition };
+    if (values.length === 0) return { condition, problem: s.rules.editor.needsText };
+    if (c.mode === "regex") {
+      if (values.some((v) => !compiles(v))) return { condition, problem: s.rules.editor.badPattern };
+      if (values.some(hasNestedRepeat)) return { condition, problem: s.rules.editor.riskyPattern };
+    }
+    return { condition };
   }
   if (c.kind === "account") {
     const condition: RuleCondition = { kind: "account", accountId: c.accountId ?? 0 };
@@ -172,4 +178,14 @@ export function checkForm(form: RuleForm): FormCheck {
     rule: conditionsOk && !problems.action ? input : null,
     problems,
   };
+}
+
+/** Whether a pattern compiles, as core will check it (case-insensitive). */
+function compiles(pattern: string): boolean {
+  try {
+    new RegExp(pattern, "i");
+    return true;
+  } catch {
+    return false;
+  }
 }

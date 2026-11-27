@@ -88,8 +88,8 @@ function cleanTextCondition(c: Record<string, unknown>): RuleCondition {
     // A regex is kept as typed: its spaces and escapes are the user's syntax.
     const value = mode === "regex" ? raw : cleanText(raw);
     check(value.trim() !== "" && value.length <= MAX_TEXT);
-    // A pattern that could hang the app is refused here, when saved (not when a saved rule runs).
-    if (mode === "regex") check(compileRegex(value) !== null && !hasNestedRepeat(value));
+    // A pattern that could hang the app: see checkNewPatterns (saved and previewed rules only).
+    if (mode === "regex") check(compileRegex(value) !== null);
     // The same name twice adds nothing, so it is kept once.
     const key = mode === "regex" ? value : normalizeText(value);
     if (seen.has(key)) continue;
@@ -111,4 +111,18 @@ function optionalAmount(value: unknown): number | null {
 
 function exists(db: Db, table: "accounts" | "categories", id: number): boolean {
   return db.prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id) !== undefined;
+}
+
+/**
+ * A new pattern that could hang the app is refused (review 2026-11-27). Only
+ * patterns the saved rule (`before`) does not already have are checked, so an
+ * older rule can still be switched on or off and brought back by Undo.
+ */
+export function checkNewPatterns(conditions: RuleCondition[], before?: RuleCondition[]): void {
+  const old = new Set(before ? patternsOf(before) : []);
+  for (const p of patternsOf(conditions)) if (!old.has(p)) check(!hasNestedRepeat(p));
+}
+
+function patternsOf(conditions: RuleCondition[]): string[] {
+  return conditions.flatMap((c) => (c.kind === "text" && c.mode === "regex" ? c.values : []));
 }

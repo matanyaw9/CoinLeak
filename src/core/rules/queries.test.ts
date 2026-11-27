@@ -5,7 +5,8 @@ import { ingest } from "../ledger/ingest";
 import { updateTransactions } from "../ledger/queries";
 import { NOW, accountId, bank, card, categoryId, charge, idOf, newDb, snapshot, stored, txn } from "../testing/ledger";
 import { ruleFields, ruleInput, textValues } from "../testing/rules";
-import { createRule, deleteRule, listRules, previewRule, reorderRules, saveRule, updateRule } from "./queries";
+import { hasNestedRepeat } from "./match";
+import { createRule, deleteRule, listRules, previewRule, reorderRules, restoreRule, saveRule, updateRule } from "./queries";
 
 const out = (date: string, amount: number, description: string) => txn({ date, amount, description });
 
@@ -310,6 +311,25 @@ describe("previewRule", () => {
     expect(() => previewRule(db, ruleInput({ matchMode: "regex", matchText: "(" }))).toThrow("BAD_REQUEST");
     // A pattern that could hang the app is refused when typed or saved (review 2026-11-27).
     expect(() => previewRule(db, ruleInput({ matchMode: "regex", matchText: "(\\d+)+$" }))).toThrow("BAD_REQUEST");
+    expect(() => saveRule(db, { rule: ruleInput({ matchMode: "regex", matchText: "(\\d+)+$" }), id: null })).toThrow("BAD_REQUEST");
+  });
+});
+
+describe("a risky pattern saved before the guard (wave 18 review)", () => {
+  it("keeps running, switches off and on, and comes back by Undo with its rows", () => {
+    const db = coffeeLedger();
+    // As if saved before the guard: createRule (the Demo's path) does not check patterns.
+    const old = createRule(db, ruleInput({ matchMode: "regex", matchText: "(קפה +)+", setCategoryId: categoryId(db, "Restaurants") }));
+    expect(hasNestedRepeat("(קפה +)+")).toBe(true);
+    const sorted = () => stored(db, idOf(db, "קפה הפינה")).category_id;
+    expect(sorted()).toBe(categoryId(db, "Restaurants"));
+    updateRule(db, old.id, { ...ruleInput({ matchMode: "regex", matchText: "(קפה +)+", setCategoryId: categoryId(db, "Restaurants") }), enabled: false });
+    updateRule(db, old.id, ruleInput({ matchMode: "regex", matchText: "(קפה +)+", setCategoryId: categoryId(db, "Restaurants") }));
+    const deleted = deleteRule(db, old.id);
+    expect(sorted()).toBeNull();
+    restoreRule(db, deleted);
+    expect(sorted()).toBe(categoryId(db, "Restaurants"));
+    // A new rule with that pattern is still refused.
     expect(() => saveRule(db, { rule: ruleInput({ matchMode: "regex", matchText: "(\\d+)+$" }), id: null })).toThrow("BAD_REQUEST");
   });
 });

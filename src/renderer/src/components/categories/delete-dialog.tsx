@@ -65,6 +65,9 @@ export function DeleteDialog({
               : inUse
                 ? s.catEdit.deleteInUse(s.catEdit.usage(rows, rules))
                 : s.catEdit.deleteFree}
+            {!hasChildren && plan.isError && (
+              <span className="mt-2 block font-medium text-foreground">{s.deleteBudget.maybe}</span>
+            )}
             {!hasChildren && budget !== null && (
               <span className="mt-2 block font-medium text-foreground">{s.deleteBudget.goes(money(budget))}</span>
             )}
