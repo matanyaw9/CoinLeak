@@ -35,22 +35,11 @@ export function cardBillActions(row: TransactionRow): CardBillAction[] {
   return [];
 }
 
-/**
- * What Undo sends to put a row back. A flagged row was CoinLeak's call, so
- * it goes back to automatic. An internal row goes back to internal: the
- * window cannot tell a matched bill from one the user marked, and marking
- * it again restores what was on screen either way.
- */
-export function undoInternal(row: TransactionRow): InternalChoice {
-  return row.flow === "internal" ? true : null;
-}
-
-/** Sends the user's answer about a card bill and returns the matching Undo. */
+/** Sends the user's answer about a card bill. Undo puts the row back exactly as it was (spec 44 A). */
 export async function answerCardBill(row: TransactionRow, internal: InternalChoice): Promise<() => Promise<unknown>> {
-  const before = undoInternal(row);
   const ids = [row.id];
-  await call("transactions:setInternal", { ids, internal });
-  return () => call("transactions:setInternal", { ids, internal: before });
+  const { before } = await call("transactions:setInternal", { ids, internal });
+  return () => call("transactions:restoreInternal", { states: before });
 }
 
 export function deleteGone(ids: number[]): Promise<{ deleted: number }> {

@@ -437,6 +437,18 @@ export interface ExclusionState {
   excludedSource: ExcludedSource | null;
 }
 
+/** A bank line's card-bill state and who set it, so Undo can put it back exactly (spec 44 A). */
+export interface CardBillState {
+  id: number;
+  internal: boolean;
+  internalByUser: boolean;
+  possibleCardBill: boolean;
+  cardBillAccountId: number | null;
+  cardBillStyle: CardMode | null;
+  cardBillTxnId: number | null;
+  cardBillDate: IsoDate | null;
+}
+
 // ---- Money flow (spec 14) ----
 
 /**

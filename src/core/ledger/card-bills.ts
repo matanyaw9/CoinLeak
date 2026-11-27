@@ -6,11 +6,11 @@
 // Trashed rows take no part either, and their own state is left as it is.
 // A line naming one synced card's last 4 digits pays it even when sums differ (spec 32).
 
-import type { CardMode, IsoDate, ProviderId } from "@shared/types";
+import type { CardBillState, CardMode, IsoDate, ProviderId } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { companyOf, last4, readCardLine, standaloneNumbers, type CardLine } from "./card-patterns";
 import { isCashWithdrawal } from "./cash-patterns";
-import { daysApart, israelMonth } from "./dates";
+import { daysApart, isIsoDate, israelMonth } from "./dates";
 import { assertIds, check, isId } from "./validate";
 
 export const MATCH_WINDOW_DAYS = 3;
@@ -344,9 +344,15 @@ function loadBankLines(db: Db): BankLine[] {
 /**
  * The user's word on whether rows are internal. `null` hands the rows back
  * to the matcher. Either way card bills are recomputed, because freeing or
- * taking a bank line can change what other lines match.
+ * taking a bank line can change what other lines match. `before` holds each
+ * named row's state as it was, for Undo (`restoreInternal`).
  */
-export function setInternalByUser(db: Db, ids: number[], internal: boolean | null, now = new Date()): number {
+export function setInternalByUser(
+  db: Db,
+  ids: number[],
+  internal: boolean | null,
+  now = new Date(),
+): { updated: number; before: CardBillState[] } {
   assertIds(ids);
   check(internal === null || typeof internal === "boolean");
   const at = now.toISOString();
@@ -360,11 +366,85 @@ export function setInternalByUser(db: Db, ids: number[], internal: boolean | nul
           ? "UPDATE transactions SET internal = 1, internal_by_user = 1, possible_card_bill = 0, updated_at = ? WHERE id = ?"
           : `UPDATE transactions SET internal = 0, internal_by_user = 1, ${clearMatch} WHERE id = ?`;
     const stmt = db.prepare(sql);
+    const before = cardBillStatesOf(db, ids);
     let updated = 0;
     for (const id of new Set(ids)) updated += Number(stmt.run(at, id).changes);
     applyCardBills(db);
-    return updated;
+    return { updated, before };
   });
+}
+
+/**
+ * Undo of `setInternalByUser`: writes each row back as `before` reported it,
+ * then rematches. A row the matcher owned goes back to the matcher. A row the
+ * user had marked keeps the mark and the card rows it used up, so no other
+ * line can take them.
+ */
+export function restoreInternal(db: Db, states: CardBillState[], now = new Date()): { updated: number } {
+  check(Array.isArray(states) && states.every(isCardBillState));
+  check(new Set(states.map((s) => s.id)).size === states.length);
+  if (states.length === 0) return { updated: 0 };
+
+  return transaction(db, () => {
+    // The subquery leaves the link empty if that card row was deleted for good meanwhile.
+    const stmt = db.prepare(
+      `UPDATE transactions SET internal = ?, internal_by_user = ?, possible_card_bill = ?, card_bill_account_id = ?,
+         card_bill_style = ?, card_bill_txn_id = (SELECT id FROM transactions WHERE id = ?), card_bill_date = ?,
+         updated_at = ? WHERE id = ?`,
+    );
+    let updated = 0;
+    for (const s of states) {
+      const result = stmt.run(
+        s.internal ? 1 : 0,
+        s.internalByUser ? 1 : 0,
+        s.possibleCardBill ? 1 : 0,
+        s.cardBillAccountId,
+        s.cardBillStyle,
+        s.cardBillTxnId,
+        s.cardBillDate,
+        now.toISOString(),
+        s.id,
+      );
+      updated += Number(result.changes);
+    }
+    applyCardBills(db);
+    return { updated };
+  });
+}
+
+function cardBillStatesOf(db: Db, ids: number[]): CardBillState[] {
+  const rows = db
+    .prepare(
+      `SELECT id, internal, internal_by_user, possible_card_bill, card_bill_account_id, card_bill_style,
+         card_bill_txn_id, card_bill_date
+       FROM transactions WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id`,
+    )
+    .all(JSON.stringify(ids)) as unknown as (MatchState & { id: number; internal_by_user: Bit })[];
+  return rows.map((r) => ({
+    id: r.id,
+    internal: r.internal === 1,
+    internalByUser: r.internal_by_user === 1,
+    possibleCardBill: r.possible_card_bill === 1,
+    cardBillAccountId: r.card_bill_account_id,
+    cardBillStyle: r.card_bill_style,
+    cardBillTxnId: r.card_bill_txn_id,
+    cardBillDate: r.card_bill_date,
+  }));
+}
+
+function isCardBillState(value: unknown): value is CardBillState {
+  if (typeof value !== "object" || value === null) return false;
+  const s = value as Partial<CardBillState>;
+  return (
+    isId(s.id) &&
+    typeof s.internal === "boolean" &&
+    typeof s.internalByUser === "boolean" &&
+    typeof s.possibleCardBill === "boolean" &&
+    (s.cardBillAccountId === null || isId(s.cardBillAccountId)) &&
+    (s.cardBillStyle === null || s.cardBillStyle === "credit" || s.cardBillStyle === "debit") &&
+    (s.cardBillTxnId === null || isId(s.cardBillTxnId)) &&
+    (s.cardBillDate === null || isIsoDate(s.cardBillDate))
+  );
 }
 
 /** Switches a card between credit and debit style and rematches its bills. */

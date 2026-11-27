@@ -1,9 +1,9 @@
 // Review actions: each answer calls the right channel with the right
-// arguments, and Undo sends the row back to where it was.
+// arguments, and Undo sends back what the row was before.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TransactionRow } from "@shared/types";
-import { answerCardBill, cardBillActions, deleteGone, isGone, switchCardMode, undoInternal } from "./review";
+import { answerCardBill, cardBillActions, deleteGone, isGone, switchCardMode } from "./review";
 
 const row = (patch: Partial<TransactionRow>): TransactionRow => ({
   id: 7,
@@ -50,19 +50,13 @@ describe("card bill answers", () => {
     expect(cardBillActions(row({}))).toEqual([]);
   });
 
-  it.each([true, false])("sends setInternal %s for a flagged row, and Undo hands it back to CoinLeak", async (answer) => {
-    const undo = await answerCardBill(flagged, answer);
-    expect(invoke).toHaveBeenLastCalledWith("transactions:setInternal", { ids: [7], internal: answer });
-    await undo();
-    expect(invoke).toHaveBeenLastCalledWith("transactions:setInternal", { ids: [7], internal: null });
-    expect(undoInternal(flagged)).toBeNull();
-  });
-
-  it.each([false, null])("sends setInternal %s for an internal row, and Undo marks it internal again", async (answer) => {
+  it.each([true, false, null])("sends setInternal %s, and Undo sends back what the app said was there", async (answer) => {
+    const before = [{ id: 8, internal: true, internalByUser: false }];
+    invoke.mockResolvedValueOnce({ ok: true, value: { updated: 1, before } });
     const undo = await answerCardBill(internal, answer);
     expect(invoke).toHaveBeenLastCalledWith("transactions:setInternal", { ids: [8], internal: answer });
     await undo();
-    expect(invoke).toHaveBeenLastCalledWith("transactions:setInternal", { ids: [8], internal: true });
+    expect(invoke).toHaveBeenLastCalledWith("transactions:restoreInternal", { states: before });
   });
 
   it("throws the fixed error and offers no Undo when the app refuses", async () => {
