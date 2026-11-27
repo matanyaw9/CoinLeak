@@ -32,6 +32,7 @@ import type {
   ManualTransactionInput,
   ProviderId,
   Rule,
+  DeletedRule,
   RuleInput,
   RulePreview,
   RulePreviewArgs,
@@ -120,7 +121,10 @@ export interface IpcContract {
   "rules:list": { args: undefined; result: Rule[] };
   "rules:create": { args: RuleInput; result: Rule };
   "rules:update": { args: { id: number; rule: RuleInput }; result: Rule };
-  "rules:delete": { args: { id: number }; result: null };
+  /** spec 43: answers with what `rules:restore` needs to undo it. */
+  "rules:delete": { args: { id: number }; result: DeletedRule };
+  /** The rule back at its old position, with its exceptions, so every row is as before. */
+  "rules:restore": { args: DeletedRule; result: null };
   /** `ids` is every rule id in the new order. */
   "rules:reorder": { args: { ids: number[] }; result: null };
   /** Checks the conditions against today's rows without saving anything. */
@@ -268,6 +272,7 @@ export const CHANNELS = [
   "rules:create",
   "rules:update",
   "rules:delete",
+  "rules:restore",
   "rules:reorder",
   "rules:preview",
   "rules:suggest",

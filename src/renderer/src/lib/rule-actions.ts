@@ -11,7 +11,7 @@ import { s } from "@/strings";
 import { showFailure } from "@/lib/failure";
 import { call } from "./api";
 import { queryKey, refreshRules } from "./query-keys";
-import { restoreRule, toInput } from "./rules";
+import { toInput } from "./rules";
 
 const failed = (e: unknown) => showFailure(e, s.errors.failed.rules);
 const LIST = queryKey("rules:list");
@@ -76,18 +76,15 @@ export function useRuleActions() {
   });
 
   const remove = useMutation({
-    mutationFn: async (rule: Rule) => {
-      await call("rules:delete", { id: rule.id });
-      return rule;
-    },
+    mutationFn: (rule: Rule) => call("rules:delete", { id: rule.id }),
     onMutate: (rule) => showList((list) => list.filter((r) => r.id !== rule.id)),
-    onSuccess: (rule) =>
-      toast.success(s.rules.deleted(rule.name), {
+    onSuccess: (deleted) =>
+      toast.success(s.rules.deleted(deleted.rule.name), {
         description: s.rules.deletedBody,
         action: {
           label: s.review.undo,
           onClick: () => {
-            restoreRule(rule)
+            call("rules:restore", deleted)
               .then(() => toast(s.rules.restored), failed)
               .finally(() => void refresh());
           },

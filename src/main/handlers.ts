@@ -36,6 +36,7 @@ import {
   listRules,
   previewRule,
   reorderRules,
+  restoreRule,
   saveRule,
   starterPreview,
   suggestRule,
@@ -135,8 +136,9 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "rules:list": () => listRules(getDb()),
     "rules:create": (rule) => createRule(getDb(), rule),
     "rules:update": ({ id, rule }) => updateRule(getDb(), id, rule),
-    "rules:delete": ({ id }) => {
-      deleteRule(getDb(), id);
+    "rules:delete": ({ id }) => deleteRule(getDb(), id),
+    "rules:restore": (deleted) => {
+      restoreRule(getDb(), deleted);
       return null;
     },
     "rules:reorder": ({ ids }) => {

@@ -297,6 +297,16 @@ export interface RuleHint {
   rows: number;
 }
 
+/** spec 43: what `rules:delete` answers, and `rules:restore` takes back to undo it exactly. */
+export interface DeletedRule {
+  /** The rule as it was, with its position. */
+  rule: Rule;
+  /** Rows the rule never matched (spec 35). */
+  exceptions: number[];
+  /** Rule links a run would not give back: on rows in Trash or with a field the user set. */
+  links: { transactionId: number; ruleId: number }[];
+}
+
 /** First match wins per action, so a rule can lose its category rows but not its exclude rows. */
 export interface RuleOverlap {
   action: "category" | "exclude";

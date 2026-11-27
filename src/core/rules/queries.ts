@@ -1,10 +1,10 @@
-// The rules list the window edits: list, save (create or update), delete,
-// reorder, Apply now, and a preview that saves nothing. Every change
-// reapplies all rules to all rows in the same transaction, so stored rows
-// always agree with the list. Saving also records the rows the user
-// unticked in the editor as the rule's exceptions (spec 35).
+// The rules list the window edits: list, save (create or update), delete and its
+// exact undo (spec 43), reorder, Apply now, and a preview that saves nothing.
+// Every change reapplies all rules to all rows in the same transaction, so
+// stored rows always agree with the list. Saving also records the rows the
+// user unticked in the editor as the rule's exceptions (spec 35).
 
-import type { Rule, RuleInput, RulePreview, RulePreviewArgs, RuleSaved, RulesApplied } from "@shared/types";
+import type { DeletedRule, Rule, RuleInput, RulePreview, RulePreviewArgs, RuleSaved, RulesApplied } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { listTransactions } from "../ledger/queries";
 import { assertIds, check, isId } from "../ledger/validate";
@@ -14,6 +14,8 @@ import { draftReach, ruleOverlaps } from "./order";
 import {
   addExceptions,
   exceptionsAmong,
+  exceptionsOf,
+  heldLinks,
   insertRule,
   insertRuleOnTop,
   loadRule,
@@ -21,6 +23,8 @@ import {
   nextPosition,
   removeExceptions,
   renumber,
+  restoreExceptions,
+  restoreLinks,
   writeRule,
 } from "./store";
 import { cleanConditions, cleanRuleInput } from "./validate";
@@ -87,8 +91,8 @@ export function saveRule(db: Db, req: SaveRequest, now = new Date()): RuleSaved 
 }
 
 /**
- * Adds the rule last in the order: Undo of a delete (the window then moves it
- * back to its place) and the Demo's rules. The editor saves with `saveRule`.
+ * Adds the rule last in the order, for the `rules:create` channel and the
+ * Demo's rules. The editor saves with `saveRule`.
  */
 export function createRule(db: Db, input: unknown, now = new Date()): Rule {
   const rule = cleanRuleInput(db, input);
@@ -105,16 +109,49 @@ export function updateRule(db: Db, id: number, input: unknown, now = new Date())
   return saveRule(db, { id, rule: input }, now).rule;
 }
 
-/** Rows keep nothing the rule set, unless another rule sets it now. */
-export function deleteRule(db: Db, id: number, now = new Date()): void {
+/**
+ * Rows keep nothing the rule set, unless another rule sets it now. Answers
+ * with what `restoreRule` needs to undo this.
+ */
+export function deleteRule(db: Db, id: number, now = new Date()): DeletedRule {
   check(isId(id));
-  transaction(db, () => {
-    check(Number(db.prepare("DELETE FROM rules WHERE id = ?").run(id).changes) === 1);
+  return transaction(db, () => {
+    const rule = loadRule(db, id);
+    check(rule !== undefined);
+    const deleted = { rule, exceptions: exceptionsOf(db, id), links: heldLinks(db) };
+    db.prepare("DELETE FROM rules WHERE id = ?").run(id);
     renumber(
       db,
       loadRules(db).map((r) => r.id),
     );
     runRules(db, "all", now);
+    return deleted;
+  });
+}
+
+/**
+ * Undo of a delete (spec 43): the rule comes back under its old id, at its old
+ * position (last, if the list is shorter now), with its exceptions. The run
+ * then leaves every row as it was. BAD_REQUEST when the payload is malformed
+ * or stale: the id is in use again, or its category or account is gone.
+ */
+export function restoreRule(db: Db, input: unknown, now = new Date()): void {
+  check(typeof input === "object" && input !== null);
+  const { rule: old, exceptions, links } = input as Partial<DeletedRule>;
+  const rule = cleanRuleInput(db, old);
+  const { id, position } = old as Rule;
+  check(isId(id) && isId(position));
+  assertIds(exceptions);
+  check(Array.isArray(links) && links.every((l) => isId(l?.transactionId) && isId(l?.ruleId)));
+  transaction(db, () => {
+    const ids = loadRules(db).map((r) => r.id);
+    check(!ids.includes(id));
+    insertRule(db, rule, position, now.toISOString(), id);
+    ids.splice(position - 1, 0, id);
+    renumber(db, ids);
+    restoreExceptions(db, id, exceptions);
+    runRules(db, "all", now);
+    restoreLinks(db, links);
   });
 }
 

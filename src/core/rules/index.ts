@@ -9,6 +9,7 @@ export {
   listRules,
   previewRule,
   reorderRules,
+  restoreRule,
   saveRule,
   updateRule,
 } from "./queries";
