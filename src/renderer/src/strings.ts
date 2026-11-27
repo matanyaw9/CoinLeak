@@ -1330,6 +1330,12 @@ export const s = {
   chooserOwnRows: {
     notCounted: (name: string) => `${name}'s own rows are not counted`,
   },
+
+  // spec 43 A
+  showAll: {
+    button: "Show all",
+    flowHint: "Back to all money",
+  },
 };
 
 export type Strings = typeof s;
