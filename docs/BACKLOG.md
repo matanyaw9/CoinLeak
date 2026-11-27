@@ -18,11 +18,8 @@ Nothing open.
   Tab on from an invisible stop (`lib/roving.ts` guards); owner to confirm
   (OWNER-TESTS 10.8). The Menu key is caught on keydown; on Windows the
   native menu fires on keyup and might also open the right-click menu.
-- New screenshot hooks sit in product components (`emoji-grid.tsx`,
-  `trash-page.tsx`, `transactions-page.tsx`, `rules/tick-shot.ts`; wave 15 added `useRaiseShot` in
-  `budgets/budget-line.tsx` (one router subscription per line), `useFirstRun` in `lib/hooks.ts`, the
-  `trend-legend` effect in `home/trend-card.tsx`, `settings/backup-section.tsx` (also `backup-choose`), `rules/order-shot.ts` (it writes: saves two rules, ignores two rows; move it first) and `?shot=about` in `settings/about-section.tsx`), as finding 6 of the
-  2026-11-08 review describes; `demo-shot.ts` is a better home.
+- A `?shot` hook reads the shot once per page (never per row or line)
+  and never writes data. Others are accepted as a dev aid.
 - Lead, at merge: two bugs came only from specs 34 and 35 together and
   were fixed on `fix/picker-outside-router` (the rule editor crashed: a
   router hook in the category picker, which the editor renders outside
