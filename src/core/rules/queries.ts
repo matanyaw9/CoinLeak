@@ -91,8 +91,8 @@ export function saveRule(db: Db, req: SaveRequest, now = new Date()): RuleSaved 
 }
 
 /**
- * Adds the rule last in the order, for the `rules:create` channel and the
- * Demo's rules. The editor saves with `saveRule`.
+ * Adds the rule last in the order, for the Demo's rules. The editor saves
+ * with `saveRule`.
  */
 export function createRule(db: Db, input: unknown, now = new Date()): Rule {
   const rule = cleanRuleInput(db, input);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RuleCondition, RuleJoin, RuleMatchMode } from "@shared/types";
 import { ruleInput } from "../testing/rules";
-import { compileMatcher, normalizeText, prepareRow, type MatchFacts } from "./match";
+import { compileMatcher, compileRegex, normalizeText, prepareRow, type MatchFacts } from "./match";
 
 const row = (facts: Partial<MatchFacts> = {}): MatchFacts => ({
   accountId: 1,
@@ -175,5 +175,33 @@ describe("several conditions (spec 13)", () => {
     expect(fits("all", conditions, { description: "Aroma", amount: 2400 })).toBe(true);
     expect(fits("all", conditions, { description: "Aroma", amount: -2400 })).toBe(false);
     expect(fits("any", conditions, { description: "Wolt", amount: 2400 })).toBe(true);
+  });
+});
+
+describe("patterns that could hang the app", () => {
+  it("refuses a repeat of a group that already repeats", () => {
+    for (const p of ["(\\d+)+$", "(a*)*", "(x+){2,}", "(?:ab+)*", "((a+)b)+", "((a)+)*", "(\\w{2,})+", "(a+?)+"]) {
+      expect(compileRegex(p), p).toBeNull();
+    }
+  });
+
+  it("accepts normal patterns", () => {
+    const normal = [
+      "netflix|spotify",
+      "^שופרסל (דיל|שלי) ",
+      "\\d+",
+      "(ab)+",
+      "(a|b)*c",
+      "a+b*c{2}",
+      "(\\d+)",
+      "(\\d+)?$",
+      "(\\d+) x+",
+      "(ab){2}\\d+",
+      "\\(a+\\)+",
+      "[(a+)]+",
+      "(\\+)+",
+      "([*+])+",
+    ];
+    for (const p of normal) expect(compileRegex(p), p).not.toBeNull();
   });
 });

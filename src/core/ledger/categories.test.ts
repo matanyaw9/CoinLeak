@@ -5,6 +5,7 @@ import type { Db } from "../db";
 import { NOW, bank, categoryId, idOf, newDb, stored, txn } from "../testing/ledger";
 import { ruleInput } from "../testing/rules";
 import { createRule, listRules } from "../rules";
+import { budgetPlan, setBudget } from "./budgets";
 import { createCategory, deleteCategory, updateCategory } from "./categories";
 import { ingest } from "./ingest";
 import { listCategories, monthSummary, updateTransactions } from "./queries";
@@ -236,6 +237,16 @@ describe("deleteCategory", () => {
     const id = created(db);
     expect(deleteCategory(db, id)).toEqual({ ok: true, movedRows: 0, movedRules: 0 });
     expect(listCategories(db).some((c) => c.id === id)).toBe(false);
+  });
+
+  it("takes the budget with it, which the plan reports for the dialog to say first", () => {
+    const db = newDb();
+    const id = created(db);
+    setBudget(db, id, 30_000);
+    const line = () => budgetPlan(db, { month: "2026-03", today: "2026-03-10" }).lines.find((l) => l.categoryId === id);
+    expect(line()?.budget).toBe(30_000);
+    expect(deleteCategory(db, id)).toEqual({ ok: true, movedRows: 0, movedRules: 0 });
+    expect(line()).toBeUndefined();
   });
 
   it("refuses while rows or rules use it, and changes nothing", () => {

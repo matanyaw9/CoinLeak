@@ -1336,6 +1336,11 @@ export const s = {
     button: "Show all",
     flowHint: "Back to all money",
   },
+
+  // spec 44 D
+  deleteBudget: {
+    goes: (amount: string) => `Its ${amount} budget goes too.`,
+  },
 };
 
 export type Strings = typeof s;

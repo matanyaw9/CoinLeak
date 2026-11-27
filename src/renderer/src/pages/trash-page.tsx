@@ -12,7 +12,7 @@ import { useAccounts, useTransactions } from "@/lib/hooks";
 import { useRowActions } from "@/lib/review-actions";
 import { useShot } from "@/lib/shot";
 import { useRoving } from "@/lib/roving";
-import { keyFor } from "@/lib/shortcuts";
+import { isMac, keyFor } from "@/lib/shortcuts";
 import { useShortcuts } from "@/lib/use-shortcuts";
 import { Page } from "@/components/layout/page";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,6 @@ import { TrashRow } from "@/components/trash/trash-row";
 import { checkState, keyTargets } from "@/components/transactions/selection";
 import { focusedRowId, useSelection } from "@/components/transactions/use-selection";
 import { SelectBox } from "@/components/transactions/day-header";
-import { isMac } from "@/components/transactions/find";
 
 const FILTER = { flows: ["trashed" as const] };
 

@@ -1,6 +1,7 @@
 // Deleting a category. When nothing uses it, one plain question. When rows
 // or rules use it, the user picks a category of the same kind to move them
 // to first: nothing is ever dropped, and core refuses anything else.
+// A budget does go with its category, so the dialog says so first (spec 44).
 
 import { useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +10,9 @@ import { s } from "@/strings";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { indexCategories, treeOf } from "@/lib/categories";
+import { useBudgetPlan } from "@/lib/hooks";
+import { usePeriod } from "@/lib/month-context";
+import { money } from "@/components/budgets/offer-words";
 import { TreeChoice } from "./tree-choice";
 import { problemText, useCategoryActions } from "./category-actions";
 
@@ -24,6 +28,9 @@ export function DeleteDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { remove } = useCategoryActions();
+  // Budgets are the same every month; the page's month reuses its loaded plan.
+  const plan = useBudgetPlan(usePeriod().choice.month);
+  const budget = plan.data?.lines.find((l) => l.categoryId === category.id)?.budget ?? null;
   const [moveTo, setMoveTo] = useState<number | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const rows = category.rowCount ?? 0;
@@ -58,6 +65,9 @@ export function DeleteDialog({
               : inUse
                 ? s.catEdit.deleteInUse(s.catEdit.usage(rows, rules))
                 : s.catEdit.deleteFree}
+            {!hasChildren && budget !== null && (
+              <span className="mt-2 block font-medium text-foreground">{s.deleteBudget.goes(money(budget))}</span>
+            )}
           </DialogDescription>
           {inUse && !hasChildren && (
             <div className="mt-5">
@@ -75,7 +85,7 @@ export function DeleteDialog({
               {s.catEdit.cancel}
             </Button>
             {!hasChildren && (
-              <Button variant="destructive" disabled={remove.isPending || (inUse && moveTo === null)} onClick={confirm}>
+              <Button variant="destructive" disabled={remove.isPending || plan.isPending || (inUse && moveTo === null)} onClick={confirm}>
                 {inUse ? s.catEdit.deleteAndMove : s.catEdit.delete}
               </Button>
             )}

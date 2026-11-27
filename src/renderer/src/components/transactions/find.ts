@@ -6,9 +6,6 @@ export const TRANSACTIONS_PATH = "/transactions";
 const FIND_EVENT = "coinleak:find";
 let waiting = false;
 
-// They live in lib/shortcuts.ts; older imports from here keep working.
-export { isFindKey, isMac } from "@/lib/shortcuts";
-
 /** Asks the Transactions page to focus its search box, now or once it opens. */
 export function requestFind(): void {
   waiting = true;

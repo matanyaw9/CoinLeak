@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { s } from "../strings";
-import { PAGE_KEYS, SHORTCUTS, dialogEnter, isMenuKey, keyFor, keyLabel, letterOf, shortcutFor, type KeyContext, type KeyPress } from "./shortcuts";
+import { PAGE_KEYS, SHORTCUTS, dialogEnter, isFindKey, isMenuKey, keyFor, keyLabel, letterOf, shortcutFor, type KeyContext, type KeyPress } from "./shortcuts";
 
 const press = (key: string, extra: Partial<KeyPress> = {}): KeyPress => ({
   key,
@@ -240,5 +240,18 @@ describe("the row menu from the keyboard (spec 36)", () => {
     expect(isMenuKey(press("ContextMenu", { altKey: true }))).toBe(false);
     expect(isMenuKey(press("ContextMenu", { metaKey: true }))).toBe(false);
     expect(isMenuKey(press("Enter"))).toBe(false);
+  });
+});
+
+describe("Ctrl+F (spec 17)", () => {
+  it("is Ctrl+F on Linux and Windows, Cmd+F on Mac, nothing else", () => {
+    expect(isFindKey(press("f", { ctrlKey: true }), false)).toBe(true);
+    expect(isFindKey(press("F", { ctrlKey: true }), false)).toBe(true);
+    expect(isFindKey(press("f", { metaKey: true }), true)).toBe(true);
+    expect(isFindKey(press("f", { metaKey: true }), false)).toBe(false);
+    expect(isFindKey(press("f", { ctrlKey: true }), true)).toBe(false);
+    expect(isFindKey(press("f"), false)).toBe(false);
+    expect(isFindKey(press("f", { ctrlKey: true, shiftKey: true }), false)).toBe(false);
+    expect(isFindKey(press("g", { ctrlKey: true }), false)).toBe(false);
   });
 });

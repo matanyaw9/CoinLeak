@@ -7,8 +7,7 @@ import { useRef } from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { dialogEnter, type DialogFocus } from "@/lib/shortcuts";
-import { isMac } from "@/components/transactions/find";
+import { dialogEnter, isMac, type DialogFocus } from "@/lib/shortcuts";
 
 function Dialog(props: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;

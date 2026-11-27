@@ -4,14 +4,13 @@
 // Bank ATM withdrawals count as money moved into it (card-bills.ts).
 
 import { randomUUID } from "node:crypto";
+import { DESCRIPTION_MAX } from "@shared/limits";
 import type { CashWallet, ManualTransactionInput } from "@shared/types";
 import { transaction, type Db } from "../db";
 import { applyRulesInTransaction } from "../rules/engine";
 import { applyCardBills } from "./card-bills";
 import { isIsoDate } from "./dates";
 import { check, cleanNote, isId } from "./validate";
-
-export const DESCRIPTION_MAX = 200;
 
 export function getCashWallet(db: Db): CashWallet | null {
   const row = db

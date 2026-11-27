@@ -30,7 +30,6 @@ import {
   addKnownPlace,
   addStarters,
   applyAllRules,
-  createRule,
   deleteRule,
   knownPlaces,
   listRules,
@@ -135,7 +134,6 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       return null;
     },
     "rules:list": () => listRules(getDb()),
-    "rules:create": (rule) => createRule(getDb(), rule),
     "rules:update": ({ id, rule }) => updateRule(getDb(), id, rule),
     "rules:delete": ({ id }) => deleteRule(getDb(), id),
     "rules:restore": (deleted) => {

@@ -4,8 +4,7 @@
 // and rows, in two balanced columns.
 
 import { s } from "@/strings";
-import { SHORTCUTS, keyFor, keyLabel, type Shortcut, type ShortcutGroup } from "@/lib/shortcuts";
-import { isMac } from "@/components/transactions/find";
+import { SHORTCUTS, isMac, keyFor, keyLabel, type Shortcut, type ShortcutGroup } from "@/lib/shortcuts";
 import { pageName } from "@/components/layout/app-sidebar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { KeyHint } from "./key-hint";

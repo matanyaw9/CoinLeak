@@ -2,8 +2,12 @@
 // fields hold, how a typed amount becomes agorot, and what is missing.
 // Core checks everything again; this only keeps Save honest.
 
+import { DESCRIPTION_MAX, NOTE_MAX } from "@shared/limits";
 import { parseShekels, shekelText } from "@shared/money";
 import type { IsoDate, ManualTransactionInput, TransactionRow } from "@shared/types";
+
+// The dialog and the note editor read these from here.
+export { DESCRIPTION_MAX, NOTE_MAX };
 
 export type Direction = "out" | "in";
 
@@ -16,10 +20,6 @@ export interface ManualForm {
   categoryId: number | null;
   note: string;
 }
-
-export const DESCRIPTION_MAX = 200;
-export const NOTE_MAX = 500;
-
 
 export function emptyForm(today: IsoDate): ManualForm {
   return { date: today, amount: "", direction: "out", description: "", categoryId: null, note: "" };
