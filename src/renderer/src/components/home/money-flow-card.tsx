@@ -4,7 +4,7 @@
 // Clicking a category that holds others opens it one level down (spec 34,
 // down to level 3, with Back one level up and, two levels in, Show all to the
 // top, spec 43); its own rows show as "Other in <name>". Clicking any other
-// category opens its transactions.
+// category opens its transactions. Enter does the same as a click (spec 45).
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -16,7 +16,7 @@ import { useShot } from "@/lib/shot";
 import { Card, CardHeader } from "@/components/common/card";
 import { EmptyState } from "@/components/common/empty-state";
 import { Button } from "@/components/ui/button";
-import { FlowSankey, type FlowItem } from "./flow-sankey";
+import { FlowSankey, type FlowItem, type FlowPick } from "./flow-sankey";
 import { useGroupFlow } from "./period-data";
 
 const HUB_COLOR = "var(--muted-foreground)";
@@ -84,6 +84,16 @@ export function MoneyFlowCard({
   const shot = useShot();
   // The categories opened, top level first (spec 34): Back goes up one, Show all to the top.
   const [path, setPath] = useState<number[]>(() => demoPath(shot, flow, index));
+  // The level last opened came from the keyboard, so its chart takes the focus.
+  const [byKeys, setByKeys] = useState(false);
+  const go = (next: number[], fromKeys = false) => {
+    setByKeys(fromKeys);
+    setPath(next);
+  };
+  const pick = (what: FlowPick, fromKeys: boolean) => {
+    if ("drill" in what) go([...path, what.drill], fromKeys);
+    else onOpen(what.open);
+  };
   const group = path.at(-1) ?? null;
   const opened = useGroupFlow(range, group);
   const box = useRef<HTMLDivElement>(null);
@@ -112,25 +122,27 @@ export function MoneyFlowCard({
               label={s.periodHome.flowGroupTitle(pathOf(index, groupCat))}
               action={
                 <span className="flex items-center gap-2">
-                  <Button variant="outline" className="h-8 rounded-xl px-3" onClick={() => setPath(path.slice(0, -1))}>
+                  <Button variant="outline" className="h-8 rounded-xl px-3" onClick={() => go(path.slice(0, -1))}>
                     <ArrowLeft />
                     {upCat ? s.nested.flowUp(upCat.name) : s.periodHome.flowBack}
                   </Button>
                   {/* One level in, Back already goes to the top. */}
                   {path.length > 1 && (
-                    <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.showAll.flowHint} onClick={() => setPath([])}>
+                    <Button variant="ghost" className="h-8 rounded-xl px-2.5" title={s.showAll.flowHint} onClick={() => go([])}>
                       {s.showAll.button}
                     </Button>
                   )}
                 </span>
               }
             />
+            {/* Keyed, so each level is a fresh chart with its own focus. */}
             <GroupBody
+              key={groupCat.id}
               flow={opened.data}
               index={index}
               opened={{ id: groupCat.id, name: groupCat.name }}
-              onOpen={onOpen}
-              onDrill={(id) => setPath([...path, id])}
+              takeFocus={byKeys}
+              onPick={pick}
             />
           </>
         ) : (
@@ -143,11 +155,7 @@ export function MoneyFlowCard({
                 items={describe(index, flow.nodes)}
                 links={flow.links}
                 share={{ of: flow.income, label: flow.income > 0 ? s.flow.shareOfIncome : s.periodHome.noIncome }}
-                hoverFirst={shot === "flow-hover"}
-                onPick={(item) => {
-                  if (item.drill && item.node.categoryId != null) setPath([item.node.categoryId]);
-                  else if (item.slice) onOpen(item.slice);
-                }}
+                hoverFirst={shot === "flow-hover"}                onPick={pick}
               />
             )}
           </>
@@ -161,15 +169,14 @@ function GroupBody({
   flow,
   index,
   opened,
-  onOpen,
-  onDrill,
+  takeFocus,
+  onPick,
 }: {
   flow: GroupFlow | undefined;
   index: CategoryIndex;
   opened: { id: number; name: string };
-  onOpen: (slice: Slice) => void;
-  /** Opens a category one level further down. */
-  onDrill: (id: number) => void;
+  takeFocus: boolean;
+  onPick: (what: FlowPick, byKeys: boolean) => void;
 }) {
   if (!flow) return <div className="h-[360px]" />;
   if (flow.nodes.length === 0) return <EmptyState compact title={s.periodHome.flowGroupEmpty} />;
@@ -178,10 +185,8 @@ function GroupBody({
       items={describe(index, flow.nodes, opened)}
       links={flow.links}
       share={{ of: flow.total, label: s.periodHome.flowShareOfGroup(opened.name) }}
-      onPick={(item) => {
-        if (item.drill && item.node.categoryId != null) onDrill(item.node.categoryId);
-        else if (item.slice) onOpen(item.slice);
-      }}
+      takeFocus={takeFocus}
+      onPick={onPick}
     />
   );
 }
