@@ -468,3 +468,23 @@ Restart `npm run dev` first.
 3. **Demo profile.** Rules has one more rule ("Phone", under Bills) and
    the starter banner says it sorts 2. Last month has one savings move you
    ignored by hand.
+
+## 16. Wave 18: whole-code review fixes (spec 44)
+
+1. **Card-bill Undo (must fix).** On a bank line CoinLeak paired with a
+   card (a card bill), note the month's spending, click "Count it as
+   spending", then Undo in the toast: the line and the total are exactly
+   as before. Same with "It is a card bill" on a flagged line.
+2. **Money back on Home.** Demo: add ₪300 money in (Transactions, Add
+   cash, or a refund) on a category whose group has no spending this
+   month. Home: the donut's list shows "₪300 back" and the list adds up to
+   the middle; month by month shows it in the legend and the tooltip.
+3. **Quit during a sync (Windows).** Start a sync, close CoinLeak on the
+   bank's login page: the bank window closes by itself and CoinLeak quits
+   within about 20 seconds. In Explorer, `%TEMP%`: no `coinleak-sync-...`
+   folder.
+4. **Delete a category with a budget.** The dialog says "Its ₪... budget
+   goes too."
+5. **Risky pattern.** Rules, Advanced, Pattern: `(\d+)+` is refused;
+   `netflix|spotify` and `(\d{4}-){3}` work.
+6. Notes, cash rows and rule names still save; Ctrl+F still finds.
