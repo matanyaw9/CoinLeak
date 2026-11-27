@@ -11,6 +11,7 @@ import type {
   BudgetStatus,
   IsoMonth,
   BalanceCheck,
+  CardBillState,
   CardMode,
   CashWallet,
   AppSettings,
@@ -77,7 +78,12 @@ export interface IpcContract {
   /** Undo of Ignore or Count again: puts back each row's exclusion from `before`, in one step. */
   "transactions:restoreExclusions": { args: { states: ExclusionState[] }; result: { updated: number } };
   /** The user's word on card bills: true internal, false spending, null back to automatic. */
-  "transactions:setInternal": { args: { ids: number[]; internal: boolean | null }; result: { updated: number } };
+  "transactions:setInternal": {
+    args: { ids: number[]; internal: boolean | null };
+    result: { updated: number; before: CardBillState[] };
+  };
+  /** Undo of a card-bill answer: puts back each row from `before`, in one step (spec 44 A). */
+  "transactions:restoreInternal": { args: { states: CardBillState[] }; result: { updated: number } };
   /** Only rows with status `gone` can be deleted. */
   "transactions:deleteGone": { args: { ids: number[] }; result: { deleted: number } };
   /** Trash (spec 11): trashed rows count nowhere and leave every list until restored. */
@@ -252,6 +258,7 @@ export const CHANNELS = [
   "transactions:update",
   "transactions:restoreExclusions",
   "transactions:setInternal",
+  "transactions:restoreInternal",
   "transactions:deleteGone",
   "transactions:trash",
   "transactions:restore",

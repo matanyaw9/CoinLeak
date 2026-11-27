@@ -14,10 +14,17 @@ import {
   stored,
   txn,
 } from "../testing/ledger";
-import { recomputeCardBills, setCardMode, setInternalByUser } from "./card-bills";
+import { recomputeCardBills, restoreInternal, setCardMode, setInternalByUser } from "./card-bills";
 import { restoreExclusions } from "./exclusions";
 import { ingest } from "./ingest";
-import { listTransactions, monthSummary, restoreTransactions, trashTransactions, updateTransactions } from "./queries";
+import {
+  deleteForGood,
+  listTransactions,
+  monthSummary,
+  restoreTransactions,
+  trashTransactions,
+  updateTransactions,
+} from "./queries";
 
 const line = (date: string, amount: number, description: string) => txn({ date, amount, description });
 const BILL_4321 = "חיוב לכרטיס ויזה 4321";
@@ -600,5 +607,113 @@ describe("bills naming a synced card (spec 32)", () => {
     ingest(db, [card("4321", cycle())], { now: NOW });
     ingest(db, [bank([line("2026-03-12", -21500, BILL_4321)])], { now: NOW });
     expect(listTransactions(db, { flows: ["internal"] }).map((t) => t.id)).toContain(idOf(db, BILL_4321));
+  });
+});
+
+// Spec 44 A: Undo of a card-bill answer puts each row back exactly.
+describe("restoreInternal (undo of a card-bill answer, spec 44)", () => {
+  const SECOND = "כ.א.ל חיוב";
+  const cardBillColumns = (db: Db, id: number) => {
+    const r = stored(db, id);
+    return {
+      internal: r.internal,
+      internal_by_user: r.internal_by_user,
+      possible_card_bill: r.possible_card_bill,
+      card_bill_account_id: r.card_bill_account_id,
+      card_bill_style: r.card_bill_style,
+      card_bill_txn_id: r.card_bill_txn_id,
+      card_bill_date: r.card_bill_date,
+    };
+  };
+
+  /** Card 4321 with ₪200 billed on 03-10, and two bank lines of ₪200: one paired, one flagged. */
+  function twoLines(): { db: Db; ids: number[] } {
+    const db = newDb();
+    ingest(db, [card("4321", [charge("2026-03-01", -20000, "סופר הדר", "2026-03-10")])], { now: NOW });
+    ingest(db, [bank([line("2026-03-10", -20000, BILL_4321), line("2026-03-11", -20000, SECOND)])], { now: NOW });
+    return { db, ids: [idOf(db, BILL_4321), idOf(db, SECOND)] };
+  }
+
+  const both = (db: Db, ids: number[]) => ids.map((id) => cardBillColumns(db, id));
+
+  it("'Count it as spending' on the paired line, then Undo, leaves both lines and the total as before", () => {
+    const { db, ids } = twoLines();
+    const [paired, other] = ids as [number, number];
+    expect(row(db, paired).flow).toBe("internal");
+    expect(row(db, other)).toMatchObject({ flow: "spending", flags: expect.arrayContaining(["possible_card_bill"]) });
+    const lines = both(db, ids);
+    const spending = monthSummary(db, "2026-03").spending;
+
+    const { before } = setInternalByUser(db, [paired], false, NOW);
+    expect(row(db, other).flow).toBe("internal");
+    expect(restoreInternal(db, before, NOW)).toEqual({ updated: 1 });
+
+    expect(both(db, ids)).toEqual(lines);
+    expect(monthSummary(db, "2026-03").spending).toBe(spending);
+  });
+
+  it("a line the user had marked stays the user's, with the card rows it used up", () => {
+    const { db, ids } = twoLines();
+    const [marked, other] = ids as [number, number];
+    // Handed back and marked again: the user's mark with the match still on it.
+    setInternalByUser(db, [marked], true, NOW);
+    expect(stored(db, marked)).toMatchObject({ internal_by_user: 1, card_bill_style: "credit" });
+    const lines = both(db, ids);
+    const spending = monthSummary(db, "2026-03").spending;
+
+    for (const answer of [false, null]) {
+      const { before } = setInternalByUser(db, [marked], answer, NOW);
+      restoreInternal(db, before, NOW);
+      expect(both(db, ids)).toEqual(lines);
+      expect(row(db, other).flow).toBe("spending");
+      expect(monthSummary(db, "2026-03").spending).toBe(spending);
+    }
+  });
+
+  it("a flagged line goes back to flagged after either answer", () => {
+    const { db, ids } = twoLines();
+    const other = ids[1] as number;
+    const lines = both(db, ids);
+    for (const answer of [true, false]) {
+      const { before } = setInternalByUser(db, [other], answer, NOW);
+      restoreInternal(db, before, NOW);
+      expect(both(db, ids)).toEqual(lines);
+    }
+  });
+
+  it("leaves the link empty when the paid card row was deleted for good meanwhile", () => {
+    const db = newDb();
+    debitCard(db, "8765");
+    ingest(db, [card("8765", [charge("2026-03-03", -4500, "מאפייה", "2026-03-04")])], { now: NOW });
+    ingest(db, [bank([line("2026-03-04", -4500, BILL_8765)])], { now: NOW });
+    const id = idOf(db, BILL_8765);
+    setInternalByUser(db, [id], true, NOW);
+    const { before } = setInternalByUser(db, [id], false, NOW);
+    const purchase = idOf(db, "מאפייה");
+    trashTransactions(db, [purchase], NOW);
+    deleteForGood(db, [purchase], NOW);
+    restoreInternal(db, before, NOW);
+    expect(stored(db, id)).toMatchObject({ internal: 1, internal_by_user: 1, card_bill_txn_id: null });
+  });
+
+  it("refuses a malformed list and changes nothing", () => {
+    const { db, ids } = twoLines();
+    const [paired] = ids as [number, number];
+    const { before } = setInternalByUser(db, [paired], false, NOW);
+    const state = before[0] as (typeof before)[number];
+    const lines = both(db, ids);
+    for (const bad of [
+      null,
+      [{ ...state, id: 0 }],
+      [{ ...state, internal: 1 }],
+      [{ ...state, cardBillStyle: "weekly" }],
+      [{ ...state, cardBillDate: "10.03.2026" }],
+      [{ id: paired }],
+      [state, state],
+    ]) {
+      expect(() => restoreInternal(db, bad as never, NOW)).toThrow("BAD_REQUEST");
+    }
+    expect(both(db, ids)).toEqual(lines);
+    expect(restoreInternal(db, [], NOW)).toEqual({ updated: 0 });
   });
 });

@@ -21,6 +21,7 @@ import {
   updateCategory,
   updateTransactions,
 } from "@core/ledger";
+import { restoreInternal } from "@core/ledger/card-bills";
 import { groupFlow, monthlyNet, periodCurves, periodCurveSum, periodFlow, periodSummary, periodTrendWithAverage, thisMonth } from "@core/ledger";
 import { addManualTransaction, editManualTransaction, getCashWallet } from "@core/ledger";
 import { balanceChecks } from "@core/ledger";
@@ -110,7 +111,8 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     "transactions:list": (filter) => listTransactionsWithDays(getDb(), filter ?? {}),
     "transactions:update": ({ ids, patch }) => updateTransactions(getDb(), ids, patch),
     "transactions:restoreExclusions": ({ states }) => restoreExclusions(getDb(), states),
-    "transactions:setInternal": ({ ids, internal }) => ({ updated: setInternalByUser(getDb(), ids, internal) }),
+    "transactions:setInternal": ({ ids, internal }) => setInternalByUser(getDb(), ids, internal),
+    "transactions:restoreInternal": ({ states }) => restoreInternal(getDb(), states),
     "transactions:deleteGone": ({ ids }) => ({ deleted: deleteGoneRows(getDb(), ids) }),
     "transactions:trash": ({ ids }) => trashTransactions(getDb(), ids),
     "transactions:restore": ({ ids }) => restoreTransactions(getDb(), ids),
