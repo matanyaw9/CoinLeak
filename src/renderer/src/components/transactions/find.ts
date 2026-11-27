@@ -6,18 +6,8 @@ export const TRANSACTIONS_PATH = "/transactions";
 const FIND_EVENT = "coinleak:find";
 let waiting = false;
 
-export interface KeyLike {
-  key: string;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  altKey: boolean;
-  shiftKey: boolean;
-}
-
-export function isFindKey(e: KeyLike, mac: boolean): boolean {
-  if (e.key.toLowerCase() !== "f" || e.altKey || e.shiftKey) return false;
-  return mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
-}
+// They live in lib/shortcuts.ts; older imports from here keep working.
+export { isFindKey, isMac } from "@/lib/shortcuts";
 
 /** Asks the Transactions page to focus its search box, now or once it opens. */
 export function requestFind(): void {
@@ -41,6 +31,3 @@ export function onFind(handler: () => void): () => void {
   return () => window.removeEventListener(FIND_EVENT, listener);
 }
 
-export function isMac(): boolean {
-  return typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
-}

@@ -5,7 +5,6 @@
 // a toast after each move, and Ctrl+F search (no reordering while it is on).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { ArrowDownNarrowWide, Info, ListPlus, Plus, RefreshCw, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { Rule } from "@shared/types";
@@ -14,7 +13,6 @@ import { cn } from "@/lib/utils";
 import { call } from "@/lib/api";
 import { indexCategories } from "@/lib/categories";
 import { useCategories, useRules } from "@/lib/hooks";
-import { refreshRules } from "@/lib/query-keys";
 import { useRuleActions, useStarters } from "@/lib/rule-actions";
 import { moveId, placeAfterMove } from "@/lib/rules";
 import { useShot } from "@/lib/shot";
@@ -30,7 +28,6 @@ import { StarterListsDialog } from "@/components/rules/starter-lists";
 import { ruleHits } from "@/components/rules/rule-search";
 import { FindBox, NoMatches } from "@/components/layout/find-box";
 import { RuleLine } from "@/components/rules/rule-line";
-import { runOrderShot } from "@/components/rules/order-shot";
 import { useDragAutoScroll } from "./rules-drag-scroll";
 
 type Drag = { id: number; order: number[] };
@@ -65,8 +62,7 @@ export function RulesPage() {
   const shown = searching ? ordered.filter((r) => ruleHits(r, query, context)) : ordered;
   const placeOf = (id: number) => order.indexOf(id) + 1;
 
-  /** `still` keeps the toast up without transitions, for screenshot runs. */
-  const commit = (ids: number[], moved: number, still = false) => {
+  const commit = (ids: number[], moved: number) => {
     if (ids.join() === saved.join()) return;
     setHeld({ ids, base: rules.data });
     actions.reorder(ids);
@@ -74,15 +70,10 @@ export function RulesPage() {
     const next = nextId !== null ? byId.get(nextId) : undefined;
     toast.success(s.ruleOrder.moved(place), {
       description: next ? s.ruleOrder.runsBefore(next.name) : s.ruleOrder.runsLast,
-      duration: still ? Infinity : undefined,
-      className: still ? "!transition-none" : undefined,
     });
   };
 
-  useDemoShot(list, openEditor, () => setStartersOpen(true), setSearch, (delta) => {
-    const last = order.at(-1);
-    if (last !== undefined) commit(moveId(order, order.length - 1, order.length - 1 + delta), last, true);
-  });
+  useDemoShot(list, openEditor, () => setStartersOpen(true), setSearch);
 
   return (
     <Page title={s.rules.title}>
@@ -234,22 +225,19 @@ export function RulesPage() {
 
 /**
  * Screenshot aid: `?shot=new`, `?shot=edit-Groceries` (by name) or `?shot=suggest` opens
- * the editor; `?shot=empty` deletes every demo rule to show the empty state.
+ * the editor. No shot writes anything: the Demo seed holds what they show.
  * Spec 13: `?shot=handset` opens a rule that would take over rows sorted by
  * hand (spec 35: they show in the preview list, no scrolling needed),
- * `?shot=starters` the starter lists. Spec 21: `?shot=find-<text>` searches,
- * `?shot=move` moves the last rule up one (a real reorder) to show its toast.
- * Spec 41: `?shot=hints`, `overrides` and `setbyyou` (see order-shot.ts).
+ * `?shot=starters` the starter lists. Spec 21: `?shot=find-<text>` searches.
+ * Spec 41: `?shot=overrides` opens a new draft that overrides two Demo rules.
  */
 function useDemoShot(
   rules: Rule[],
   openEditor: ReturnType<typeof useRuleEditor>["openEditor"],
   openStarters: () => void,
   setSearch: (text: string) => void,
-  moveLast: (delta: -1) => void,
 ) {
   const shot = useShot();
-  const client = useQueryClient();
   const ready = rules.length > 0;
   useEffect(() => {
     if (!shot || !ready) return;
@@ -257,13 +245,8 @@ function useDemoShot(
       if (shot === "new") openEditor({});
       const rule = rules.find((r) => `edit-${r.name}` === shot);
       if (rule) openEditor({ rule });
-      if (shot === "empty") {
-        void Promise.all(rules.map((r) => call("rules:delete", { id: r.id }))).then(() => refreshRules(client));
-      }
       if (shot === "starters") openStarters();
       if (shot.startsWith("find-")) setSearch(shot.slice("find-".length));
-      if (shot === "move") moveLast(-1);
-      void runOrderShot(shot, openEditor, () => refreshRules(client));
       if (shot === "handset") {
         void call("categories:list", undefined).then((all) => {
           openEditor({
@@ -276,6 +259,20 @@ function useDemoShot(
                 { kind: "text", field: "memo", mode: "contains", values: ["דנה"] },
               ],
               setCategoryId: all.find((c) => c.name === "Cash & ATM")?.id ?? null,
+              setExcluded: null,
+            },
+          });
+        });
+      }
+      if (shot === "overrides") {
+        void call("categories:list", undefined).then((all) => {
+          openEditor({
+            draft: {
+              name: "Evenings out",
+              enabled: true,
+              join: "all",
+              conditions: [{ kind: "text", field: "description", mode: "contains", values: ["WOLT", "קופיקס"] }],
+              setCategoryId: all.find((c) => c.name === "Entertainment")?.id ?? null,
               setExcluded: null,
             },
           });
